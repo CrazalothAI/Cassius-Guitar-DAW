@@ -1,0 +1,29 @@
+name: Windows build
+on: [push, pull_request, workflow_dispatch]
+jobs:
+  build:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+      - run: npm ci
+        working-directory: ui
+      - run: npm test
+        working-directory: ui
+      - shell: pwsh
+        run: ./scripts/setup-webview2.ps1
+      - shell: pwsh
+        run: ./scripts/setup-asio.ps1
+      - run: cmake --preset windows
+      - run: cmake --build --preset release --parallel 2
+      - run: ctest --preset release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Cassian-Windows
+          path: |
+            build/AmpSuite_artefacts/Release/Standalone/*.exe
+            build/AmpSuite_artefacts/Release/VST3/**

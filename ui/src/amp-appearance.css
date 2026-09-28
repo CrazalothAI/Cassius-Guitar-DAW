@@ -1,0 +1,121 @@
+/* A vented steel tube head. Decorative hardware never intercepts controls. */
+.streamlined {
+  --accent: #e89660;
+  --tube-light: #ef743b;
+  --head-light: #b84c26;
+  background: radial-gradient(ellipse at 50% 45%, #2c2928, #17191b 52%, #101214 90%);
+}
+.streamlined.clean { --accent: #9bc6d1; --head-light: #466a79; }
+.streamlined .amp-stage { padding-top: 24px; filter: drop-shadow(0 22px 18px #000b); }
+.streamlined .amp-handle {
+  top: 2px; left: 39%; width: 22%; height: 31px;
+  border: 6px solid #25292d; border-radius: 13px 13px 0 0;
+  background: #090b0d; box-shadow: 0 -2px 0 #c2c6ca, 0 -4px 0 #494e54, inset 0 2px 0 #979da4, inset 0 4px 3px #000;
+}
+.streamlined .amp-handle::before, .streamlined .amp-handle::after {
+  content: ''; position: absolute; bottom: -10px; width: 30px; height: 8px;
+  background: linear-gradient(#a4a9ae, #45494f 45%, #181c21); border: 1px solid #62676d; border-radius: 2px;
+}
+.streamlined .amp-handle::before { left: -17px; }
+.streamlined .amp-handle::after { right: -17px; }
+.streamlined .amp-head {
+  padding: 22px 23px 10px; border: 1px solid #54565b; border-radius: 16px;
+  background:
+    repeating-radial-gradient(ellipse at 10% 20%, #ffffff07 0 1px, #0004 1px 2px, transparent 2px 4px) 0 0 / 7px 6px,
+    linear-gradient(115deg, #32353a, #1a1c20 25%, #141619 75%, #303239);
+  box-shadow: inset 0 2px 2px #ffffff30, inset 0 -5px 5px #000c, 0 2px 3px #000;
+}
+.streamlined .amp-head::before, .streamlined .amp-head::after {
+  content: ''; position: absolute; top: 0; bottom: 0; width: 33px; border-radius: 13px;
+  background: linear-gradient(90deg, #111316, #4d5257 16%, #23282e 28%, #0e1114 82%, #454a4f);
+  box-shadow: inset 0 2px 2px #a5acb04d, inset 0 -3px 2px #000, 1px 0 3px #0009;
+  clip-path: polygon(0 0,100% 0,100% 14%,38% 14%,38% 86%,100% 86%,100% 100%,0 100%);
+  pointer-events: none; z-index: 3;
+}
+.streamlined .amp-head::before { left: 0; }
+.streamlined .amp-head::after { right: 0; transform: scaleX(-1); }
+.streamlined .grille {
+  height: 165px; isolation: isolate; border: 2px solid #080a0c; border-radius: 4px 4px 0 0;
+  background: radial-gradient(ellipse at 50% 100%, #6a2928, #151b20 50%, #080b0e 85%);
+  box-shadow: 0 -1px 0 #7b7d81, 0 1px 0 #44494e, inset 0 7px 16px #000;
+}
+.streamlined .grille::before {
+  inset: 0; opacity: 1; z-index: 1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='20' viewBox='0 0 28 20'%3E%3Cpath d='M-14 10L0 0 14 10 28 0 42 10 28 20 14 10 0 20Z' fill='none' stroke='%23090d10' stroke-width='4'/%3E%3Cpath d='M-14 10L0 0 14 10 28 0 42 10 28 20 14 10 0 20Z' fill='none' stroke='%2372787c' stroke-width='1.1'/%3E%3C/svg%3E");
+  box-shadow: inset 0 12px 18px #000c, inset 0 -8px 18px #000;
+  pointer-events: none;
+}
+.streamlined .grille::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(105deg, #afb9c009, transparent 40%, #0004);
+}
+.tube-bank {
+  position: absolute; inset: 18px 7% 9px; display: flex; justify-content: space-around; align-items: end;
+  pointer-events: none;
+}
+.glass-tube {
+  position: relative; width: 49px; height: 117px; border: 1px solid #c1c9cd70; border-bottom: 9px solid #292b2c;
+  border-radius: 19px 19px 5px 5px;
+  background: linear-gradient(90deg, #d5e4e750, #1d242b55 16%, #b8c5ce28 40%, #12182044 80%, #e3ebef65), radial-gradient(ellipse at 50% 90%, #ff9b4077, transparent 65%);
+  box-shadow: 0 0 17px #e35b271a, inset 3px 0 2px #e3edf318, inset -3px 0 2px #000a;
+}
+.glass-tube::before {
+  content: ''; position: absolute; top: 24px; bottom: 17px; left: 11px; right: 11px;
+  border: 2px solid #81888b; border-radius: 2px;
+  background: repeating-linear-gradient(0deg, #62666a 0 3px, #2c343b 3px 6px);
+  box-shadow: 0 0 6px #ff74334d;
+}
+.glass-tube::after {
+  content: ''; position: absolute; bottom: 8px; left: 17px; width: 10px; height: 7px;
+  background: #ffcb89; border-radius: 50%;
+  box-shadow: 0 0 5px #ffd98e, 0 0 12px 4px #ff7729, 0 0 24px 8px #e9502370;
+}
+.glass-tube i { position: absolute; bottom: 14px; left: 21px; width: 2px; height: 78px; background: #ee8441; box-shadow: 0 0 5px #ee652d; }
+.streamlined .amp-emblem {
+  z-index: 2; display: flex; flex-direction: column; align-items: center;
+  font-family: 'Segoe UI', sans-serif; font-style: normal; font-size: 35px; font-weight: 800;
+  letter-spacing: 5px; text-transform: uppercase; transform: skew(-7deg); padding: 10px 20px;
+  border: 0; color: #e8ebee; background: transparent;
+  font-size: 43px;
+  text-shadow: 0 -1px 0 #fff, 1px 1px 0 #8e959b, 2px 2px 0 #444e56, 3px 3px 0 #a1a8ae, 4px 5px 0 #111820, 5px 7px 5px #000;
+  filter: drop-shadow(0 3px 3px #000);
+  box-shadow: none;
+}
+.amp-emblem small { margin-top: 5px; padding: 4px 9px; font-size: 7px; font-weight: 600; letter-spacing: 5px; color: #c7cdd2; background: #10171de6; text-shadow: none; }
+.streamlined .amp-series { z-index: 2; right: 17px; bottom: 15px; font-size: 8px; color: #c6c8cc; }
+.streamlined .amp-series small { color: #a0a3aa; font-size: 6px; margin-top: 4px; }
+.streamlined .corner { z-index: 2; width: 7px; height: 7px; top: 10px; background: linear-gradient(45deg,#7a7d82 43%,#11151a 44% 56%,#62656a 57%); box-shadow: 0 1px 2px #000; }
+.streamlined .faceplate {
+  position: relative; margin-top: 4px; padding: 17px 16px 13px; gap: 12px; border: 1px solid #a0a9ae; border-top: 2px solid #e0e4e5; border-radius: 0 0 3px 3px;
+  background: repeating-linear-gradient(0deg, #ffffff14 0 1px, #00000006 1px 2px, transparent 2px 3px), linear-gradient(105deg, #8f969b, #c2c8ca 18%, #e1e3e2 48%, #b7bec0 80%, #899399);
+  box-shadow: inset 0 1px 1px #ffffff99, inset 0 -2px 3px #0005, 0 -3px 4px #000b; color: #20262b;
+}
+.streamlined .amp-controls { gap: 10px; }
+.streamlined .amp-controls .knob { gap: 8px; }
+.streamlined .amp-controls .knob-label { font-size: 8px; font-weight: 700; letter-spacing: 1.8px; color: #242c31; }
+.streamlined .amp-controls .dial {
+  width: 57px; height: 57px; padding: 6px;
+  background: conic-gradient(from 225deg, #2c343ce0 var(--fill), #636d754d 0deg 270deg, transparent 270deg);
+}
+.streamlined .amp-controls .dial-face {
+  border: 2px solid #080b0e;
+  background: repeating-conic-gradient(#12161a 0deg 7deg, #484e54 7deg 10deg, #1c2227 10deg 15deg);
+  box-shadow: 0 4px 5px #000c, 0 0 0 1px #77818a80, inset 0 1px 1px #ffffff60;
+}
+.streamlined .amp-controls .dial-face::before {
+  content: ''; position: absolute; inset: 4px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 25%, #585e64, #282e34 50%, #13191e 90%);
+  border: 1px solid #737b8260; box-shadow: inset 0 1px 1px #b5bcc244, 0 1px 3px #000;
+}
+.streamlined .amp-controls .needle { inset: 2px; z-index: 1; }
+.streamlined .amp-controls .needle::before { top: 1px; width: 3px; height: 13px; left: calc(50% - 1.5px); border-radius: 1px; background: #e8ecee; box-shadow: 0 1px 2px #000; }
+.streamlined .amp-controls output { opacity: 1; color: #323c45; font-size: 9px; }
+.streamlined .input-jack i { width: 23px; height: 23px; border: 5px solid #9ba2aa; background: #06090c; box-shadow: 0 2px 3px #000, 0 0 0 1px #20272f, inset 0 2px 2px #000, inset 0 -1px 0 #dae0e5; }
+.streamlined .power i { width: 11px; height: 11px; border: 2px solid #4e2320; background: radial-gradient(circle at 35% 28%, #ffdfb5, #f27746 40%, #9a3323); box-shadow: 0 0 0 2px #a0a7ae, 0 0 0 3px #252b32, 0 0 13px #e9674680; }
+.streamlined.clean .power i { background: radial-gradient(circle at 35% 28%, #efffff, #95d6e9 35%, #326f96); box-shadow: 0 0 0 2px #a0a7ae, 0 0 0 3px #252b32, 0 0 13px #79bfdb80; }
+.streamlined .amp-lower { height: 16px; }
+.streamlined .amp-feet { padding: 0 64px; }
+.streamlined .amp-feet i { width: 67px; height: 10px; background: repeating-linear-gradient(0deg,#0c0e11 0 2px,#2c3036 2px 3px); box-shadow: 0 5px 6px #0009; }
+@media(max-width:900px) { .streamlined .amp-head { padding: 16px 15px 6px; } .streamlined .faceplate { gap: 8px; padding-left: 10px; padding-right: 10px; } .streamlined .amp-controls { gap: 5px; } }
+@media(max-height:700px) { .streamlined .grille { height: 120px; } .glass-tube { height: 86px; } .glass-tube i { height: 55px; } .streamlined .amp-emblem { font-size: 29px; padding: 8px 16px 8px 22px; } .streamlined .faceplate { padding-top:14px; padding-bottom:10px; } }
+@media(max-width:650px) { .streamlined .amp-controls .dial { width:43px; height:43px; padding:4px; } .streamlined .amp-controls .knob-label { font-size:7px; letter-spacing:1px; } .streamlined .amp-emblem { font-size:25px; letter-spacing:4px; } .streamlined .amp-series { right:10px; bottom:10px; font-size:7px; } .glass-tube { width:35px; } .glass-tube::before { left:7px; right:7px; } .glass-tube::after { left:12px; } .glass-tube i { left:16px; } }

@@ -1,0 +1,12 @@
+.deps/
+.local/
+build*/
+ui/node_modules/
+ui/dist/
+.vs/
+*.user
+Testing/Temporary/
+assets/models/*
+!assets/models/.gitkeep
+assets/irs/*
+!assets/irs/.gitkeep

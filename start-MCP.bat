@@ -1,0 +1,1 @@
+npx -y @modelcontextprotocol/server-filesystem "C:\Users\Bmint\OneDrive\Documents\ChatGPT\Guitar amp"
