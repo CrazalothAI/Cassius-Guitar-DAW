@@ -53,7 +53,7 @@ Copy the entire VST3 bundle to your host's plugin location. The build does not m
 
 1. Open `build/AmpSuite_artefacts/Release/Standalone/Cassian.exe`. On first launch, Cassian selects an installed AudioBox ASIO driver at 48 kHz / 128 samples, with input 1 and stereo output. Later launches recall your saved setup. Use **Options → Audio/MIDI Settings** to change it; a DAW uses the host's audio settings. Cassian uses AudioBox input 1 for guitar even if the host exposes a stereo input bus, so unused input 2 noise is not mixed into the amp.
 2. Choose a **Starting point**: Tight metal, Singing lead, Glass clean, Warm clean, or Ambient clean. Metal and Singing lead use your loaded `.nam` capture; the three clean tones use the independent built-in Lumen path. Load a capture with **Load amp model**. Optional cabinet WAVs and detailed effects are in **Shape & Effects**. Leave the cabinet off for full-rig captures. No proprietary captures are bundled.
-3. Match the audio device/host sample rate to the capture. A mismatched capture is bypassed with a status message; this version does not resample NAM input. Old models with no sample-rate metadata run at the host rate.
+3. Cassian resamples NAM captures and pedal captures to the host sample rate when their embedded rate differs. The status panel reports the expected capture rate and whether conversion is active. Old models with no sample-rate metadata run at the host rate.
 4. Bring up Master gradually (default −12 dB). Mouse/keyboard controls and DAW automation share APVTS state. Double-click any dial to reset it.
 
 NAM Core 0.5.4 supports `.nam` file versions 0.5.x through 0.7.0, including newer A2 / SlimmableContainer captures. Model failures appear in a banner above the amp. A capture labeled **FULL RIG** may already contain cabinet coloration; start without a separate cabinet IR for such captures.
@@ -72,9 +72,9 @@ Mono and stereo buses and mono/stereo outputs are supported; stereo host input b
 
 ## State and threading
 
-DAW/standalone state includes every parameter and absolute model/IR paths. Assets are referenced, not embedded; keep them at those locations for recall. Missing/invalid assets report errors and preserve the current stage. Native file selection is asynchronous; parsing and model warm-up run on a loader thread. A DSP lock serializes swaps, preparation, and convolution load calls. The audio callback only tries this lock and emits silence on contention. **Changing assets or preparing a model can briefly mute audio**; seamless model crossfades are not implemented. Models are destroyed on the loader thread.
+DAW/standalone state includes every parameter and absolute model/IR paths. Assets are referenced, not embedded; keep them at those locations for recall. Missing/invalid assets report errors and preserve the current stage. Native file selection is asynchronous; parsing and model warm-up run on a loader thread. A DSP lock serializes swaps, preparation, and convolution load calls. The audio callback only tries this lock; during a swap window it passes the current input through and counts the event instead of blocking or clearing a block. Models are destroyed on the loader thread.
 
-DSP buffers are allocated in preparation, gains/drive/delay controls are smoothed, and oversized host blocks are split into prepared-sized chunks. EQ coefficient changes use fixed storage but are not interpolated. This is a first implementation requiring native audio/host validation before release.
+DSP buffers are allocated in preparation, captures are warmed with five silent blocks, and host callbacks are split into a bounded 256-sample internal quantum. Capture and pedal stages use fixed-size resampling buffers, so 44.1 kHz and 48 kHz rigs can share the same host session. Stage meters expose input, pre-pedal, post-amp, post-cab, and output peaks. An optional stereo backing-track bus is mixed after the amp/cab chain, keeping playback out of the gate and high-gain stages. EQ coefficient changes use fixed storage but are not interpolated. This is a first implementation requiring native audio/host validation before release.
 
 ## Validation status
 
@@ -119,7 +119,7 @@ All four native checks and seven UI tests pass. The supplied EVH Red I + Fortin 
 
 Standalone launch supports explicit `--amp "absolute path.nam" --cab "absolute path.wav" --pedal "absolute path.nam"` for loading a complete rig. Ordinary launches recall saved state. The amp flag must refer to an existing file to apply the import and conservative starting settings. Input gain and master remain unchanged.
 
-UI status polling now reads atomic audio snapshots instead of holding the DSP lock. Previously, an unfortunate polling/callback overlap could silence an entire audio block. A concurrent polling regression renders 3,000 blocks and verifies no silent interruptions. Asset replacement can still briefly mute audio as documented above.
+UI status polling now reads atomic audio snapshots instead of holding the DSP lock. Previously, an unfortunate polling/callback overlap could silence an entire audio block. A concurrent polling regression renders 3,000 blocks and verifies no silent interruptions. Asset replacement uses a short dry passthrough if the swap lock is busy and reports the count in status.
 
 
 ### Streamlined playing view

@@ -72,8 +72,11 @@ private:
     juce::dsp::Limiter<float> limiter;
     ToneStack tone;
     double rate = 48000;
-    int maxBlock = 512;
+    int maxBlock = 512; // Internal fixed processing quantum.
+    int hostBlock = 512;
     std::atomic<float> inputPeak {0}, outputPeak {0};
+    std::atomic<float> prePedalPeak {0}, postPedalPeak {0}, postAmpPeak {0}, postCabPeak {0};
+    std::atomic<int> swapBypasses {0};
     std::atomic<float> gateLevel {0};
     juce::AudioProcessLoadMeasurer processLoad;
     int clipHoldSamples = 0;
