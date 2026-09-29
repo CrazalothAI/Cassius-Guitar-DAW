@@ -3,12 +3,13 @@ import Drawer from './components/Drawer.jsx';
 import Knob from './components/Knob.jsx';
 import Tuner from './components/Tuner.jsx';
 import { invoke, native } from './juce/bridge.js';
-import { useParameters, useToggle } from './parameterState.js';
+import { restoreSnapshot, setParameter, snapshotParameters, useParameters, useToggle } from './parameterState.js';
 import { applyPreset, familyOf, matchPreset, notes, presetParameterIds, presets, voices } from './presets.js';
+import cassianLogo from './assets/cassian-logo.png';
 
 const mainControls = ['DRIVE_GAIN', 'AMP_BASS', 'AMP_MID', 'AMP_TREBLE', 'REVERB_MIX', 'MASTER_VOL'];
 const initialStatus = {
-  model: '', ir: '', pedal: '', input: 0, output: 0, gate: 0, overruns: 0,
+  model: '', ir: '', pedal: '', input: 0, prePedal: 0, postPedal: 0, postAmp: 0, postCab: 0, output: 0, gate: 0, overruns: 0,
   tunerActive: false, tunerNote: '—', tunerCents: 0, tunerHz: 0, dynResCut: 0,
   message: native ? 'Connecting to audio engine…' : 'Browser preview · Open Cassian to play.',
 };
@@ -51,11 +52,6 @@ function Meter({ label, value }) {
 function Alerts({ status, notice, dismissed, onDismiss }) {
   const { message } = status, alerts = [];
   if (status.inputClipped) alerts.push({ key: 'clip', kind: 'warning', title: 'Input is clipping', text: 'Turn down the input gain on your interface.' });
-  if (message.includes('bypassed:')) {
-    const detail = message.slice(message.indexOf(':') + 1).trim();
-    alerts.push({ key: 'rate', kind: 'warning', title: `${message.startsWith('Pedal') ? 'Pedal' : 'Amp'} capture bypassed`,
-      text: `Its sample rate differs from the audio device. ${detail.charAt(0).toUpperCase()}${detail.slice(1)}.` });
-  }
   if (message.startsWith('Load failed:') && message !== dismissed)
     alerts.push({ key: 'load', kind: 'error', title: 'Couldn’t load the file', text: message.slice(12).trim(), dismiss: true });
   if (notice) alerts.push({ key: 'notice', kind: 'error', title: notice.title, text: notice.text, dismiss: true });
@@ -79,6 +75,8 @@ export default function App() {
   const [tunerOpen, setTunerOpen] = useState(false);
   const [page, setPage] = useState('Shape');
   const [dismissed, setDismissed] = useState('');
+  const [compare, setCompare] = useState(null);
+  const [compareSide, setCompareSide] = useState('A');
   // Local failures live apart from the polled status, which would overwrite them within 100 ms.
   const [notice, setNotice] = useState(null);
   const drawer = useRef(null);
@@ -94,6 +92,24 @@ export default function App() {
       catch { setNotice({ title: 'Couldn’t switch amp voice', text: 'Your current capture is still active.' }); }
     }
   };
+  // A/B: the first press stores A; each later press swaps the stored state with the current one.
+  const toggleCompare = () => {
+    const current = snapshotParameters();
+    if (!compare) {
+      setCompare(current);
+      setCompareSide('A');
+      return;
+    }
+    restoreSnapshot(compare);
+    setCompare(current);
+    setCompareSide(side => side === 'A' ? 'B' : 'A');
+  };
+  // Sets input gain so the raw interface peak lands near -12 dBFS.
+  const autoTrim = () => {
+    if (!native || !(status.input > 0.0001)) return;
+    const peakDb = 20 * Math.log10(status.input);
+    setParameter('INPUT_GAIN', Math.max(-12, Math.min(12, -12 - peakDb)));
+  };
   const load = async type => {
     try { await invoke(type === 'amp' ? 'loadModel' : type === 'pedal' ? 'loadPedal' : 'loadIR'); }
     catch { setNotice({ title: 'Couldn’t open the file picker', text: 'Please try again.' }); }
@@ -106,15 +122,16 @@ export default function App() {
     : status.model ? status.model.replace('APP-5153-Ivory-', 'EVH 5150III · ').replace(/\.nam$/i, '').replace(/-/g, ' ') : 'Load your amp capture';
   const { message } = status;
   const busy = /^(Loading|Restoring)/.test(message);
-  const footerMessage = !native || busy || message.startsWith('Load failed:') || message.includes('bypassed:') ? message
+  const footerMessage = !native || busy || message.startsWith('Load failed:') ? message
     : clean ? 'Clean ready' : status.model ? 'Rig ready' : message;
   const showLoad = expanded || status.overrunRecent || status.cpu >= 80;
   const gateText = !gateEnabled ? 'Gate off' : !native ? 'Gate on' : status.gate > .1 ? 'Gate open' : 'Gate closed';
 
   return <div className={`app-shell ${clean ? 'clean' : 'metal'}`}>
     <header>
-      <div className="brand"><span className="brand-mark" aria-hidden="true">C</span><h1>CASSIAN</h1></div>
+      <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><h1>CASSIAN</h1></div>
       <div className="header-tools">
+        <button className="compare-toggle" aria-label="A/B compare" onClick={toggleCompare}>{compare ? `A/B · ${compareSide}` : 'A/B'}</button>
         <button className="tuner-toggle" aria-pressed={tunerOpen} onClick={() => setTunerOpen(!tunerOpen)}>{tunerOpen ? 'TUNER ON' : 'TUNER'}</button>
         <label className="preset">
           <select aria-label="Tone starting point" value="" onChange={e => chooseTone(e.target.value)}>
@@ -141,11 +158,11 @@ export default function App() {
           <div className="grille">
             <span className="corner tl" /><span className="corner tr" />
             <div className="tube-bank" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <span className="glass-tube" key={i}><i /></span>)}</div>
-            <span className="amp-emblem">Cassian<small>AMPLIFICATION</small></span>
             <div className="amp-series">{clean ? 'LUMEN' : 'FERRUM'}<small>{clean ? 'CLEAN' : 'CAPTURE'}</small></div>
             {tunerOpen && <Tuner status={status} />}
           </div>
           <div className="faceplate">
+            <img className="amp-logo" src={cassianLogo} alt="Cassian" />
             <div className="input-jack" aria-hidden="true"><i /><span>INPUT</span></div>
             <div className="amp-controls">{mainControls.map(id => <Knob key={id} id={id} />)}</div>
             <div className="power" aria-hidden="true"><i /><span>ON</span></div>
@@ -157,7 +174,9 @@ export default function App() {
       <section className="capture-strip" aria-label="Amp source">
         <div><span className="source-dot" /><span className="source-name" title={status.model}>{ampName}</span></div>
         <div className="live-meters">
-          <Meter label="IN" value={status.input} /><Meter label="OUT" value={status.output} />
+          <Meter label="IN" value={status.input} /><Meter label="PRE" value={status.prePedal} /><Meter label="AMP" value={status.postAmp} />
+          <Meter label="CAB" value={status.postCab} /><Meter label="OUT" value={status.output} />
+          <button className="auto-trim" disabled={!native || !(status.input > 0.0001)} onClick={autoTrim}>AUTO TRIM</button>
           <span className={`gate-summary${gateText === 'Gate open' ? ' open' : ''}`}><i aria-hidden="true" />{gateText}</span>
         </div>
       </section>

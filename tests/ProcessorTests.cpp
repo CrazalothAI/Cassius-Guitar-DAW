@@ -82,6 +82,23 @@ int main(int argc, char** argv)
             }
         }
         check(buffer.getMagnitude(0, 257) > 0.001f, "Bypassed amp must pass audio");
+        // The second AudioBox preamp is deliberately ignored. A hot signal
+        // arriving there must not leak into the guitar path as crackle.
+        set(processor, "GATE_ON", 0); set(processor, "REVERB_MIX", 0);
+        processor.prepareToPlay(48000, 64);
+        juce::AudioBuffer<float> unusedInput(2, 128);
+        unusedInput.clear();
+        for (int i = 0; i < unusedInput.getNumSamples(); ++i) unusedInput.setSample(1, i, 0.5f);
+        processor.processBlock(unusedInput, midi);
+        check(unusedInput.getMagnitude(0, 0, unusedInput.getNumSamples()) < 1e-6f,
+              "Unused AudioBox input must not enter the amp chain");
+        const auto meterStatus = processor.status();
+        check(meterStatus.hasProperty("prePedal") && meterStatus.hasProperty("postAmp")
+              && meterStatus.hasProperty("postCab"), "Stage meters must be exposed in status");
+        const auto fallbackQuiet = measure(440, .03f, {{"AMP_CLEAN", 0}, {"DRIVE_GAIN", 0}}).rms;
+        const auto fallbackLoud = measure(440, .30f, {{"AMP_CLEAN", 0}, {"DRIVE_GAIN", 0}}).rms;
+        check(fallbackQuiet > .001f, "Metal fallback must produce audible output without a capture");
+        check(fallbackLoud / fallbackQuiet < 8.0, "Metal fallback must compress and distort instead of remaining linear");
         // A loaded NAM must not colour the clean channel. Compare the same
         // waveform through two complete processors, only one with a capture.
         check(argc > 1, "Pass a NAM fixture for the clean-channel regression");
@@ -99,6 +116,24 @@ int main(int argc, char** argv)
         driveProcessor.requestFile(true, juce::File(argv[1]));
         for (int attempt = 0; attempt < 500 && driveProcessor.status().getProperty("model", {}).toString().isEmpty(); ++attempt) juce::Thread::sleep(10);
         check(driveProcessor.status().getProperty("model", {}).toString().isNotEmpty(), "Drive test capture must load");
+        // A capture recorded at a different rate should be rendered through
+        // the rate converter instead of being silently bypassed.
+        set(driveProcessor, "GATE_ON", 0); set(driveProcessor, "REVERB_MIX", 0);
+        driveProcessor.prepareToPlay(44100, 128);
+        juce::AudioBuffer<float> converted(2, 128);
+        float convertedPeak = 0;
+        for (int b = 0; b < 80; ++b)
+        {
+            converted.clear();
+            for (int i = 0; i < converted.getNumSamples(); ++i)
+                converted.setSample(0, i, .06f * std::sin(static_cast<float>(b * 128 + i) * .031f));
+            driveProcessor.processBlock(converted, midi);
+            convertedPeak = std::max(convertedPeak, converted.getMagnitude(0, 0, converted.getNumSamples()));
+        }
+        const auto convertedStatus = driveProcessor.status();
+        check(convertedPeak > .0001f, "Mismatched-rate capture must still produce audio");
+        check(convertedStatus.getProperty("message", {}).toString().indexOfIgnoreCase("bypassed") < 0,
+              "Mismatched-rate capture must not be reported as bypassed");
         const auto renderDriven = [&](float inputDb, float driveDb)
         {
             set(driveProcessor, "INPUT_GAIN", inputDb); set(driveProcessor, "DRIVE_GAIN", driveDb);

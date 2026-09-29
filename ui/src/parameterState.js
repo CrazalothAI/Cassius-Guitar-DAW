@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { slider } from './juce/bridge.js';
-import { byId, toFraction } from './parameters.js';
+import { byId, parameters, toFraction } from './parameters.js';
 const preview = new Map();
 // Host automation gestures. A drag or held key is one gesture around many value changes.
 export const beginGesture = id => slider(id)?.sliderDragStarted();
@@ -35,15 +35,18 @@ export function useParameter(id) {
   return value;
 }
 export const useToggle = id => useParameter(id) >= .5;
-const current = id => { const state = slider(id); return state ? state.getScaledValue() : preview.get(id) ?? byId[id].initial; };
+export function readParameter(id) {
+  const state = slider(id);
+  return state?.getScaledValue?.() ?? preview.get(id) ?? byId[id].initial;
+}
 // Several parameters at once, re-rendering only when one of them changes.
 export function useParameters(ids) {
   const key = ids.join();
-  const [values, setValues] = useState(() => Object.fromEntries(ids.map(id => [id, current(id)])));
+  const [values, setValues] = useState(() => Object.fromEntries(ids.map(id => [id, readParameter(id)])));
   useEffect(() => {
     const list = key.split(',');
     const refresh = () => setValues(prev => {
-      const next = Object.fromEntries(list.map(id => [id, current(id)]));
+      const next = Object.fromEntries(list.map(id => [id, readParameter(id)]));
       return list.every(id => prev[id] === next[id]) ? prev : next;
     });
     const localSync = e => { if (list.includes(e.detail.id)) refresh(); };
@@ -57,4 +60,10 @@ export function useParameters(ids) {
     };
   }, [key]);
   return values;
+}
+export function snapshotParameters() {
+  return Object.fromEntries(parameters.map(({id}) => [id, readParameter(id)]));
+}
+export function restoreSnapshot(snapshot) {
+  Object.entries(snapshot ?? {}).forEach(([id, value]) => setParameter(id, value));
 }

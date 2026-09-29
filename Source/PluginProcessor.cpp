@@ -3,6 +3,7 @@
 
 AmpSuiteAudioProcessor::AmpSuiteAudioProcessor()
     : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::mono(), true)
+                                     .withInput("Backing track", juce::AudioChannelSet::stereo(), false)
                                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       Thread("AmpSuite asset loader"), apvts(*this, nullptr, "AmpSuiteState", Params::layout())
 {
@@ -15,13 +16,18 @@ AmpSuiteAudioProcessor::~AmpSuiteAudioProcessor() { signalThreadShouldExit(); no
 bool AmpSuiteAudioProcessor::isBusesLayoutSupported(const BusesLayout& b) const
 {
     const auto in = b.getMainInputChannelSet(), out = b.getMainOutputChannelSet();
+    const auto backing = b.getChannelSet(true, 1);
     return (in == juce::AudioChannelSet::mono() || in == juce::AudioChannelSet::stereo())
+        && (backing.isDisabled() || backing == juce::AudioChannelSet::stereo())
         && (out == juce::AudioChannelSet::stereo() || out == in);
 }
 void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 {
     const juce::ScopedLock lock(dspLock);
-    rate = sampleRate; maxBlock = juce::jmax(1, maximumBlockSize);
+    rate = sampleRate; hostBlock = juce::jmax(1, maximumBlockSize);
+    // A bounded internal quantum keeps model, convolution, and gate state
+    // predictable even when a host delivers large or varying callbacks.
+    maxBlock = juce::jmax(1, juce::jmin(hostBlock, 256));
     processLoad.reset(rate, maxBlock);
     clipHoldSamples = 0; inputClipped.store(false);
     const juce::dsp::ProcessSpec spec {rate, static_cast<juce::uint32>(maxBlock),
@@ -58,7 +64,9 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     reverb.prepare(spec); reverb.reset(); limiter.prepare(spec); limiter.setThreshold(-0.5f); limiter.setRelease(60);
     if (model) model->prepare(rate, maxBlock);
     if (pedal) pedal->prepare(rate, maxBlock);
-    reportedRate.store(rate); reportedBlock.store(maxBlock);
+    reportedRate.store(rate); reportedBlock.store(hostBlock);
+    prePedalPeak.store(0); postPedalPeak.store(0); postAmpPeak.store(0); postCabPeak.store(0);
+    swapBypasses.store(0);
     ampExpectedRate.store(model ? model->expectedRate() : 0);
     pedalExpectedRate.store(pedal ? pedal->expectedRate() : 0);
 }
@@ -66,24 +74,48 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
 {
     juce::ScopedNoDenormals noDenormals;
     midi.clear();
+    auto mainBuffer = getBusBuffer(buffer, false, 0);
+    auto backingBuffer = getBusBuffer(buffer, true, 1);
     // Asset replacement never makes the audio thread wait or destroy a model.
+    // Pass the current input through during the short swap window instead of
+    // clearing a block, which was audible as a click/static burst.
     const juce::ScopedTryLock lock(dspLock);
-    if (!lock.isLocked()) { buffer.clear(); inputPeak.store(0); outputPeak.store(0); return; }
-    if (buffer.getNumChannels() == 0 || buffer.getNumSamples() == 0) return;
-    const juce::AudioProcessLoadMeasurer::ScopedTimer timing(processLoad, buffer.getNumSamples());
-    inputPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
-    clipHoldSamples = inputPeak.load() >= .995f ? static_cast<int>(rate)
-        : juce::jmax(0, clipHoldSamples - buffer.getNumSamples());
-    inputClipped.store(clipHoldSamples > 0);
-    for (int offset = 0; offset < buffer.getNumSamples(); offset += maxBlock)
+    if (!lock.isLocked())
     {
-        const int size = juce::jmin(maxBlock, buffer.getNumSamples() - offset);
-        float* channels[2] {buffer.getWritePointer(0, offset), nullptr};
-        if (buffer.getNumChannels() > 1) channels[1] = buffer.getWritePointer(1, offset);
-        juce::AudioBuffer<float> chunk(channels, juce::jmin(2, buffer.getNumChannels()), size);
+        if (mainBuffer.getNumChannels() > 1)
+            mainBuffer.copyFrom(1, 0, mainBuffer, 0, 0, mainBuffer.getNumSamples());
+        swapBypasses.fetch_add(1);
+        outputPeak.store(mainBuffer.getMagnitude(0, 0, mainBuffer.getNumSamples()));
+        return;
+    }
+    if (mainBuffer.getNumChannels() == 0 || mainBuffer.getNumSamples() == 0) return;
+    const juce::AudioProcessLoadMeasurer::ScopedTimer timing(processLoad, mainBuffer.getNumSamples());
+    inputPeak.store(mainBuffer.getMagnitude(0, 0, mainBuffer.getNumSamples()));
+    clipHoldSamples = inputPeak.load() >= .995f ? static_cast<int>(rate)
+        : juce::jmax(0, clipHoldSamples - mainBuffer.getNumSamples());
+    inputClipped.store(clipHoldSamples > 0);
+    for (int offset = 0; offset < mainBuffer.getNumSamples(); offset += maxBlock)
+    {
+        const int size = juce::jmin(maxBlock, mainBuffer.getNumSamples() - offset);
+        float* channels[2] {mainBuffer.getWritePointer(0, offset), nullptr};
+        if (mainBuffer.getNumChannels() > 1) channels[1] = mainBuffer.getWritePointer(1, offset);
+        juce::AudioBuffer<float> chunk(channels, juce::jmin(2, mainBuffer.getNumChannels()), size);
         processChunk(chunk);
     }
-    outputPeak.store(buffer.getMagnitude(0, buffer.getNumSamples()));
+    // Optional DAW backing-track bus is mixed after the amp chain, so it never
+    // reaches the gate, pedal, NAM, or cabinet.
+    if (backingBuffer.getNumChannels() > 0)
+    {
+        const auto samples = juce::jmin(mainBuffer.getNumSamples(), backingBuffer.getNumSamples());
+        for (int i = 0; i < samples; ++i)
+        {
+            const auto left = backingBuffer.getSample(0, i);
+            const auto right = backingBuffer.getNumChannels() > 1 ? backingBuffer.getSample(1, i) : left;
+            mainBuffer.addSample(0, i, left);
+            if (mainBuffer.getNumChannels() > 1) mainBuffer.addSample(1, i, right);
+        }
+    }
+    outputPeak.store(mainBuffer.getMagnitude(0, 0, mainBuffer.getNumSamples()));
 }
 void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
 {
@@ -149,16 +181,24 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         const float highPassed = mono[i] - metalLow;
         metalLow2 += hp * (highPassed - metalLow2);
         mono[i] += juce::jlimit(0.0f, 1.0f, (cutoff - 20.0f) / 10.0f) * (highPassed - metalLow2 - mono[i]);
-        // A capture supplies the distortion. Drive should push its input,
-        // not add an unrelated clipping stage and reduce the signal first.
+        // A capture supplies the distortion. Drive pushes its input rather
+        // than adding a second clipper. When no capture is loaded, keep the
+        // metal channel useful with a real tube-like fallback instead of the
+        // old effectively-linear path at 0 dB Drive.
         if (model)
             mono[i] *= gain;
         else
         {
-            const float blend = juce::jlimit(0.0f, 1.0f, gain - 1);
-            mono[i] += blend * (std::tanh(mono[i] * gain) / std::sqrt(gain) - mono[i]);
+            const float fallbackDrive = value(Params::clean) >= 0.5f
+                ? 1.0f
+                : 1.7f + 0.24f * (gain - 1.0f);
+            const float shaped = std::tanh(mono[i] * fallbackDrive);
+            const float secondStage = std::tanh(shaped * 2.4f);
+            const float blended = 0.84f * shaped + 0.16f * secondStage;
+            mono[i] = blended / std::max(0.65f, std::tanh(fallbackDrive));
         }
     }
+    prePedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     pedalBlend.setTargetValue(value(Params::pedalOn) >= .5f && value(Params::clean) < .5f ? 1.0f : 0.0f);
     if (pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
     {
@@ -168,9 +208,12 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
             mono[i] += pedalBlend.getNextValue() * (pedalAudio[static_cast<size_t>(i)] - mono[i]);
     }
     else pedalBlend.skip(buffer.getNumSamples());
+    postPedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     if (model) model->process(mono, buffer.getNumSamples());
+    postAmpPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     for (int ch = 1; ch < buffer.getNumChannels(); ++ch) buffer.copyFrom(ch, 0, mono, buffer.getNumSamples());
     cab.process(context);
+    postCabPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
         const float mix = cleanBlend.getNextValue();
@@ -315,12 +358,19 @@ juce::var AmpSuiteAudioProcessor::status()
         const auto currentRate = reportedRate.load(), expectedAmp = ampExpectedRate.load(), expectedPedal = pedalExpectedRate.load();
         result->setProperty("sampleRate", currentRate);
         result->setProperty("bufferSize", reportedBlock.load());
-        if (expectedAmp > 0 && std::abs(expectedAmp - currentRate) >= 1 && value(Params::clean) < 0.5f)
-            result->setProperty("message", "Amp bypassed: set audio device / host to " + juce::String(expectedAmp, 0) + " Hz");
-        if (expectedPedal > 0 && std::abs(expectedPedal - currentRate) >= 1 && value(Params::pedalOn) >= .5f && value(Params::clean) < .5f)
-            result->setProperty("message", "Pedal bypassed: set audio device / host to " + juce::String(expectedPedal, 0) + " Hz");
+        // NAM assets are resampled to the host rate when their capture rate
+        // differs, so a mismatch is useful telemetry rather than a bypass.
+        result->setProperty("ampExpectedRate", expectedAmp);
+        result->setProperty("pedalExpectedRate", expectedPedal);
+        result->setProperty("ampResampled", expectedAmp > 0 && std::abs(expectedAmp - currentRate) >= 1);
+        result->setProperty("pedalResampled", expectedPedal > 0 && std::abs(expectedPedal - currentRate) >= 1);
     }
     result->setProperty("input", inputPeak.load()); result->setProperty("output", outputPeak.load());
+    result->setProperty("prePedal", prePedalPeak.load());
+    result->setProperty("postPedal", postPedalPeak.load());
+    result->setProperty("postAmp", postAmpPeak.load());
+    result->setProperty("postCab", postCabPeak.load());
+    result->setProperty("swapBypasses", swapBypasses.load());
     result->setProperty("gate", gateLevel.load());
     result->setProperty("cpu", processLoad.getLoadAsPercentage());
     result->setProperty("overruns", processLoad.getXRunCount());

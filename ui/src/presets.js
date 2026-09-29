@@ -12,6 +12,9 @@ export const presets = {
   'Glass clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 250, GATE_THRESH: -75, DRIVE_GAIN: 0, TIGHT: 20, AMP_BASS: 1, AMP_MID: -1, AMP_TREBLE: 2, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 16000, CLEAN_COMP: 40, DELAY_TIME: 360, DELAY_MIX: 8, DELAY_WIDTH: 45, REVERB_MIX: 20, REVERB_SIZE: 60, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
   'Warm clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 250, GATE_THRESH: -76, DRIVE_GAIN: 2, TIGHT: 20, AMP_BASS: 1.5, AMP_MID: 1, AMP_TREBLE: -1.5, AMP_OUT: 0, PRESENCE: -1, HIGH_CUT: 11000, CLEAN_COMP: 55, DELAY_TIME: 280, DELAY_MIX: 5, DELAY_WIDTH: 20, REVERB_MIX: 14, REVERB_SIZE: 45, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
   'Ambient clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 320, GATE_THRESH: -78, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 0, AMP_MID: -1, AMP_TREBLE: 1, AMP_OUT: 0, PRESENCE: .5, HIGH_CUT: 14000, CLEAN_COMP: 50, DELAY_TIME: 480, DELAY_MIX: 28, DELAY_WIDTH: 80, REVERB_MIX: 38, REVERB_SIZE: 85, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
+  'Neoclassical lead': {AMP_CLEAN: 0, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 180, GATE_THRESH: -54, DRIVE_GAIN: 2, TIGHT: 72, AMP_BASS: -2, AMP_MID: 3.5, AMP_TREBLE: 1, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 8200, CLEAN_COMP: 25, DELAY_TIME: 300, DELAY_MIX: 7, DELAY_WIDTH: 22, REVERB_MIX: 7, REVERB_SIZE: 36, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 20, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.18},
+  'Progressive clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 280, GATE_THRESH: -74, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 1, AMP_MID: 0, AMP_TREBLE: 2.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 17000, CLEAN_COMP: 42, DELAY_TIME: 410, DELAY_MIX: 17, DELAY_WIDTH: 62, REVERB_MIX: 24, REVERB_SIZE: 68, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 1, PIEZO_BLEND: 35, MICRO_DELAY: 0.22},
+  'Wide thall': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 70, GATE_THRESH: -45, DRIVE_GAIN: 0, TIGHT: 100, AMP_BASS: -2, AMP_MID: 2, AMP_TREBLE: -0.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 7000, CLEAN_COMP: 30, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 3, REVERB_SIZE: 28, DYN_RES_ON: 1, DYN_RES_AMOUNT: 80, CHUG_ATTACK: 72, THICKEN_ON: 1, THICKEN_MIX: 30, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.62},
 };
 export const notes = {
   'Glass clean': 'Clear attack. Room for every note.',
@@ -24,16 +27,19 @@ export const notes = {
   'Tight metal': 'Pedal-pushed rhythm with a firm low cut.',
   'Thall chug': 'Heavy low-end articulation, dynamic resonance cut & chug attack.',
   'Drop-Z djent': 'Deeper resonance cut, sub layer and micro-delay width for extended range.',
+  'Neoclassical lead': 'Pushed mids and a firm low end with short repeats for fast runs.',
+  'Progressive clean': 'Bright clean with piezo sparkle and wide repeats for arpeggios.',
+  'Wide thall': 'Pedal-pushed chug with resonance cut, sub layer and wider micro-delay.',
 };
 // Main-panel tone families. Each button applies its first preset; the others belong to the same family.
 export const voices = [
-  {label: 'Clean', presets: ['Glass clean', 'Warm clean']},
+  {label: 'Clean', presets: ['Glass clean', 'Warm clean', 'Progressive clean']},
   {label: 'Ambient', presets: ['Ambient clean']},
   {label: 'Piezo', presets: ['Playing God nylon']},
   {label: 'Rock', presets: ['80s rock']},
-  {label: 'Lead', presets: ['Singing lead']},
+  {label: 'Lead', presets: ['Singing lead', 'Neoclassical lead']},
   {label: 'Metal', presets: ['Modern metalcore', 'Tight metal']},
-  {label: 'Thall', presets: ['Thall chug', 'Drop-Z djent']},
+  {label: 'Thall', presets: ['Thall chug', 'Drop-Z djent', 'Wide thall']},
 ];
 export const familyOf = name => voices.find(v => v.presets.includes(name))?.label ?? null;
 export const presetParameterIds = Object.keys(Object.values(presets)[0]);

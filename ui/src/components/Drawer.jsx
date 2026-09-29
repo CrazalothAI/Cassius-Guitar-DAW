@@ -72,13 +72,19 @@ function RigRow({ label, file, empty, note, children }) {
   </div>;
 }
 
+// Captures recorded at another rate are resampled to the host rate by the engine.
+const kHz = hz => `${(hz / 1000).toFixed(1)} kHz`;
+const resampled = (on, expected, status) => on && expected > 0 && status.sampleRate > 0 ? `${kHz(expected)} capture · resampled to ${kHz(status.sampleRate)}` : '';
+
 function Rig({ clean, native, status, onLoad }) {
+  const ampRate = resampled(status.ampResampled, status.ampExpectedRate, status);
+  const pedalRate = resampled(status.pedalResampled, status.pedalExpectedRate, status);
   const load = (type, text) => <button className="text-button" disabled={!native} onClick={() => onLoad(type)}>{text}<span aria-hidden="true"> ↗</span></button>;
   return <div className="rig-list">
-    <RigRow label="AMP" file={status.model} empty="No capture loaded" note={clean && 'Bypassed · Lumen clean is active'}>
+    <RigRow label="AMP" file={status.model} empty="No capture loaded" note={clean ? 'Bypassed · Lumen clean is active' : ampRate}>
       {load('amp', status.model ? 'Change amp' : 'Load amp model')}
     </RigRow>
-    <RigRow label="PEDAL" file={status.pedal} empty="No pedal capture" note="Before the amp · bypassed on cleans">
+    <RigRow label="PEDAL" file={status.pedal} empty="No pedal capture" note={['Before the amp · bypassed on cleans', pedalRate].filter(Boolean).join(' · ')}>
       <Switch id="PEDAL_ON" name="Pedal enabled" disabled={clean || !status.pedal} forcedOff={clean} />
       {load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
     </RigRow>

@@ -18,12 +18,14 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('editor connected to the audio engine', () => {
-  it('warns when a capture is bypassed for its sample rate', async () => {
-    engine.status.message = 'Amp bypassed: set audio device / host to 44100 Hz';
+  it('reports captures the engine resamples to the host rate', async () => {
+    engine.status = { ...engine.status, sampleRate: 44100, ampExpectedRate: 48000, ampResampled: true, pedal: 'Drive.nam', pedalExpectedRate: 44100, pedalResampled: false };
     render(<App/>);
-    const alert = await screen.findByRole('alert');
-    expect(alert.textContent).toContain('Amp capture bypassed');
-    expect(alert.textContent).toContain('Set audio device / host to 44100 Hz');
+    fireEvent.click(screen.getByRole('button', { name: /RIG & TONE/ }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
+    expect(await screen.findByText('48.0 kHz capture · resampled to 44.1 kHz')).toBeTruthy();
+    expect(screen.getByText('Before the amp · bypassed on cleans')).toBeTruthy();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
   it('lets a load failure be dismissed until a different one arrives', async () => {
     engine.status.message = 'Load failed: first';
