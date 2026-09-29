@@ -51,4 +51,15 @@ describe('streamlined amp editor', () => {
     fireEvent.doubleClick(input);
     expect(input.value).toBe('0');
   });
+  it('compares two tone states without changing the master level', () => {
+    render(<App/>);
+    const drive = screen.getByRole('slider',{name:'Drive'});
+    fireEvent.click(screen.getByRole('button',{name:'A/B compare'}));
+    fireEvent.change(drive,{target:{value:'8'}});
+    fireEvent.click(screen.getByRole('button',{name:'A/B compare'}));
+    expect(drive.value).toBe('2');
+    expect(screen.getByRole('button',{name:'A/B compare'}).textContent).toBe('A/B · B');
+    fireEvent.click(screen.getByRole('button',{name:'A/B compare'}));
+    expect(drive.value).toBe('8');
+  });
 });

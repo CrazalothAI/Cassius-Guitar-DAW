@@ -181,14 +181,21 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         const float highPassed = mono[i] - metalLow;
         metalLow2 += hp * (highPassed - metalLow2);
         mono[i] += juce::jlimit(0.0f, 1.0f, (cutoff - 20.0f) / 10.0f) * (highPassed - metalLow2 - mono[i]);
-        // A capture supplies the distortion. Drive should push its input,
-        // not add an unrelated clipping stage and reduce the signal first.
+        // A capture supplies the distortion. Drive pushes its input rather
+        // than adding a second clipper. When no capture is loaded, keep the
+        // metal channel useful with a real tube-like fallback instead of the
+        // old effectively-linear path at 0 dB Drive.
         if (model)
             mono[i] *= gain;
         else
         {
-            const float blend = juce::jlimit(0.0f, 1.0f, gain - 1);
-            mono[i] += blend * (std::tanh(mono[i] * gain) / std::sqrt(gain) - mono[i]);
+            const float fallbackDrive = value(Params::clean) >= 0.5f
+                ? 1.0f
+                : 1.7f + 0.24f * (gain - 1.0f);
+            const float shaped = std::tanh(mono[i] * fallbackDrive);
+            const float secondStage = std::tanh(shaped * 2.4f);
+            const float blended = 0.84f * shaped + 0.16f * secondStage;
+            mono[i] = blended / std::max(0.65f, std::tanh(fallbackDrive));
         }
     }
     prePedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));

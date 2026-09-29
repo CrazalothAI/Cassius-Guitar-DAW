@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { slider } from './juce/bridge.js';
-import { byId } from './parameters.js';
+import { byId, parameters } from './parameters.js';
 const preview = new Map();
 export function setParameter(id, value) {
   const p = byId[id], state = slider(id);
@@ -31,6 +31,16 @@ export function useParameter(id) {
   }, [id, state]);
   return value;
 }
+export function readParameter(id) {
+  const state = slider(id);
+  return state?.getScaledValue?.() ?? preview.get(id) ?? byId[id].initial;
+}
+export function snapshotParameters() {
+  return Object.fromEntries(parameters.map(({id}) => [id, readParameter(id)]));
+}
+export function restoreSnapshot(snapshot) {
+  Object.entries(snapshot ?? {}).forEach(([id, value]) => setParameter(id, value));
+}
 // Keep input calibration, master level and loaded files when choosing a starting point.
 export const presets = {
   'Thall chug': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 60, GATE_THRESH: -46, DRIVE_GAIN: 0, TIGHT: 90, AMP_BASS: -1, AMP_MID: 2, AMP_TREBLE: 0, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 6800, CLEAN_COMP: 35, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 2, REVERB_SIZE: 30, DYN_RES_ON: 1, DYN_RES_AMOUNT: 75, CHUG_ATTACK: 65, THICKEN_ON: 1, THICKEN_MIX: 35, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.35},
@@ -43,5 +53,8 @@ export const presets = {
   'Glass clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 250, GATE_THRESH: -75, DRIVE_GAIN: 0, TIGHT: 20, AMP_BASS: 1, AMP_MID: -1, AMP_TREBLE: 2, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 16000, CLEAN_COMP: 40, DELAY_TIME: 360, DELAY_MIX: 8, DELAY_WIDTH: 45, REVERB_MIX: 20, REVERB_SIZE: 60, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
   'Warm clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 250, GATE_THRESH: -76, DRIVE_GAIN: 2, TIGHT: 20, AMP_BASS: 1.5, AMP_MID: 1, AMP_TREBLE: -1.5, AMP_OUT: 0, PRESENCE: -1, HIGH_CUT: 11000, CLEAN_COMP: 55, DELAY_TIME: 280, DELAY_MIX: 5, DELAY_WIDTH: 20, REVERB_MIX: 14, REVERB_SIZE: 45, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
   'Ambient clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 320, GATE_THRESH: -78, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 0, AMP_MID: -1, AMP_TREBLE: 1, AMP_OUT: 0, PRESENCE: .5, HIGH_CUT: 14000, CLEAN_COMP: 50, DELAY_TIME: 480, DELAY_MIX: 28, DELAY_WIDTH: 80, REVERB_MIX: 38, REVERB_SIZE: 85, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
+  'Neoclassical lead': {AMP_CLEAN: 0, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 180, GATE_THRESH: -54, DRIVE_GAIN: 2, TIGHT: 72, AMP_BASS: -2, AMP_MID: 3.5, AMP_TREBLE: 1, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 8200, CLEAN_COMP: 25, DELAY_TIME: 300, DELAY_MIX: 7, DELAY_WIDTH: 22, REVERB_MIX: 7, REVERB_SIZE: 36, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 20, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.18},
+  'Progressive clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 280, GATE_THRESH: -74, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 1, AMP_MID: 0, AMP_TREBLE: 2.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 17000, CLEAN_COMP: 42, DELAY_TIME: 410, DELAY_MIX: 17, DELAY_WIDTH: 62, REVERB_MIX: 24, REVERB_SIZE: 68, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 1, PIEZO_BLEND: 35, MICRO_DELAY: 0.22},
+  'Wide thall': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 70, GATE_THRESH: -45, DRIVE_GAIN: 0, TIGHT: 100, AMP_BASS: -2, AMP_MID: 2, AMP_TREBLE: -0.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 7000, CLEAN_COMP: 30, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 3, REVERB_SIZE: 28, DYN_RES_ON: 1, DYN_RES_AMOUNT: 80, CHUG_ATTACK: 72, THICKEN_ON: 1, THICKEN_MIX: 30, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.62},
 };
 export function applyPreset(name) { Object.entries(presets[name] ?? {}).forEach(([id, value]) => setParameter(id, value)); }

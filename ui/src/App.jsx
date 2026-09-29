@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import Knob from './components/Knob.jsx';
 import { invoke, native } from './juce/bridge.js';
-import { applyPreset, presets, setParameter, useParameter } from './parameterState.js';
+import { applyPreset, presets, restoreSnapshot, snapshotParameters, setParameter, useParameter } from './parameterState.js';
+import cassianLogo from './assets/cassian-logo.png';
 
 const voices = [
   {label:'Clean', preset:'Glass clean', note:'Clear attack. Room for every note.'},
@@ -30,6 +31,8 @@ export default function App() {
   const [expanded, setExpanded] = useState(false);
   const [tunerOpen, setTunerOpen] = useState(false);
   const [page, setPage] = useState('Shape');
+  const [compare, setCompare] = useState(null);
+  const [compareSide, setCompareSide] = useState('A');
   const [status, setStatus] = useState({
     model:'', ir:'', pedal:'', input:0, prePedal:0, postPedal:0, postAmp:0, postCab:0, output:0,
     tunerActive:false, tunerNote:'—', tunerCents:0, tunerHz:0, dynResCut:0,
@@ -55,6 +58,18 @@ export default function App() {
     }
   };
 
+  const toggleCompare = () => {
+    const current = snapshotParameters();
+    if (!compare) {
+      setCompare(current);
+      setCompareSide('A');
+      return;
+    }
+    restoreSnapshot(compare);
+    setCompare(current);
+    setCompareSide(side => side === 'A' ? 'B' : 'A');
+  };
+
   const load=async type=>{
     try {await invoke(type==='amp'?'loadModel':type==='pedal'?'loadPedal':'loadIR');}
     catch {setStatus(s=>({...s,message:'Could not open the file picker. Please try again.'}));}
@@ -66,8 +81,9 @@ export default function App() {
 
   return <div className={`app-shell streamlined ${clean?'clean':'metal'}`}>
     <header>
-      <div className="brand"><span className="brand-mark">C</span><h1>CASSIAN</h1></div>
-      <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+      <div className="brand"><img className="brand-logo" src={cassianLogo} alt=""/><h1>CASSIAN</h1></div>
+      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+        <button className="compare-toggle" aria-label="A/B compare" onClick={toggleCompare}>{compare ? `A/B · ${compareSide}` : 'A/B'}</button>
         <button className="tuner-toggle" aria-pressed={tunerOpen} onClick={()=>setTunerOpen(!tunerOpen)}>
           {tunerOpen ? 'TUNER ON' : 'TUNER'}
         </button>
@@ -108,7 +124,7 @@ export default function App() {
       )}
 
       <section className="voice-section"><nav className="tone-types" aria-label="Tone families">{voices.map(v=><button key={v.label} aria-pressed={activeVoice===v.label} onClick={()=>chooseTone(v.preset)}>{v.label}</button>)}</nav><p>{description}</p></section>
-      <section className="amp-stage" aria-label="Amplifier"><div className="amp-handle"/><div className="amp-head"><div className="grille"><span className="corner tl"/><span className="corner tr"/><div className="tube-bank" aria-hidden="true">{[0,1,2,3,4,5].map(i=><span className="glass-tube" key={i}><i/></span>)}</div><span className="amp-emblem">Cassian<small>AMPLIFICATION</small></span><div className="amp-series">{clean?'L U M E N':'F E R R U M'}<small>{clean?'CLEAN':'CAPTURE'}</small></div></div><div className="faceplate"><div className="input-jack"><i/><span>INPUT</span></div><div className="amp-controls">{['DRIVE_GAIN','AMP_BASS','AMP_MID','AMP_TREBLE','REVERB_MIX','MASTER_VOL'].map(id=><Knob key={id} id={id}/>)}</div><div className="power"><i/><span>ON</span></div></div><div className="amp-lower"/></div><div className="amp-feet"><i/><i/></div></section>
+      <section className="amp-stage" aria-label="Amplifier"><div className="amp-handle"/><div className="amp-head"><div className="grille"><span className="corner tl"/><span className="corner tr"/><div className="tube-bank" aria-hidden="true">{[0,1,2,3,4,5].map(i=><span className="glass-tube" key={i}><i/></span>)}</div><img className="amp-logo" src={cassianLogo} alt="Cassian"/><div className="amp-series">{clean?'L U M E N':'F E R R U M'}<small>{clean?'CLEAN':'CAPTURE'}</small></div></div><div className="faceplate"><div className="input-jack"><i/><span>INPUT</span></div><div className="amp-controls">{['DRIVE_GAIN','AMP_BASS','AMP_MID','AMP_TREBLE','REVERB_MIX','MASTER_VOL'].map(id=><Knob key={id} id={id}/>)}</div><div className="power"><i/><span>ON</span></div></div><div className="amp-lower"/></div><div className="amp-feet"><i/><i/></div></section>
       <section className="capture-strip" aria-label="Amp source"><div><span className="source-dot"/><span className="source-name" title={status.model}>{ampName}</span></div><div className="live-meters"><Meter label="IN" value={status.input}/><Meter label="PRE" value={status.prePedal}/><Meter label="AMP" value={status.postAmp}/><Meter label="CAB" value={status.postCab}/><Meter label="OUT" value={status.output}/><span className="gate-summary">{gateEnabled?'Gate on':'Gate off'}</span></div></section>
       <section className="effects"><button className="drawer-toggle" aria-expanded={expanded} aria-controls="effects-panel" onClick={()=>setExpanded(!expanded)}><span>RIG & TONE</span><span>{expanded?'−':'+'}</span></button>
       {expanded&&<div id="effects-panel" className="detail-drawer"><nav className="detail-tabs" aria-label="Detailed controls">{['Shape','Thall','Piezo','Space','Rig'].map(name=><button key={name} aria-pressed={page===name} onClick={()=>setPage(name)}>{name}</button>)}</nav>

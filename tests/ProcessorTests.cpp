@@ -95,6 +95,10 @@ int main(int argc, char** argv)
         const auto meterStatus = processor.status();
         check(meterStatus.hasProperty("prePedal") && meterStatus.hasProperty("postAmp")
               && meterStatus.hasProperty("postCab"), "Stage meters must be exposed in status");
+        const auto fallbackQuiet = measure(440, .03f, {{"AMP_CLEAN", 0}, {"DRIVE_GAIN", 0}}).rms;
+        const auto fallbackLoud = measure(440, .30f, {{"AMP_CLEAN", 0}, {"DRIVE_GAIN", 0}}).rms;
+        check(fallbackQuiet > .001f, "Metal fallback must produce audible output without a capture");
+        check(fallbackLoud / fallbackQuiet < 8.0, "Metal fallback must compress and distort instead of remaining linear");
         // A loaded NAM must not colour the clean channel. Compare the same
         // waveform through two complete processors, only one with a capture.
         check(argc > 1, "Pass a NAM fixture for the clean-channel regression");
