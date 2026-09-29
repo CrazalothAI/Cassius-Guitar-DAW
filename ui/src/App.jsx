@@ -70,6 +70,12 @@ export default function App() {
     setCompareSide(side => side === 'A' ? 'B' : 'A');
   };
 
+  const autoTrim = () => {
+    if (!native || !(status.input > 0.0001)) return;
+    const peakDb = 20 * Math.log10(status.input);
+    setParameter('INPUT_GAIN', Math.max(-12, Math.min(12, -12 - peakDb)));
+  };
+
   const load=async type=>{
     try {await invoke(type==='amp'?'loadModel':type==='pedal'?'loadPedal':'loadIR');}
     catch {setStatus(s=>({...s,message:'Could not open the file picker. Please try again.'}));}
@@ -124,8 +130,8 @@ export default function App() {
       )}
 
       <section className="voice-section"><nav className="tone-types" aria-label="Tone families">{voices.map(v=><button key={v.label} aria-pressed={activeVoice===v.label} onClick={()=>chooseTone(v.preset)}>{v.label}</button>)}</nav><p>{description}</p></section>
-      <section className="amp-stage" aria-label="Amplifier"><div className="amp-handle"/><div className="amp-head"><div className="grille"><span className="corner tl"/><span className="corner tr"/><div className="tube-bank" aria-hidden="true">{[0,1,2,3,4,5].map(i=><span className="glass-tube" key={i}><i/></span>)}</div><img className="amp-logo" src={cassianLogo} alt="Cassian"/><div className="amp-series">{clean?'L U M E N':'F E R R U M'}<small>{clean?'CLEAN':'CAPTURE'}</small></div></div><div className="faceplate"><div className="input-jack"><i/><span>INPUT</span></div><div className="amp-controls">{['DRIVE_GAIN','AMP_BASS','AMP_MID','AMP_TREBLE','REVERB_MIX','MASTER_VOL'].map(id=><Knob key={id} id={id}/>)}</div><div className="power"><i/><span>ON</span></div></div><div className="amp-lower"/></div><div className="amp-feet"><i/><i/></div></section>
-      <section className="capture-strip" aria-label="Amp source"><div><span className="source-dot"/><span className="source-name" title={status.model}>{ampName}</span></div><div className="live-meters"><Meter label="IN" value={status.input}/><Meter label="PRE" value={status.prePedal}/><Meter label="AMP" value={status.postAmp}/><Meter label="CAB" value={status.postCab}/><Meter label="OUT" value={status.output}/><span className="gate-summary">{gateEnabled?'Gate on':'Gate off'}</span></div></section>
+      <section className="amp-stage" aria-label="Amplifier"><div className="amp-handle"/><div className="amp-head"><div className="grille"><span className="corner tl"/><span className="corner tr"/><div className="tube-bank" aria-hidden="true">{[0,1,2,3,4,5].map(i=><span className="glass-tube" key={i}><i/></span>)}</div><div className="amp-series">{clean?'L U M E N':'F E R R U M'}<small>{clean?'CLEAN':'CAPTURE'}</small></div></div><div className="faceplate"><img className="amp-logo" src={cassianLogo} alt="Cassian"/><div className="input-jack"><i/><span>INPUT</span></div><div className="amp-controls">{['DRIVE_GAIN','AMP_BASS','AMP_MID','AMP_TREBLE','REVERB_MIX','MASTER_VOL'].map(id=><Knob key={id} id={id}/>)}</div><div className="power"><i/><span>ON</span></div></div><div className="amp-lower"/></div><div className="amp-feet"><i/><i/></div></section>
+      <section className="capture-strip" aria-label="Amp source"><div><span className="source-dot"/><span className="source-name" title={status.model}>{ampName}</span></div><div className="live-meters"><Meter label="IN" value={status.input}/><Meter label="PRE" value={status.prePedal}/><Meter label="AMP" value={status.postAmp}/><Meter label="CAB" value={status.postCab}/><Meter label="OUT" value={status.output}/><button className="auto-trim" disabled={!native||!(status.input>0.0001)} onClick={autoTrim}>AUTO TRIM</button><span className="gate-summary">{gateEnabled?'Gate on':'Gate off'}</span></div></section>
       <section className="effects"><button className="drawer-toggle" aria-expanded={expanded} aria-controls="effects-panel" onClick={()=>setExpanded(!expanded)}><span>RIG & TONE</span><span>{expanded?'−':'+'}</span></button>
       {expanded&&<div id="effects-panel" className="detail-drawer"><nav className="detail-tabs" aria-label="Detailed controls">{['Shape','Thall','Piezo','Space','Rig'].map(name=><button key={name} aria-pressed={page===name} onClick={()=>setPage(name)}>{name}</button>)}</nav>
         {page==='Shape'&&<><div className="detail-knobs">{['INPUT_GAIN','GATE_THRESH','GATE_RELEASE',clean?'CLEAN_COMP':'TIGHT','HIGH_CUT','PRESENCE','AMP_OUT'].map(id=><Knob key={id} id={id} small/>)}</div><div className="detail-note"><button className="pedal-switch" aria-label="Noise gate enabled" aria-pressed={gateEnabled} onClick={()=>setParameter('GATE_ON',gateEnabled?0:1)}>{gateEnabled?'Gate on':'Gate off'}</button><span>{gateEnabled&&native?(status.gate>.1?'Open · ':'Closed · '):''}Longer release preserves sustained notes.</span></div></>}

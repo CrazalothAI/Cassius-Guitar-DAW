@@ -71,6 +71,22 @@
   box-shadow: 0 0 5px #ffd98e, 0 0 12px 4px #ff7729, 0 0 24px 8px #e9502370;
 }
 .glass-tube i { position: absolute; bottom: 14px; left: 21px; width: 2px; height: 78px; background: #ee8441; box-shadow: 0 0 5px #ee652d; }
+.tube-bank { perspective: 900px; transform-style: preserve-3d; }
+.tube-bank::after { content: ''; position: absolute; left: 8%; right: 8%; bottom: 2px; height: 15px; border-radius: 50%; background: radial-gradient(ellipse, #ef6a3238, transparent 68%); filter: blur(7px); pointer-events: none; }
+.glass-tube { transform-style: preserve-3d; transform-origin: 50% 100%; animation: tube-breathe 6s ease-in-out infinite; }
+.glass-tube:nth-child(2) { animation-delay: -.9s; transform: translateZ(9px) rotateY(-4deg); }
+.glass-tube:nth-child(3) { animation-delay: -1.8s; transform: translateZ(15px) rotateY(-2deg); }
+.glass-tube:nth-child(4) { animation-delay: -2.7s; transform: translateZ(15px) rotateY(2deg); }
+.glass-tube:nth-child(5) { animation-delay: -3.6s; transform: translateZ(9px) rotateY(4deg); }
+.glass-tube:nth-child(6) { animation-delay: -4.5s; transform: translateZ(2px) rotateY(6deg); }
+.glass-tube::before { background: linear-gradient(90deg, #ffffff10, transparent 20% 80%, #05080c70), repeating-linear-gradient(0deg, #8c9294 0 2px, #252c33 2px 5px); box-shadow: 0 0 8px #ff74336b, inset 0 0 3px #d8e5e9; }
+.glass-tube::after { width: 13px; height: 8px; left: 16px; bottom: 7px; background: radial-gradient(circle at 35% 30%, #fff8cf, #ffbd6b 35%, #e65329 72%); box-shadow: 0 0 5px #fff0b0, 0 0 14px 5px #ff772980, 0 0 30px 10px #e9502350; }
+.glass-tube i { left: 20px; width: 3px; height: 80px; background: linear-gradient(90deg, #8b321e, #ffe0a0 45%, #c04c27); box-shadow: 0 0 4px #ff8a45, 0 0 10px #ee652d80; }
+.glass-tube i::before, .glass-tube i::after { content: ''; position: absolute; left: -6px; width: 15px; height: 2px; border-radius: 50%; background: #e4a66b; box-shadow: 0 0 4px #ff8b44; }
+.glass-tube i::before { top: 19px; }
+.glass-tube i::after { top: 43px; }
+@keyframes tube-breathe { 0%,100% { filter: brightness(.94) saturate(.9); } 50% { filter: brightness(1.08) saturate(1.12); } }
+@media (prefers-reduced-motion: reduce) { .glass-tube { animation: none; } }
 .streamlined .amp-emblem {
   z-index: 2; display: flex; flex-direction: column; align-items: center;
   font-family: 'Segoe UI', sans-serif; font-style: normal; font-size: 35px; font-weight: 800;

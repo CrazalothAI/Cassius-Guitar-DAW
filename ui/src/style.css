@@ -28,3 +28,6 @@ header{height:68px}.utility{padding:18px 7px 20px}.grille{height:165px}.faceplat
 .telemetry-tag{font-size:9px;color:var(--accent);background:#222925;padding:3px 8px;border-radius:3px;border:1px solid #3c4741}
 .brand-logo{width:38px;height:38px;object-fit:cover;object-position:center top;border-radius:50%;border:1px solid #8a8d86;box-shadow:0 0 0 2px #171b1a,0 2px 8px #0008}
 .amp-logo{position:relative;width:145px;height:145px;object-fit:cover;object-position:center top;border-radius:12px;filter:contrast(1.08) saturate(1.08) drop-shadow(0 4px 5px #000b);z-index:2}
+.faceplate .amp-logo{width:56px;height:56px;flex:0 0 56px;border-radius:7px;filter:contrast(1.12) saturate(1.12) drop-shadow(0 2px 2px #38403a);object-position:center top}
+.auto-trim{border:1px solid #626d61;border-radius:3px;background:#262e29;color:#424a44;font-size:8px;letter-spacing:1px;padding:7px 8px;white-space:nowrap}
+.auto-trim:not(:disabled){color:#2f4539;border-color:#7a896f;box-shadow:inset 0 1px #fff5}
