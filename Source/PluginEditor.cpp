@@ -20,6 +20,14 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("loadIR", [this](const auto&, auto complete) { chooseFile(1); complete(true); })
         .withNativeFunction("loadPedal", [this](const auto&, auto complete) { chooseFile(2); complete(true); })
         .withNativeFunction("selectAmpVoice", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.selectAmpVoice(args[0].toString())); })
+        .withNativeFunction("clearStage", [this](const auto& args, auto complete)
+        {
+            // An empty path unloads the stage on the loader thread.
+            const auto stage = args.size() == 1 ? args[0].toString() : juce::String();
+            if (stage == "pedal") processor.requestPedal(juce::File());
+            else if (stage == "amp" || stage == "cab") processor.requestFile(stage == "amp", juce::File());
+            complete(stage == "amp" || stage == "pedal" || stage == "cab");
+        })
         .withNativeFunction("setTuner", [this](const auto& args, auto complete) { processor.setTunerActive(args.size() == 1 && static_cast<bool>(args[0])); complete(true); })
         .withNativeFunction("getStatus", [this](const auto&, auto complete) { complete(processor.status()); });
     for (const auto& parameter : Params::definitions)

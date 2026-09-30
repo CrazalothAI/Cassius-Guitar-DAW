@@ -3,9 +3,11 @@ on: [push, pull_request, workflow_dispatch]
 jobs:
   build:
     runs-on: windows-2022
+    permissions:
+      contents: write # publish the "latest" release from main
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -21,9 +23,24 @@ jobs:
       - run: cmake --preset windows
       - run: cmake --build --preset release --parallel 2
       - run: ctest --preset release
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: Cassian-Windows
+          if-no-files-found: error
           path: |
             build/AmpSuite_artefacts/Release/Standalone/*.exe
             build/AmpSuite_artefacts/Release/VST3/**
+      # Every push to main replaces the "latest" pre-release, so the newest
+      # Cassian.exe and VST3 are always one click away on the Releases page.
+      - name: Publish latest build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $release = "build/AmpSuite_artefacts/Release"
+          Compress-Archive -Path "$release/Standalone/Cassian.exe", "$release/VST3/Cassian.vst3" -DestinationPath Cassian-Windows.zip
+          gh release view latest *> $null
+          if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
+          $notes = "Built from ${{ github.sha }}.`n`nUnzip, then run Cassian.exe, or copy Cassian.vst3 into your VST3 folder (usually C:\Program Files\Common Files\VST3)."
+          gh release create latest Cassian-Windows.zip --prerelease --title "Latest build" --target ${{ github.sha }} --notes $notes

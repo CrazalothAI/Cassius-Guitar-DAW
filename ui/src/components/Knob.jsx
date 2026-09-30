@@ -51,7 +51,14 @@ export default function Knob({ id, small = false, muted = false }) {
   };
   const keyDown = e => {
     let next;
-    if (e.key in keySteps) next = shown + keySteps[e.key] * (e.shiftKey ? p.step : Math.max(p.step, (p.max - p.min) / 100));
+    if (e.key in keySteps)
+    {
+      // 1% or 10% of the knob's travel (not of the value range, which matters on skewed
+      // knobs); Shift moves one step. A press always moves at least one step.
+      const direction = Math.sign(keySteps[e.key]);
+      next = e.shiftKey ? shown + direction * p.step : fromFraction(p, toFraction(p, shown) + keySteps[e.key] / 100);
+      if (snap(p, next) === shown) next = shown + direction * p.step;
+    }
     else if (e.key === 'Home') next = p.min;
     else if (e.key === 'End') next = p.max;
     else return;

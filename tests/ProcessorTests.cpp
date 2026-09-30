@@ -348,6 +348,27 @@ int main(int argc, char** argv)
             const auto rigStatus = rig.status();
             check(static_cast<bool>(rigStatus["ampLevelled"]) && static_cast<bool>(rigStatus["speakerSim"]), "An amp-only capture without an IR must use the built-in speaker");
             check(!static_cast<bool>(rigStatus["fallbackAmp"]), "A loaded capture replaces the built-in amp");
+            // Removing the capture returns the metal channel to the built-in amp.
+            rig.requestFile(true, juce::File());
+            for (int t = 0; t < 200 && rig.status()["message"].toString() != "Stage cleared"; ++t) std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            for (int b = 0; b < 2; ++b) { audio.clear(); rig.processBlock(audio, midi); }
+            check(rig.status()["model"].toString().isEmpty() && static_cast<bool>(rig.status()["fallbackAmp"]), "Removing a capture must restore the built-in amp");
+        }
+        // Wide ranges put their musical centre at mid-travel; switches are real on/off parameters.
+        {
+            AmpSuiteAudioProcessor ranges;
+            const std::pair<const char*, float> centres[] {{"HIGH_CUT", 8000}, {"TIGHT", 70}, {"DELAY_TIME", 300}, {"GATE_RELEASE", 150}};
+            for (const auto& [id, centre] : centres)
+                check(std::abs(ranges.apvts.getParameter(id)->convertFrom0to1(0.5f) - centre) < 0.5f, "Skewed range must centre on its musical value");
+            for (const auto* id : {"AMP_CLEAN", "GATE_ON", "PEDAL_ON", "DYN_RES_ON", "THICKEN_ON", "PIEZO_ON"})
+                check(dynamic_cast<juce::AudioParameterBool*>(ranges.apvts.getParameter(id)) != nullptr, "Switches must be on/off parameters");
+            check(dynamic_cast<juce::AudioParameterBool*>(ranges.apvts.getParameter("MICRO_DELAY")) == nullptr, "A 0-1 ms control is not a switch");
+            // Sessions saved before the switch/skew change still restore their values.
+            const auto legacy = juce::ValueTree::fromXml(R"(<AmpSuiteState><PARAM id="GATE_ON" value="0.0"/><PARAM id="HIGH_CUT" value="6500.0"/><PARAM id="AMP_CLEAN" value="1.0"/></AmpSuiteState>)");
+            juce::MemoryBlock saved; juce::AudioProcessor::copyXmlToBinary(*legacy.createXml(), saved);
+            ranges.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+            check(ranges.apvts.getRawParameterValue("GATE_ON")->load() == 0 && ranges.apvts.getRawParameterValue("AMP_CLEAN")->load() == 1, "Saved switch states must restore");
+            check(std::abs(ranges.apvts.getRawParameterValue("HIGH_CUT")->load() - 6500) < 1, "Saved skewed values must restore");
         }
         // The pitch tracker only runs while the tuner is open or Thicken needs it.
         {

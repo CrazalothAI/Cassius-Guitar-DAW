@@ -56,20 +56,36 @@ describe('knob interaction', () => {
     expect(mock.sliderDragEnded).toHaveBeenCalledTimes(1);
   });
   it('steps 1% per arrow, one step with Shift and 10% per page within one held gesture', () => {
-    mock.value = 10000;
-    render(<Knob id="HIGH_CUT" small/>);
+    mock.value = 0;
+    render(<Knob id="INPUT_GAIN" small/>);
     const input = screen.getByRole('slider');
     fireEvent.keyDown(input, { key: 'ArrowUp' });
-    expect(input.value).toBe('10170');
+    expect(input.value).toBe('0.5');
     fireEvent.keyDown(input, { key: 'ArrowDown', shiftKey: true });
-    expect(input.value).toBe('10160');
+    expect(input.value).toBe('0.4');
     fireEvent.keyDown(input, { key: 'PageDown' });
-    expect(input.value).toBe('8460');
+    expect(input.value).toBe('-4.4');
     fireEvent.keyDown(input, { key: 'End' });
-    expect(input.getAttribute('aria-valuetext')).toBe('Off');
+    expect(input.getAttribute('aria-valuetext')).toBe('+24.0 dB');
     fireEvent.keyUp(input, { key: 'End' });
     expect(mock.sliderDragStarted).toHaveBeenCalledTimes(1);
     expect(mock.sliderDragEnded).toHaveBeenCalledTimes(1);
+  });
+  it('puts the musical centre of wide ranges at mid-travel', () => {
+    mock.value = 8000;
+    render(<Knob id="HIGH_CUT" small/>);
+    expect(dial().style.getPropertyValue('--angle')).toBe('0deg');
+    const input = screen.getByRole('slider');
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    const oneStepDown = Number(input.value);
+    expect(oneStepDown).toBeLessThan(8000);
+    expect(oneStepDown).toBeGreaterThan(7800);
+    fireEvent.keyUp(input, { key: 'ArrowDown' });
+    // The host receives the same skewed normalised value JUCE computes.
+    const skew = Math.log(0.5) / Math.log(5000 / 17000);
+    expect(mock.setNormalisedValue).toHaveBeenLastCalledWith(((oneStepDown - 3000) / 17000) ** skew);
+    fireEvent.keyDown(input, { key: 'End' });
+    expect(input.getAttribute('aria-valuetext')).toBe('Off');
   });
   it('resets on double-click and fills centre-detented arcs from zero', () => {
     mock.value = 6;

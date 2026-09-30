@@ -54,10 +54,13 @@ describe('streamlined amp editor', () => {
   it('compares two tone states without changing the master level', () => {
     render(<App/>);
     const drive = screen.getByRole('slider',{name:'Drive'});
+    const master = screen.getByRole('slider',{name:'Master'});
     fireEvent.click(screen.getByRole('button',{name:'A/B compare'}));
     fireEvent.change(drive,{target:{value:'8'}});
+    fireEvent.change(master,{target:{value:'-30'}});
     fireEvent.click(screen.getByRole('button',{name:'A/B compare'}));
     expect(drive.value).toBe('2');
+    expect(master.value).toBe('-30');
     expect(screen.getByRole('button',{name:'A/B compare'}).textContent).toBe('A/B · B');
     fireEvent.click(screen.getByRole('button',{name:'A/B compare'}));
     expect(drive.value).toBe('8');

@@ -76,24 +76,26 @@ function RigRow({ label, file, empty, note, children }) {
 const kHz = hz => `${(hz / 1000).toFixed(1)} kHz`;
 const resampled = (on, expected, status) => on && expected > 0 && status.sampleRate > 0 ? `${kHz(expected)} capture · resampled to ${kHz(status.sampleRate)}` : '';
 
-function Rig({ clean, native, status, onLoad }) {
+function Rig({ clean, native, status, onLoad, onRemove }) {
   const ampRate = resampled(status.ampResampled, status.ampExpectedRate, status);
   const signed = db => `${db > 0 ? '+' : ''}${db.toFixed(1)} dB`;
   const ampNote = [status.model && status.ampLevelled ? `Level matched ${signed(status.ampLevelDb)}` : '', ampRate].filter(Boolean).join(' · ');
   const pedalRate = resampled(status.pedalResampled, status.pedalExpectedRate, status);
   const load = (type, text) => <button className="text-button" disabled={!native} onClick={() => onLoad(type)}>{text}<span aria-hidden="true"> ↗</span></button>;
+  // Unloading returns the stage to its built-in (or bypassed) state.
+  const remove = (type, file, name) => file && native && <button className="text-button quiet" aria-label={`Remove ${name}`} onClick={() => onRemove(type)}>Remove</button>;
   return <div className="rig-list">
     <RigRow label="AMP" file={status.model} empty={status.fallbackAmp ? 'Built-in high-gain amp' : 'No capture loaded'}
       note={clean ? 'Bypassed · Lumen clean is active' : status.model ? ampNote : status.fallbackAmp && 'Load a capture to replace it'}>
-      {load('amp', status.model ? 'Change amp' : 'Load amp model')}
+      {remove('amp', status.model, 'amp capture')}{load('amp', status.model ? 'Change amp' : 'Load amp model')}
     </RigRow>
     <RigRow label="PEDAL" file={status.pedal} empty="No pedal capture" note={['Before the amp · bypassed on cleans', pedalRate].filter(Boolean).join(' · ')}>
       <Switch id="PEDAL_ON" name="Pedal enabled" disabled={clean || !status.pedal} forcedOff={clean} />
-      {load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
+      {remove('pedal', status.pedal, 'pedal capture')}{load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
     </RigRow>
     <RigRow label="CAB" file={status.ir} empty={status.speakerSim ? 'Built-in 4×12 speaker' : 'Off · optional for full-rig captures'}
       note={clean ? 'Bypassed · clean uses its own speaker rolloff' : !status.ir && status.speakerSim && 'Used while no IR is loaded and the amp has no cabinet'}>
-      {load('cab', status.ir ? 'Change cabinet' : 'Load cabinet IR')}
+      {remove('cab', status.ir, 'cabinet IR')}{load('cab', status.ir ? 'Change cabinet' : 'Load cabinet IR')}
     </RigRow>
   </div>;
 }

@@ -92,6 +92,16 @@ describe('editor connected to the audio engine', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
     expect(await screen.findByText('Level matched +19.8 dB')).toBeTruthy();
   });
+  it('removes a loaded capture, pedal or cabinet', async () => {
+    engine.status = { ...engine.status, pedal: 'Drive.nam', ir: 'Cab.wav' };
+    render(<App/>);
+    fireEvent.click(screen.getByRole('button', { name: /RIG & TONE/ }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
+    for (const [name, stage] of [['Remove amp capture', 'amp'], ['Remove pedal capture', 'pedal'], ['Remove cabinet IR', 'cab']]) {
+      fireEvent.click(await screen.findByRole('button', { name }));
+      await waitFor(() => expect(engine.calls).toContainEqual(['clearStage', stage]));
+    }
+  });
   it('flags recent processing overruns in the footer', async () => {
     render(<App/>);
     await screen.findByText(/256 samples/);
