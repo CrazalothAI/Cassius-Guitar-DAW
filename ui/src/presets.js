@@ -2,7 +2,7 @@ import { byId } from './parameters.js';
 import { setParameter } from './parameterState.js';
 // Keep input calibration, master level and loaded files when choosing a starting point.
 export const presets = {
-  'Thall chug': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 60, GATE_THRESH: -46, DRIVE_GAIN: 8, TIGHT: 90, AMP_BASS: -1, AMP_MID: 2, AMP_TREBLE: 0, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 6800, CLEAN_COMP: 35, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 2, REVERB_SIZE: 30, DYN_RES_ON: 1, DYN_RES_AMOUNT: 75, CHUG_ATTACK: 65, THICKEN_ON: 1, THICKEN_MIX: 35, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.35},
+  'Low-Tuned chug': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 60, GATE_THRESH: -46, DRIVE_GAIN: 8, TIGHT: 90, AMP_BASS: -1, AMP_MID: 2, AMP_TREBLE: 0, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 6800, CLEAN_COMP: 35, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 2, REVERB_SIZE: 30, DYN_RES_ON: 1, DYN_RES_AMOUNT: 75, CHUG_ATTACK: 65, THICKEN_ON: 1, THICKEN_MIX: 35, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.35},
   'Playing God nylon': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 220, GATE_THRESH: -70, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 2, AMP_MID: 0, AMP_TREBLE: 3, AMP_OUT: 0, PRESENCE: 2, HIGH_CUT: 18000, CLEAN_COMP: 45, DELAY_TIME: 380, DELAY_MIX: 15, DELAY_WIDTH: 50, REVERB_MIX: 25, REVERB_SIZE: 70, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 1, PIEZO_BLEND: 65, MICRO_DELAY: 0},
   'Drop-Z djent': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 50, GATE_THRESH: -44, DRIVE_GAIN: 8, TIGHT: 110, AMP_BASS: -3, AMP_MID: 2.5, AMP_TREBLE: -1, AMP_OUT: 0, PRESENCE: 1.5, HIGH_CUT: 6200, CLEAN_COMP: 35, DELAY_TIME: 280, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 0, REVERB_SIZE: 25, DYN_RES_ON: 1, DYN_RES_AMOUNT: 85, CHUG_ATTACK: 80, THICKEN_ON: 1, THICKEN_MIX: 45, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.5},
   '80s rock': {AMP_CLEAN: 0, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 180, GATE_THRESH: -57, DRIVE_GAIN: 4, TIGHT: 50, AMP_BASS: 0, AMP_MID: 2, AMP_TREBLE: 0, AMP_OUT: -3, PRESENCE: 1, HIGH_CUT: 8500, CLEAN_COMP: 35, DELAY_TIME: 300, DELAY_MIX: 10, DELAY_WIDTH: 25, REVERB_MIX: 10, REVERB_SIZE: 45, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
@@ -14,7 +14,7 @@ export const presets = {
   'Ambient clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 320, GATE_THRESH: -78, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 0, AMP_MID: -1, AMP_TREBLE: 1, AMP_OUT: 0, PRESENCE: .5, HIGH_CUT: 14000, CLEAN_COMP: 50, DELAY_TIME: 480, DELAY_MIX: 28, DELAY_WIDTH: 80, REVERB_MIX: 38, REVERB_SIZE: 85, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0},
   'Neoclassical lead': {AMP_CLEAN: 0, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 180, GATE_THRESH: -54, DRIVE_GAIN: 8, TIGHT: 72, AMP_BASS: -2, AMP_MID: 3.5, AMP_TREBLE: 1, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 8200, CLEAN_COMP: 25, DELAY_TIME: 300, DELAY_MIX: 7, DELAY_WIDTH: 22, REVERB_MIX: 7, REVERB_SIZE: 36, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 20, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.18},
   'Progressive clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 280, GATE_THRESH: -74, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 1, AMP_MID: 0, AMP_TREBLE: 2.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 17000, CLEAN_COMP: 42, DELAY_TIME: 410, DELAY_MIX: 17, DELAY_WIDTH: 62, REVERB_MIX: 24, REVERB_SIZE: 68, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 1, PIEZO_BLEND: 35, MICRO_DELAY: 0.22},
-  'Wide thall': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 70, GATE_THRESH: -45, DRIVE_GAIN: 8, TIGHT: 100, AMP_BASS: -2, AMP_MID: 2, AMP_TREBLE: -0.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 7000, CLEAN_COMP: 30, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 3, REVERB_SIZE: 28, DYN_RES_ON: 1, DYN_RES_AMOUNT: 80, CHUG_ATTACK: 72, THICKEN_ON: 1, THICKEN_MIX: 30, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.62},
+  'Wide low-tuned': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 70, GATE_THRESH: -45, DRIVE_GAIN: 8, TIGHT: 100, AMP_BASS: -2, AMP_MID: 2, AMP_TREBLE: -0.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 7000, CLEAN_COMP: 30, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 3, REVERB_SIZE: 28, DYN_RES_ON: 1, DYN_RES_AMOUNT: 80, CHUG_ATTACK: 72, THICKEN_ON: 1, THICKEN_MIX: 30, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.62},
 };
 export const notes = {
   'Glass clean': 'Clear attack. Room for every note.',
@@ -25,11 +25,11 @@ export const notes = {
   'Singing lead': 'Sustain and definition for expressive runs.',
   'Modern metalcore': 'Controlled lows. Fast, deliberate stops.',
   'Tight metal': 'Pedal-pushed rhythm with a firm low cut.',
-  'Thall chug': 'Heavy low-end articulation, dynamic resonance cut & chug attack.',
+  'Low-Tuned chug': 'Heavy low-end articulation, dynamic resonance cut & chug attack.',
   'Drop-Z djent': 'Deeper resonance cut, sub layer and micro-delay width for extended range.',
   'Neoclassical lead': 'Pushed mids and a firm low end with short repeats for fast runs.',
   'Progressive clean': 'Bright clean with piezo sparkle and wide repeats for arpeggios.',
-  'Wide thall': 'Pedal-pushed chug with resonance cut, sub layer and wider micro-delay.',
+  'Wide low-tuned': 'Pedal-pushed chug with resonance cut, sub layer and wider micro-delay.',
 };
 // Main-panel tone families. Each button applies its first preset; the others belong to the same family.
 export const voices = [
@@ -39,7 +39,7 @@ export const voices = [
   {label: 'Rock', presets: ['80s rock']},
   {label: 'Lead', presets: ['Singing lead', 'Neoclassical lead']},
   {label: 'Metal', presets: ['Modern metalcore', 'Tight metal']},
-  {label: 'Thall', presets: ['Thall chug', 'Drop-Z djent', 'Wide thall']},
+  {label: 'Low-Tuned', presets: ['Low-Tuned chug', 'Drop-Z djent', 'Wide low-tuned']},
 ];
 export const familyOf = name => voices.find(v => v.presets.includes(name))?.label ?? null;
 export const presetParameterIds = Object.keys(Object.values(presets)[0]);

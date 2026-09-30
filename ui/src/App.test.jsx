@@ -79,7 +79,7 @@ describe('streamlined amp editor', () => {
   it('highlights the family of presets chosen from the menu', () => {
     render(<App/>);
     fireEvent.change(screen.getByRole('combobox'),{target:{value:'Drop-Z djent'}});
-    expect(screen.getByRole('button',{name:'Thall',exact:true}).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button',{name:'Low-Tuned',exact:true}).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button',{name:'Metal',exact:true}).getAttribute('aria-pressed')).toBe('false');
   });
   it('moves between drawer pages with the arrow keys', () => {
@@ -88,8 +88,8 @@ describe('streamlined amp editor', () => {
     const shape=screen.getByRole('tab',{name:'Shape'});
     fireEvent.click(shape);
     fireEvent.keyDown(shape,{key:'ArrowRight'});
-    expect(screen.getByRole('tab',{name:'Thall'}).getAttribute('aria-selected')).toBe('true');
-    expect(document.activeElement).toBe(screen.getByRole('tab',{name:'Thall'}));
+    expect(screen.getByRole('tab',{name:'Low-Tuned'}).getAttribute('aria-selected')).toBe('true');
+    expect(document.activeElement).toBe(screen.getByRole('tab',{name:'Low-Tuned'}));
     fireEvent.keyDown(document.activeElement,{key:'End'});
     expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe('tab-Rig');
     fireEvent.keyDown(document.activeElement,{key:'ArrowRight'});

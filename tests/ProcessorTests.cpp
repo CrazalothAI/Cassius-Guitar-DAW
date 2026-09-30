@@ -271,7 +271,7 @@ int main(int argc, char** argv)
         check(PitchTracker::midiNoteToName(tracker.getDetectedMidiNote()) == "E2", "Tuner must name E2");
         check(std::abs(tracker.getDetectedCents()) < 6.0f, "Tuner cents detune must be close to zero");
 
-        // Test Thall Dynamic Resonance Filter:
+        // Test Low-Tuned Dynamic Resonance Filter:
         const auto resOff = measure(280, 0.4f, {{"DYN_RES_ON", 0}}).rms;
         const auto resOn = measure(280, 0.4f, {{"DYN_RES_ON", 1}, {"DYN_RES_AMOUNT", 100}}).rms;
         check(resOn < resOff * 0.85, "Dynamic resonance must carve 280 Hz chugs under heavy energy");

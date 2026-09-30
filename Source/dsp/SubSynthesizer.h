@@ -3,7 +3,7 @@
 #include <cmath>
 #include <algorithm>
 
-// Thall Production DSP: "Thicken" Sub-Octave Parallel Synthesizer.
+// Low-Tuned Production DSP: "Thicken" Sub-Octave Parallel Synthesizer.
 // Synthesizes a clean sub-octave sine wave (F0 / 2) dynamically keyed to the guitar's
 // envelope, filtered below 85 Hz to provide immense low-end weight for Drop E/Z tunings.
 class SubSynthesizer

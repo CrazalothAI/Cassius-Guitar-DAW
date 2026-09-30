@@ -21,7 +21,7 @@ export const parameters = [
   ['REVERB_SIZE', 'Room', 0, 100, 60, '%', 1],
   ['GATE_ON', 'Gate enabled', 0, 1, 1, '', 1],
   ['GATE_RELEASE', 'Release', 40, 500, 140, 'ms', 1],
-  ['PEDAL_ON', 'Pedal enabled', 0, 1, 0, '', 1],
+  ['PEDAL_ON', 'Drive pedal', 0, 1, 0, '', 1],
   ['DYN_RES_ON', 'Dynamic resonance', 0, 1, 0, '', 1],
   ['DYN_RES_AMOUNT', 'Chug cut', 0, 100, 50, '%', 1],
   ['CHUG_ATTACK', 'Pick attack', 0, 100, 0, '%', 1],

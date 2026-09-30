@@ -3,7 +3,7 @@
 #include <cmath>
 #include <algorithm>
 
-// Thall Production DSP: Dynamic 200-400 Hz Resonance Suppression Notch.
+// Low-Tuned Production DSP: Dynamic 200-400 Hz Resonance Suppression Notch.
 // Carves heavy low-mid flub dynamically during palm-muted chugs while
 // relaxing completely (0 dB cut) on single-note leads and sustained chords.
 class DynamicResonanceFilter

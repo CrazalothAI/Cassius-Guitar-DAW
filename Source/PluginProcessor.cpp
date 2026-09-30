@@ -163,12 +163,12 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     }
     gateLevel.store(gateEnvelope[static_cast<size_t>(buffer.getNumSamples() - 1)]);
 
-    // 4. Thall Dynamic 200-400 Hz Resonance Suppression Notch
+    // 4. Low-Tuned Dynamic 200-400 Hz Resonance Suppression Notch
     dynamicResonance.configure(value(Params::dynResOn) >= 0.5f, value(Params::dynResAmount));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
         mono[i] = dynamicResonance.processSample(mono[i]);
 
-    // 5. Thall "Thicken" Sub-Octave Parallel Synthesizer
+    // 5. Low-Tuned "Thicken" Sub-Octave Parallel Synthesizer
     subSynth.configure(value(Params::thickenOn) >= 0.5f, value(Params::thickenMix));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
         subSynthAudio[static_cast<size_t>(i)] = subSynth.processSample(mono[i], trackedPitch);
@@ -231,21 +231,21 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     else
     {
         pedalBlend.skip(buffer.getNumSamples());
-        // Keep the metal path useful when a Fortin/TS NAM is not loaded yet.
-        // This is a smooth, Tube-Screamer-style tightening stage: trim the
-        // sub-bass, push the mids into a soft diode curve, and retain a little
-        // dry signal so palm mutes do not become hollow. A loaded pedal NAM
-        // takes over the same slot above.
+        // Keep the metal path useful when a drive-pedal NAM is not loaded yet.
+        // This is a smooth, asymmetric drive: trim sub-bass, push
+        // the mids into an uneven diode curve, and retain a little dry signal
+        // so palm mutes stay full. A loaded pedal NAM takes over this slot.
         const float lowCoeff = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * 120.0f / static_cast<float>(rate));
         for (int i = 0; i < buffer.getNumSamples(); ++i)
         {
             pedalLow += lowCoeff * (mono[i] - pedalLow);
             const float highPassed = mono[i] - pedalLow;
-            const float diode = std::tanh(highPassed * 4.2f);
-            // Keep the boost musical when it feeds a high-gain NAM. The
-            // diode curve supplies the bite; the dry portion prevents the
-            // combined pedal + capture gain from hard-clipping pick attacks.
-            const float tightened = 0.48f * mono[i] + 0.58f * diode;
+            const float diode = highPassed >= 0.0f
+                ? std::tanh(highPassed * 4.8f)
+                : std::tanh(highPassed * 3.6f);
+            // The dry portion keeps pick attacks musical while the asymmetric
+            // curve supplies the focused bite expected from a drive pedal.
+            const float tightened = 0.46f * mono[i] + 0.60f * diode;
             mono[i] += pedalFallbackBlend.getNextValue() * (tightened - mono[i]);
         }
     }
@@ -423,7 +423,7 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("overruns", processLoad.getXRunCount());
     result->setProperty("inputClipped", inputClipped.load());
 
-    // Tuner & Real-time Thall DSP telemetry
+    // Tuner & Real-time Low-Tuned DSP telemetry
     result->setProperty("tunerActive", pitchTracker.isNoteActive());
     result->setProperty("tunerNote", PitchTracker::midiNoteToName(pitchTracker.getDetectedMidiNote()));
     result->setProperty("tunerCents", pitchTracker.getDetectedCents());

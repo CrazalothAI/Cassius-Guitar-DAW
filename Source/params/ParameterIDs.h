@@ -25,7 +25,7 @@ inline constexpr std::array definitions {
     Definition { "REVERB_SIZE", "Reverb size", 0, 100, 60, "%" },
     Definition { "GATE_ON", "Noise gate enabled", 0, 1, 1, "" },
     Definition { "GATE_RELEASE", "Gate release", 40, 500, 140, "ms" },
-    Definition { "PEDAL_ON", "Pedal enabled", 0, 1, 0, "" },
+    Definition { "PEDAL_ON", "Drive pedal", 0, 1, 0, "" },
     Definition { "DYN_RES_ON", "Dynamic resonance", 0, 1, 0, "" },
     Definition { "DYN_RES_AMOUNT", "Chug cut", 0, 100, 50, "%" },
     Definition { "CHUG_ATTACK", "Chug attack", 0, 100, 0, "%" },

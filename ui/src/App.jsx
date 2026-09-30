@@ -127,6 +127,7 @@ export default function App() {
     : clean ? 'Clean ready' : status.model ? 'Rig ready' : message;
   const showLoad = expanded || status.overrunRecent || status.cpu >= 80;
   const gateText = !gateEnabled ? 'Gate off' : !native ? 'Gate on' : status.gate > .1 ? 'Gate open' : 'Gate closed';
+  const signalState = status.output > .25 ? 'hot' : status.output > .003 ? 'active' : 'idle';
 
   return <div className={`app-shell ${clean ? 'clean' : 'metal'}`}>
     <header>
@@ -153,7 +154,7 @@ export default function App() {
           ? <><strong>{current}</strong>{edited && <em>Edited</em>}<span>{notes[current]}</span></>
           : 'Choose a starting point. Make it yours.'}</p>
       </section>
-      <section className="amp-stage" aria-label="Amplifier">
+      <section className={`amp-stage signal-${signalState}`} aria-label="Amplifier">
         <div className="amp-handle" />
         <div className="amp-head premium-head">
           <img className="amp-head-art" src={ampHeadArt} alt="" aria-hidden="true" />

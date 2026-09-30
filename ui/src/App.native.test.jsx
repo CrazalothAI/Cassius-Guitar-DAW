@@ -64,7 +64,7 @@ describe('editor connected to the audio engine', () => {
     expect(cab.disabled).toBe(false);
     fireEvent.click(cab);
     await waitFor(() => expect(engine.calls).toContainEqual(['loadIR']));
-    expect(screen.getByRole('button', { name: 'Pedal enabled' }).disabled).toBe(true);
+    expect(screen.getByRole('button', { name: 'Drive pedal' }).disabled).toBe(true);
   });
   it('flags recent processing overruns in the footer', async () => {
     render(<App/>);

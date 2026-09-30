@@ -3,7 +3,7 @@ import Knob from './Knob.jsx';
 import Switch from './Switch.jsx';
 import { useToggle } from '../parameterState.js';
 
-export const pages = ['Shape', 'Thall', 'Piezo', 'Space', 'Rig'];
+export const pages = ['Shape', 'Low-Tuned', 'Piezo', 'Space', 'Rig'];
 
 // Knobs a switch bypasses stay adjustable but dim, so the stage can be set up before it is enabled.
 function Group({ title, toggle, status, children }) {
@@ -28,7 +28,7 @@ function Shape({ clean, native, status }) {
   </>;
 }
 
-function Thall({ status }) {
+function LowTuned({ status }) {
   const resonance = useToggle('DYN_RES_ON'), thicken = useToggle('THICKEN_ON');
   return <>
     <div className="control-groups">
@@ -84,9 +84,9 @@ function Rig({ clean, native, status, onLoad }) {
     <RigRow label="AMP" file={status.model} empty="No capture loaded" note={clean ? 'Bypassed · Lumen clean is active' : ampRate}>
       {load('amp', status.model ? 'Change amp' : 'Load amp model')}
     </RigRow>
-    <RigRow label="PEDAL" file={status.pedal} empty={status.pedalFallback ? 'Built-in TS drive' : 'No pedal capture'} note={['Before the amp · bypassed on cleans', pedalRate].filter(Boolean).join(' · ')}>
-      <Switch id="PEDAL_ON" name="Pedal enabled" disabled={clean} forcedOff={clean} />
-      {load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
+    <RigRow label="PEDAL" file={status.pedal} empty={status.pedalFallback ? 'Built-in asymmetric drive' : 'No pedal capture'} note={['Before the amp · bypassed on cleans', pedalRate].filter(Boolean).join(' · ')}>
+      <Switch id="PEDAL_ON" name="Drive pedal" disabled={clean} forcedOff={clean} />
+      {load('pedal', status.pedal ? 'Change drive pedal' : 'Load drive pedal')}
     </RigRow>
     <RigRow label="CAB" file={status.ir} empty="Off · optional for full-rig captures" note={clean && 'Bypassed · clean uses its own speaker rolloff'}>
       {load('cab', status.ir ? 'Change cabinet' : 'Load cabinet IR')}
@@ -94,7 +94,7 @@ function Rig({ clean, native, status, onLoad }) {
   </div>;
 }
 
-const views = { Shape, Thall, Piezo, Space, Rig };
+const views = { Shape, 'Low-Tuned': LowTuned, Piezo, Space, Rig };
 
 export default function Drawer({ page, onPage, ...props }) {
   const tabs = useRef([]);
