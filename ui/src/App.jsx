@@ -133,7 +133,7 @@ export default function App() {
     <header>
       <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><h1>CASSIAN</h1></div>
       <div className="header-tools">
-        <button className="compare-toggle" aria-label="A/B compare" onClick={toggleCompare}>{compare ? `A/B · ${compareSide}` : 'A/B'}</button>
+        <button className="compare-toggle" aria-label="A/B compare" aria-pressed={Boolean(compare)} onClick={toggleCompare}>{compare ? `A/B · ${compareSide}` : 'A/B'}</button>
         <button className="tuner-toggle" aria-pressed={tunerOpen} onClick={() => setTunerOpen(!tunerOpen)}>{tunerOpen ? 'TUNER ON' : 'TUNER'}</button>
         <label className="preset">
           <select aria-label="Tone starting point" value="" onChange={e => chooseTone(e.target.value)}>
@@ -191,7 +191,7 @@ export default function App() {
       </section>
     </main>
     <footer>
-      <span role="status">{footerMessage}</span>
+      <span role="status" aria-live="polite" aria-atomic="true">{footerMessage}</span>
       <span>{status.sampleRate ? <>{(status.sampleRate / 1000).toFixed(1)} kHz · {status.bufferSize || '—'} samples
         {showLoad && <span className={status.overrunRecent || status.cpu >= 80 ? 'warn' : ''}> · DSP {Math.round(status.cpu || 0)}% · {status.overruns || 0} overruns</span>}</>
         : 'NO AUDIO IN PREVIEW'}</span>

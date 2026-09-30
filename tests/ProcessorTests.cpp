@@ -101,7 +101,7 @@ int main(int argc, char** argv)
         check(fallbackLoud / fallbackQuiet < 8.0, "Metal fallback must compress and distort instead of remaining linear");
         const auto noPedal = measure(440, .10f, {{"AMP_CLEAN", 0}, {"PEDAL_ON", 0}, {"DRIVE_GAIN", 0}}).rms;
         const auto builtInPedal = measure(440, .10f, {{"AMP_CLEAN", 0}, {"PEDAL_ON", 1}, {"DRIVE_GAIN", 0}}).rms;
-        check(builtInPedal > noPedal * 1.15, "Metal pedal switch must provide a built-in TS push without a capture");
+        check(builtInPedal > noPedal * 1.15, "Metal pedal switch must provide a built-in asymmetric drive without a capture");
         // A loaded NAM must not colour the clean channel. Compare the same
         // waveform through two complete processors, only one with a capture.
         check(argc > 1, "Pass a NAM fixture for the clean-channel regression");

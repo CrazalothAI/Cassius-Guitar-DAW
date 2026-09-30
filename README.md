@@ -102,7 +102,7 @@ JUCE is available under AGPLv3 or a commercial JUCE licence. NAM Core is MIT lic
 
 ### Sound and interface update — 2026-09-28
 
-The amp-head editor has ten primary knobs, Metal/Clean channel buttons, a Cassian wolf badge on the chrome faceplate, instant A/B compare, one-click AudioBox Auto Trim, and a collapsible Shape & Effects panel. Starting points cover tight rhythm, singing lead, neoclassical lead, progressive clean, wide low-tuned, glass clean, warm clean, and ambient clean. The independent clean channel was verified against a processor with a loaded WaveNet capture: identical clean output, with finite nonzero audio and state recall. Signal-based regressions verify bass attenuation with retained midrange attack, high-cut attenuation, compression dynamic-range reduction, and distinct stereo delay repeats. All four native CTest checks and eight UI tests pass. Standalone and VST3 Release builds succeed; the native Glass clean starting point was exercised and its parameter values verified, with Master unchanged at -12 dB.
+The amp-head editor has ten primary knobs, Metal/Clean channel buttons, a Cassian wolf badge on the chrome faceplate, instant A/B compare, one-click AudioBox Auto Trim, and a collapsible Shape & Effects panel. Starting points cover tight rhythm, singing lead, neoclassical lead, progressive clean, wide low-tuned, glass clean, warm clean, and ambient clean. The independent clean channel was verified against a processor with a loaded WaveNet capture: identical clean output, with finite nonzero audio and state recall. Signal-based regressions verify bass attenuation with retained midrange attack, high-cut attenuation, compression dynamic-range reduction, and distinct stereo delay repeats. All four native CTest checks and 26 UI tests pass. Standalone and VST3 Release builds succeed; the native Glass clean starting point was exercised and its parameter values verified, with Master unchanged at -12 dB.
 
 Backing tracks continue to play in your existing player or DAW; this build does not include a backing-track player or tempo sync. Use Singing lead as a starting point and adjust delay time/mix to suit the track. Clean presets use a softer gate threshold for sustained notes.
 
@@ -115,7 +115,7 @@ The gate now detects the dry input and controls both pre-amp and post-amp gain, 
 
 The footer reports audio block size, DSP load and processing overruns. An input-clipping banner helps identify excessive interface gain. The user's AudioBox buffer was changed from 128 to 256 and then 512 samples at 48 kHz after observing repeated DSP overruns with two NAM captures. This trades additional latency for scheduling headroom; listening feedback is still required. The previous settings are backed up in `build/Cassian.settings.before-noise-fix`.
 
-All four native checks and seven UI tests pass. The supplied EVH Red I + Fortin TS9 1 + Mesa Oversized SM57/VR2 chain also passed the complete processor test: finite bounded output, played notes, exact idle suppression with the gate closed, and clean-channel isolation from the loaded rig. Synthetic full-rig output peak was 0.158192 at the test settings. This does not prove the hardware crackling is resolved.
+All four native checks and 26 UI tests pass. The supplied EVH Red I + Fortin TS9 1 + Mesa Oversized SM57/VR2 chain also passed the complete processor test: finite bounded output, played notes, exact idle suppression with the gate closed, and clean-channel isolation from the loaded rig. Synthetic full-rig output peak was 0.158192 at the test settings. This does not prove the hardware crackling is resolved.
 
 Standalone launch supports explicit `--amp "absolute path.nam" --cab "absolute path.wav" --pedal "absolute path.nam"` for loading a complete rig. Ordinary launches recall saved state. The amp flag must refer to an existing file to apply the import and conservative starting settings. Input gain and master remain unchanged.
 
@@ -128,7 +128,7 @@ The main amp now has six controls: Drive, Bass, Middle, Treble, Space (reverb mi
 
 With the supplied EVH Ivory pack active, Rock selects Blue I; Lead and Metal select Red I from the same folder. Other captures remain in place when the expected EVH sibling is unavailable. Clean and Ambient use Lumen independently of the loaded captures. Modern metalcore enables the loaded pedal; 80s rock and Singing lead bypass it. These are starting points, not emulations of a particular artist's commercial plugin. Choosing tones preserves input calibration and master level.
 
-Seven UI tests and all four native checks pass. Native Rock selection was verified to load APP-5153-Ivory-Blue-I.nam and update its tone controls with Master unchanged.
+26 UI tests and all four native checks pass. Native Rock selection was verified to load APP-5153-Ivory-Blue-I.nam and update its tone controls with Master unchanged. The Low-Tuned family name avoids artist or product trademarks while retaining the same low-register presets.
 
 ### Interface polish
 
