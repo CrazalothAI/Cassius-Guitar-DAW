@@ -82,6 +82,12 @@ export default function App() {
   const [notice, setNotice] = useState(null);
   const drawer = useRef(null);
   useEffect(() => { if (expanded) drawer.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' }); }, [expanded, page]);
+  // The engine's pitch analysis runs only while the tuner is on screen.
+  useEffect(() => {
+    if (!native) return;
+    invoke('setTuner', tunerOpen).catch(() => {});
+    return () => { invoke('setTuner', false).catch(() => {}); };
+  }, [tunerOpen]);
   useEffect(() => { if (!notice) return; const t = setTimeout(() => setNotice(null), 8000); return () => clearTimeout(t); }, [notice]);
   const dismiss = key => key === 'notice' ? setNotice(null) : setDismissed(status.message);
 
@@ -120,7 +126,8 @@ export default function App() {
   const matched = matchPreset(values), current = matched ?? (chosen || null), edited = !matched && Boolean(chosen);
   const family = current && familyOf(current);
   const ampName = clean ? 'Lumen · built-in clean'
-    : status.model ? status.model.replace('APP-5153-Ivory-', 'EVH 5150III · ').replace(/\.nam$/i, '').replace(/-/g, ' ') : 'Load your amp capture';
+    : status.model ? status.model.replace('APP-5153-Ivory-', 'EVH 5150III · ').replace(/\.nam$/i, '').replace(/-/g, ' ')
+    : status.fallbackAmp ? 'Ferrum · built-in high gain' : 'Load your amp capture';
   const { message } = status;
   const busy = /^(Loading|Restoring)/.test(message);
   const footerMessage = !native || busy || message.startsWith('Load failed:') ? message

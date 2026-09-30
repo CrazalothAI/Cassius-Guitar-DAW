@@ -66,6 +66,32 @@ describe('editor connected to the audio engine', () => {
     await waitFor(() => expect(engine.calls).toContainEqual(['loadIR']));
     expect(screen.getByRole('button', { name: 'Drive pedal' }).disabled).toBe(true);
   });
+  it('runs the engine pitch analysis only while the tuner is open', async () => {
+    render(<App/>);
+    await waitFor(() => expect(engine.calls).toContainEqual(['setTuner', false]));
+    fireEvent.click(screen.getByRole('button', { name: 'TUNER' }));
+    await waitFor(() => expect(engine.calls.at(-1)).toEqual(['setTuner', true]));
+    fireEvent.click(screen.getByRole('button', { name: 'TUNER ON' }));
+    await waitFor(() => expect(engine.calls.at(-1)).toEqual(['setTuner', false]));
+  });
+  it('describes the built-in amp and speaker when no capture or IR is loaded', async () => {
+    engine.status = { ...engine.status, model: '', fallbackAmp: true, speakerSim: true };
+    render(<App/>);
+    fireEvent.click(screen.getByRole('button', { name: 'Metal', exact: true }));
+    expect(await screen.findByText('Ferrum · built-in high gain')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /RIG & TONE/ }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
+    expect(screen.getByText('Built-in high-gain amp')).toBeTruthy();
+    expect(screen.getByText('Built-in 4×12 speaker')).toBeTruthy();
+  });
+  it('shows how much a capture was level matched', async () => {
+    engine.status = { ...engine.status, ampLevelled: true, ampLevelDb: 19.84, speakerSim: false };
+    render(<App/>);
+    fireEvent.click(screen.getByRole('button', { name: 'Metal', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: /RIG & TONE/ }));
+    fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
+    expect(await screen.findByText('Level matched +19.8 dB')).toBeTruthy();
+  });
   it('flags recent processing overruns in the footer', async () => {
     render(<App/>);
     await screen.findByText(/256 samples/);

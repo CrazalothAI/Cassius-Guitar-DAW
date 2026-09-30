@@ -4,6 +4,7 @@ class AmpSuiteAudioProcessorEditor final : public juce::AudioProcessorEditor
 {
 public:
     explicit AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcessor&);
+    ~AmpSuiteAudioProcessorEditor() override;
     void resized() override;
 private:
     void chooseFile(int);
