@@ -23,7 +23,7 @@ describe('streamlined amp editor', () => {
     expect(screen.getByRole('button',{name:'Clean',exact:true}).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('slider',{name:'Space'}).value).toBe('20');
     fireEvent.click(screen.getByRole('button',{name:'Metal',exact:true}));
-    expect(screen.getByRole('slider',{name:'Drive'}).value).toBe('0');
+    expect(screen.getByRole('slider',{name:'Drive'}).value).toBe('8');
     expect(master.value).toBe('-18');
     fireEvent.click(screen.getByRole('button',{name:/RIG & TONE/}));
     expect(screen.getByRole('slider',{name:'Threshold'}).value).toBe('-48');
@@ -69,7 +69,7 @@ describe('streamlined amp editor', () => {
     const note=()=>document.querySelector('.voice-note').textContent;
     expect(note()).toContain('Singing lead');
     expect(note()).not.toContain('Edited');
-    fireEvent.change(screen.getByRole('slider',{name:'Drive'}),{target:{value:'6'}});
+    fireEvent.change(screen.getByRole('slider',{name:'Drive'}),{target:{value:'7'}});
     expect(note()).toContain('Singing lead');
     expect(note()).toContain('Edited');
     expect(lead.getAttribute('aria-pressed')).toBe('true');

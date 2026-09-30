@@ -47,7 +47,11 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     pedalAudio.resize(static_cast<size_t>(maxBlock));
     subSynthAudio.resize(static_cast<size_t>(maxBlock));
     pedalBlend.reset(rate, 0.02); pedalBlend.setCurrentAndTargetValue(value(Params::pedalOn) >= .5f ? 1.0f : 0.0f);
+    pedalFallbackBlend.reset(rate, 0.02); pedalFallbackBlend.setCurrentAndTargetValue(value(Params::pedalOn) >= .5f ? 1.0f : 0.0f);
     cleanLow = cleanHigh = metalLow = metalLow2 = 0;
+    pedalLow = 0.0f;
+    inputDcX1 = inputDcY1 = 0.0f;
+    inputDcR = std::exp(-juce::MathConstants<float>::twoPi * 12.0f / static_cast<float>(rate));
     highCutState = {};
     cleanCompressor.prepare({rate, static_cast<juce::uint32>(maxBlock), 1}); cleanCompressor.reset();
     cleanCompressor.setThreshold(-20); cleanCompressor.setRatio(2.5f);
@@ -127,6 +131,18 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     inputGain.setGainDecibels(value(Params::input)); inputGain.process(context);
     auto* mono = buffer.getWritePointer(0);
 
+    // Audio interfaces can leave a small DC/subsonic component on the input.
+    // Strip it before detection and distortion so it cannot repeatedly open
+    // the gate or bias the NAM/tube stages into an unstable region.
+    for (int i = 0; i < buffer.getNumSamples(); ++i)
+    {
+        const float x = mono[i];
+        const float y = x - inputDcX1 + inputDcR * inputDcY1;
+        inputDcX1 = x;
+        inputDcY1 = y;
+        mono[i] = y;
+    }
+
     // 1. Real-time Pitch Tracking & Tuner
     for (int i = 0; i < buffer.getNumSamples(); ++i)
         pitchTracker.processSample(mono[i]);
@@ -191,7 +207,10 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         {
             const float fallbackDrive = value(Params::clean) >= 0.5f
                 ? 1.0f
-                : 1.7f + 0.24f * (gain - 1.0f);
+                // A guitar pickup arrives much quieter than a captured amp's
+                // calibrated test signal. Give the standalone fallback a
+                // convincing power-stage push at its 0 dB starting point.
+                : 2.8f + 0.36f * (gain - 1.0f);
             const float shaped = std::tanh(mono[i] * fallbackDrive);
             const float secondStage = std::tanh(shaped * 2.4f);
             const float blended = 0.84f * shaped + 0.16f * secondStage;
@@ -199,7 +218,9 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         }
     }
     prePedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
-    pedalBlend.setTargetValue(value(Params::pedalOn) >= .5f && value(Params::clean) < .5f ? 1.0f : 0.0f);
+    const bool pedalRequested = value(Params::pedalOn) >= .5f && value(Params::clean) < .5f;
+    pedalBlend.setTargetValue(pedalRequested && pedal ? 1.0f : 0.0f);
+    pedalFallbackBlend.setTargetValue(pedalRequested && !pedal ? 1.0f : 0.0f);
     if (pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
     {
         std::copy_n(mono, buffer.getNumSamples(), pedalAudio.data());
@@ -207,7 +228,27 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         for (int i = 0; i < buffer.getNumSamples(); ++i)
             mono[i] += pedalBlend.getNextValue() * (pedalAudio[static_cast<size_t>(i)] - mono[i]);
     }
-    else pedalBlend.skip(buffer.getNumSamples());
+    else
+    {
+        pedalBlend.skip(buffer.getNumSamples());
+        // Keep the metal path useful when a Fortin/TS NAM is not loaded yet.
+        // This is a smooth, Tube-Screamer-style tightening stage: trim the
+        // sub-bass, push the mids into a soft diode curve, and retain a little
+        // dry signal so palm mutes do not become hollow. A loaded pedal NAM
+        // takes over the same slot above.
+        const float lowCoeff = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * 120.0f / static_cast<float>(rate));
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+        {
+            pedalLow += lowCoeff * (mono[i] - pedalLow);
+            const float highPassed = mono[i] - pedalLow;
+            const float diode = std::tanh(highPassed * 4.2f);
+            // Keep the boost musical when it feeds a high-gain NAM. The
+            // diode curve supplies the bite; the dry portion prevents the
+            // combined pedal + capture gain from hard-clipping pick attacks.
+            const float tightened = 0.48f * mono[i] + 0.58f * diode;
+            mono[i] += pedalFallbackBlend.getNextValue() * (tightened - mono[i]);
+        }
+    }
     postPedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     if (model) model->process(mono, buffer.getNumSamples());
     postAmpPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
@@ -247,7 +288,12 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
             memory[0] += coefficient * (sample - memory[0]);
             memory[1] += coefficient * (memory[0] - memory[1]);
             sample += amount * (memory[1] - sample);
-            sample *= gateEnvelope[static_cast<size_t>(i)];
+            // The input was already gated before the nonlinear stages. A
+            // second full-depth multiplication here made every pick attack
+            // amplitude-modulate the NAM output, which was heard as crackle.
+            // Keep the post-amp noise suppression, but use a softer curve so
+            // the gate cannot chop the attack into clicks.
+            sample *= std::sqrt(gateEnvelope[static_cast<size_t>(i)]);
         }
     }
     delayTime.setTargetValue(value(Params::delayTime) * static_cast<float>(rate) / 1000);
@@ -370,6 +416,7 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("postPedal", postPedalPeak.load());
     result->setProperty("postAmp", postAmpPeak.load());
     result->setProperty("postCab", postCabPeak.load());
+    result->setProperty("pedalFallback", juce::File(pedalPath).getFullPathName().isEmpty());
     result->setProperty("swapBypasses", swapBypasses.load());
     result->setProperty("gate", gateLevel.load());
     result->setProperty("cpu", processLoad.getLoadAsPercentage());

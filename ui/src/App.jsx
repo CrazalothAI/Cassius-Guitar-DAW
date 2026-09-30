@@ -9,7 +9,7 @@ import cassianLogo from './assets/cassian-logo.png';
 
 const mainControls = ['DRIVE_GAIN', 'AMP_BASS', 'AMP_MID', 'AMP_TREBLE', 'REVERB_MIX', 'MASTER_VOL'];
 const initialStatus = {
-  model: '', ir: '', pedal: '', input: 0, prePedal: 0, postPedal: 0, postAmp: 0, postCab: 0, output: 0, gate: 0, overruns: 0,
+  model: '', ir: '', pedal: '', pedalFallback: true, input: 0, prePedal: 0, postPedal: 0, postAmp: 0, postCab: 0, output: 0, gate: 0, overruns: 0,
   tunerActive: false, tunerNote: '—', tunerCents: 0, tunerHz: 0, dynResCut: 0,
   message: native ? 'Connecting to audio engine…' : 'Browser preview · Open Cassian to play.',
 };

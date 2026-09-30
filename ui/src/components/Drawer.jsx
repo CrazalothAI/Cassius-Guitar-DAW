@@ -84,8 +84,8 @@ function Rig({ clean, native, status, onLoad }) {
     <RigRow label="AMP" file={status.model} empty="No capture loaded" note={clean ? 'Bypassed · Lumen clean is active' : ampRate}>
       {load('amp', status.model ? 'Change amp' : 'Load amp model')}
     </RigRow>
-    <RigRow label="PEDAL" file={status.pedal} empty="No pedal capture" note={['Before the amp · bypassed on cleans', pedalRate].filter(Boolean).join(' · ')}>
-      <Switch id="PEDAL_ON" name="Pedal enabled" disabled={clean || !status.pedal} forcedOff={clean} />
+    <RigRow label="PEDAL" file={status.pedal} empty={status.pedalFallback ? 'Built-in TS drive' : 'No pedal capture'} note={['Before the amp · bypassed on cleans', pedalRate].filter(Boolean).join(' · ')}>
+      <Switch id="PEDAL_ON" name="Pedal enabled" disabled={clean} forcedOff={clean} />
       {load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
     </RigRow>
     <RigRow label="CAB" file={status.ir} empty="Off · optional for full-rig captures" note={clean && 'Bypassed · clean uses its own speaker rolloff'}>

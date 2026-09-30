@@ -64,8 +64,14 @@ private:
     juce::SmoothedValue<float> compressionMix, highCutoff, stereoWidth;
     juce::dsp::Compressor<float> cleanCompressor;
     std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio;
-    juce::SmoothedValue<float> pedalBlend;
+    juce::SmoothedValue<float> pedalBlend, pedalFallbackBlend;
     float cleanLow = 0, cleanHigh = 0, metalLow = 0, metalLow2 = 0;
+    float pedalLow = 0.0f;
+    // Remove interface DC/subsonic drift before the gate and high-gain stages.
+    // A real input can carry a few millivolts of offset; high-gain captures
+    // turn that offset into a low-frequency thump and audible crackle.
+    float inputDcX1 = 0.0f, inputDcY1 = 0.0f;
+    float inputDcR = 0.0f;
     std::array<std::array<float, 2>, 2> highCutState {};
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delay;
     juce::dsp::Reverb reverb;

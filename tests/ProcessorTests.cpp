@@ -99,6 +99,9 @@ int main(int argc, char** argv)
         const auto fallbackLoud = measure(440, .30f, {{"AMP_CLEAN", 0}, {"DRIVE_GAIN", 0}}).rms;
         check(fallbackQuiet > .001f, "Metal fallback must produce audible output without a capture");
         check(fallbackLoud / fallbackQuiet < 8.0, "Metal fallback must compress and distort instead of remaining linear");
+        const auto noPedal = measure(440, .10f, {{"AMP_CLEAN", 0}, {"PEDAL_ON", 0}, {"DRIVE_GAIN", 0}}).rms;
+        const auto builtInPedal = measure(440, .10f, {{"AMP_CLEAN", 0}, {"PEDAL_ON", 1}, {"DRIVE_GAIN", 0}}).rms;
+        check(builtInPedal > noPedal * 1.15, "Metal pedal switch must provide a built-in TS push without a capture");
         // A loaded NAM must not colour the clean channel. Compare the same
         // waveform through two complete processors, only one with a capture.
         check(argc > 1, "Pass a NAM fixture for the clean-channel regression");
@@ -246,7 +249,8 @@ int main(int argc, char** argv)
         for (int b = 0; b < 3000; ++b)
         {
             pollAudio.clear();
-            for (int i = 0; i < 64; ++i) pollAudio.setSample(0, i, .1f);
+            for (int i = 0; i < 64; ++i)
+                pollAudio.setSample(0, i, .1f * std::sin(juce::MathConstants<float>::twoPi * 220.0f * static_cast<float>(b * 64 + i) / 48000.0f));
             pollingProcessor.processBlock(pollAudio, midi);
             if (b > 20 && pollAudio.getMagnitude(0, 64) < .001f) silentBlock = true;
         }
