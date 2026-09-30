@@ -308,7 +308,7 @@ void AmpSuiteAudioProcessor::requestFile(bool isModel, const juce::File& file)
     const juce::ScopedLock lock(requestLock);
     (isModel ? desiredModel : desiredIr) = file.getFullPathName();
     (isModel ? modelPending : irPending) = true;
-    message = "Loading " + file.getFileName() + "...";
+    message = file == juce::File() ? "Removing stage..." : "Loading " + file.getFileName() + "...";
     notify();
 }
 void AmpSuiteAudioProcessor::run()
@@ -467,7 +467,7 @@ void AmpSuiteAudioProcessor::requestPedal(const juce::File& file)
 {
     const juce::ScopedLock lock(requestLock);
     desiredPedal = file.getFullPathName(); pedalPending = true;
-    message = "Loading " + file.getFileName() + "..."; notify();
+    message = file == juce::File() ? "Removing stage..." : "Loading " + file.getFileName() + "..."; notify();
 }
 
 bool AmpSuiteAudioProcessor::selectAmpVoice(const juce::String& voice)

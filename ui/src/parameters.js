@@ -1,5 +1,6 @@
 // Mirrors Source/params/ParameterIDs.h (ids, ranges, defaults and order); parameters.test.js enforces it.
-// `step` is the finest UI resolution. Labels are the panel names and may differ from the host names.
+// `step` is the finest UI resolution; `centre` (0 = linear) is the value at mid-travel, as in
+// JUCE's setSkewForCentre. Labels are the panel names and may differ from the host names.
 export const parameters = [
   ['INPUT_GAIN', 'Input', -24, 24, 0, 'dB', 0.1],
   ['GATE_THRESH', 'Threshold', -80, 0, -60, 'dB', 0.1],
@@ -8,19 +9,19 @@ export const parameters = [
   ['AMP_MID', 'Middle', -12, 12, 0, 'dB', 0.1],
   ['AMP_TREBLE', 'Treble', -12, 12, 0, 'dB', 0.1],
   ['AMP_OUT', 'Output', -24, 12, 0, 'dB', 0.1],
-  ['DELAY_TIME', 'Time', 40, 1000, 320, 'ms', 1],
+  ['DELAY_TIME', 'Time', 40, 1000, 320, 'ms', 1, 300],
   ['DELAY_MIX', 'Mix', 0, 100, 0, '%', 1],
   ['REVERB_MIX', 'Space', 0, 100, 12, '%', 1],
   ['MASTER_VOL', 'Master', -60, 6, -12, 'dB', 0.1],
   ['AMP_CLEAN', 'Clean channel', 0, 1, 0, '', 1],
-  ['TIGHT', 'Tight', 20, 180, 20, 'Hz', 1],
+  ['TIGHT', 'Tight', 20, 180, 20, 'Hz', 1, 70],
   ['PRESENCE', 'Presence', -6, 6, 0, 'dB', 0.1],
   ['CLEAN_COMP', 'Compression', 0, 100, 35, '%', 1],
-  ['HIGH_CUT', 'High cut', 3000, 20000, 20000, 'Hz', 10],
+  ['HIGH_CUT', 'High cut', 3000, 20000, 20000, 'Hz', 10, 8000],
   ['DELAY_WIDTH', 'Width', 0, 100, 0, '%', 1],
   ['REVERB_SIZE', 'Room', 0, 100, 60, '%', 1],
   ['GATE_ON', 'Gate enabled', 0, 1, 1, '', 1],
-  ['GATE_RELEASE', 'Release', 40, 500, 140, 'ms', 1],
+  ['GATE_RELEASE', 'Release', 40, 500, 140, 'ms', 1, 150],
   ['PEDAL_ON', 'Pedal enabled', 0, 1, 0, '', 1],
   ['DYN_RES_ON', 'Dynamic resonance', 0, 1, 0, '', 1],
   ['DYN_RES_AMOUNT', 'Chug cut', 0, 100, 50, '%', 1],
@@ -30,15 +31,17 @@ export const parameters = [
   ['PIEZO_ON', 'Piezo resonator', 0, 1, 0, '', 1],
   ['PIEZO_BLEND', 'Piezo sparkle', 0, 100, 40, '%', 1],
   ['MICRO_DELAY', 'Micro-delay', 0, 1.0, 0.0, 'ms', 0.01],
-].map(([id, label, min, max, initial, unit, step]) => ({ id, label, min, max, initial, unit, step }));
+].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
+  ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));
 
 // The DSP treats these range ends as bypass: Tight blends in above 20 Hz, High cut fades out at 20 kHz.
 const offAt = { TIGHT: 'min', HIGH_CUT: 'max' };
 
 export const clamp = (p, value) => Math.min(p.max, Math.max(p.min, value));
-export const toFraction = (p, value) => (clamp(p, value) - p.min) / (p.max - p.min);
-export const fromFraction = (p, fraction) => p.min + Math.min(1, Math.max(0, fraction)) * (p.max - p.min);
+// Knob travel (and the host's normalised value) for a value, and back.
+export const toFraction = (p, value) => ((clamp(p, value) - p.min) / (p.max - p.min)) ** p.skew;
+export const fromFraction = (p, fraction) => p.min + Math.min(1, Math.max(0, fraction)) ** (1 / p.skew) * (p.max - p.min);
 const decimals = p => Math.max(0, -Math.floor(Math.log10(p.step) + 1e-9));
 export const snap = (p, value) => Number(clamp(p, p.min + Math.round((value - p.min) / p.step) * p.step).toFixed(decimals(p)));
 // Arc origin: centre-detented controls (EQ, trims) fill outward from 0 dB instead of from the minimum.

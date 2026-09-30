@@ -5,7 +5,7 @@ import Tuner from './components/Tuner.jsx';
 import { invoke, native } from './juce/bridge.js';
 import { restoreSnapshot, setParameter, snapshotParameters, useParameters, useToggle } from './parameterState.js';
 import { applyPreset, familyOf, matchPreset, notes, presetParameterIds, presets, voices } from './presets.js';
-import cassianLogo from './assets/cassian-logo.png';
+import cassianLogo from './assets/cassian-logo-192.png'; // shown at 38-56 px; the full-size original stays in assets
 
 const mainControls = ['DRIVE_GAIN', 'AMP_BASS', 'AMP_MID', 'AMP_TREBLE', 'REVERB_MIX', 'MASTER_VOL'];
 const initialStatus = {
@@ -116,6 +116,10 @@ export default function App() {
     const peakDb = 20 * Math.log10(status.input);
     setParameter('INPUT_GAIN', Math.max(-12, Math.min(12, -12 - peakDb)));
   };
+  const remove = async stage => {
+    try { await invoke('clearStage', stage); }
+    catch { setNotice({ title: 'Couldn’t remove the file', text: 'Please try again.' }); }
+  };
   const load = async type => {
     try { await invoke(type === 'amp' ? 'loadModel' : type === 'pedal' ? 'loadPedal' : 'loadIR'); }
     catch { setNotice({ title: 'Couldn’t open the file picker', text: 'Please try again.' }); }
@@ -191,7 +195,7 @@ export default function App() {
         <button className="drawer-toggle" aria-expanded={expanded} aria-controls="effects-panel" onClick={() => setExpanded(!expanded)}>
           <span>RIG & TONE</span><span aria-hidden="true">{expanded ? '−' : '+'}</span>
         </button>
-        {expanded && <Drawer page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} />}
+        {expanded && <Drawer page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} />}
       </section>
     </main>
     <footer>

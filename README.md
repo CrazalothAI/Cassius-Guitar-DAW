@@ -2,6 +2,10 @@
 
 The Project A guitar workstation and VST3 plugin: JUCE 8 / C++20 audio engine, Neural Amp Modeler captures, cabinet convolution, and an embedded React editor.
 
+## Download
+
+Every push to `main` publishes **Latest build** on the repository's Releases page: `Cassian-Windows.zip` holds `Cassian.exe` (standalone) and the `Cassian.vst3` bundle. Executables are not committed to Git; building locally puts them under `build/AmpSuite_artefacts/Release/` (see below).
+
 ## Run the interface preview
 
 Requires Node.js 20.19+ (Node 22 LTS recommended).
@@ -151,3 +155,12 @@ Measured with a headless build of the engine on Linux, rendering a synthetic DI 
 - **Idle stages:** the channel that is fully faded out is not computed (captures and cabinet rest on Clean), and filter coefficients are recalculated only when their cutoff moves.
 
 The built-in amp and speaker were voiced by measurement, not by ear; listening feedback is still required. Native tests cover the resampler round trip, loudness matching and gear-type detection, the fallback's saturation, and the tuner staying idle while closed. Checks for Tight and the dynamic resonance filter now measure at the amp input, since the built-in amp re-saturates its input.
+
+### Controls and downloads
+
+- **Releases:** CI replaces a `latest` pre-release with the zipped standalone and VST3 on each push to `main`, and fails if the build produced no files. Actions moved off the deprecated Node 20 versions.
+- **Remove:** the Rig page can unload the amp capture, pedal capture or cabinet IR. Removing the capture returns Metal to the built-in amp; removing the IR returns amp-only rigs to the built-in speaker.
+- **Knob travel:** High cut, Tight, delay Time and gate Release put a musical value at mid-travel (8 kHz, 70 Hz, 300 ms, 150 ms) instead of the arithmetic middle, which gave High cut half its travel above 11.5 kHz. Arrow keys move 1% of travel. Saved sessions keep their values; DAW automation lanes recorded for these four controls will follow the new curve.
+- **Switches:** the six on/off controls (Clean channel, Gate, Pedal, Resonance cut, Thicken, Piezo) are exposed to hosts as on/off parameters instead of 0–1 knobs. Saved sessions restore unchanged.
+- **A/B** compares tone only: input calibration and master level stay put when switching sides, as with presets.
+- **Size:** the UI bundle embedded in the plugin shrank from 930 KB to 329 KB by using a 192 px copy of the logo (drawn at 38–56 px); the original stays in `ui/src/assets`.
