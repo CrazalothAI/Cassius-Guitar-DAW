@@ -9,7 +9,7 @@ static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
     auto* parameter = p.apvts.getParameter(id);
     parameter->setValueNotifyingHost(parameter->convertTo0to1(value));
 }
-struct Measurement { double rms, stereoDifference; };
+struct Measurement { double rms, stereoDifference, preAmpPeak; };
 static Measurement measure(float frequency, float amplitude,
     std::initializer_list<std::pair<const char*, float>> settings)
 {
@@ -33,7 +33,7 @@ static Measurement measure(float frequency, float amplitude,
             energy += left * left; difference += (left - right) * (left - right); ++count;
         }
     }
-    return {std::sqrt(energy / count), std::sqrt(difference / count)};
+    return {std::sqrt(energy / count), std::sqrt(difference / count), static_cast<double>(p.status()["prePedal"])};
 }
 int main(int argc, char** argv)
 {
@@ -98,7 +98,7 @@ int main(int argc, char** argv)
         const auto fallbackQuiet = measure(440, .03f, {{"AMP_CLEAN", 0}, {"DRIVE_GAIN", 0}}).rms;
         const auto fallbackLoud = measure(440, .30f, {{"AMP_CLEAN", 0}, {"DRIVE_GAIN", 0}}).rms;
         check(fallbackQuiet > .001f, "Metal fallback must produce audible output without a capture");
-        check(fallbackLoud / fallbackQuiet < 8.0, "Metal fallback must compress and distort instead of remaining linear");
+        check(fallbackLoud / fallbackQuiet < 2.0, "Metal fallback must saturate like a high-gain amp: 20 dB more input, under 6 dB more output");
         // A loaded NAM must not colour the clean channel. Compare the same
         // waveform through two complete processors, only one with a capture.
         check(argc > 1, "Pass a NAM fixture for the clean-channel regression");
@@ -216,11 +216,12 @@ int main(int argc, char** argv)
         }
         check(rigPeak > .0001f, "Full rig must pass played notes");
         std::cout << "Rig output peak: " << rigPeak << '\n';
-        const auto bassDry = measure(60, .1f, {{"TIGHT", 20}}).rms;
-        const auto bassTight = measure(60, .1f, {{"TIGHT", 180}}).rms;
+        // Measured entering the amp: the built-in high-gain amp re-saturates its input.
+        const auto bassDry = measure(60, .1f, {{"TIGHT", 20}}).preAmpPeak;
+        const auto bassTight = measure(60, .1f, {{"TIGHT", 180}}).preAmpPeak;
         check(bassTight < bassDry * .2, "Tight must remove low-frequency energy before the amp");
-        const auto attackDry = measure(1000, .1f, {{"TIGHT", 20}}).rms;
-        const auto attackTight = measure(1000, .1f, {{"TIGHT", 180}}).rms;
+        const auto attackDry = measure(1000, .1f, {{"TIGHT", 20}}).preAmpPeak;
+        const auto attackTight = measure(1000, .1f, {{"TIGHT", 180}}).preAmpPeak;
         check(attackTight > attackDry * .85, "Tight must retain the guitar's midrange attack");
         const auto bright = measure(12000, .1f, {{"HIGH_CUT", 20000}}).rms;
         const auto dark = measure(12000, .1f, {{"HIGH_CUT", 3000}}).rms;
@@ -246,7 +247,8 @@ int main(int argc, char** argv)
         for (int b = 0; b < 3000; ++b)
         {
             pollAudio.clear();
-            for (int i = 0; i < 64; ++i) pollAudio.setSample(0, i, .1f);
+            // A played tone: the amp blocks DC, as coupling capacitors do.
+            for (int i = 0; i < 64; ++i) pollAudio.setSample(0, i, .1f * std::sin(juce::MathConstants<float>::twoPi * 220.0f * static_cast<float>(b * 64 + i) / 48000.0f));
             pollingProcessor.processBlock(pollAudio, midi);
             if (b > 20 && pollAudio.getMagnitude(0, 64) < .001f) silentBlock = true;
         }
@@ -255,6 +257,7 @@ int main(int argc, char** argv)
         // Test PitchTracker directly
         PitchTracker tracker;
         tracker.prepare(48000);
+        tracker.setActive(true);
         for (int i = 0; i < 4800; ++i)
         {
             const float sample = 0.2f * std::sin(juce::MathConstants<float>::twoPi * 82.41f * static_cast<float>(i) / 48000.0f);
@@ -268,8 +271,9 @@ int main(int argc, char** argv)
         check(std::abs(tracker.getDetectedCents()) < 6.0f, "Tuner cents detune must be close to zero");
 
         // Test Thall Dynamic Resonance Filter:
-        const auto resOff = measure(280, 0.4f, {{"DYN_RES_ON", 0}}).rms;
-        const auto resOn = measure(280, 0.4f, {{"DYN_RES_ON", 1}, {"DYN_RES_AMOUNT", 100}}).rms;
+        // The notch sits ahead of the amp; measure it there, before saturation.
+        const auto resOff = measure(280, 0.4f, {{"DYN_RES_ON", 0}}).preAmpPeak;
+        const auto resOn = measure(280, 0.4f, {{"DYN_RES_ON", 1}, {"DYN_RES_AMOUNT", 100}}).preAmpPeak;
         check(resOn < resOff * 0.85, "Dynamic resonance must carve 280 Hz chugs under heavy energy");
 
         // Test MicroDelay stereo phase difference
@@ -303,6 +307,60 @@ int main(int argc, char** argv)
         const char invalid[] = "invalid";
         processor.setStateInformation(invalid, sizeof(invalid));
         check(std::abs(processor.apvts.getRawParameterValue("INPUT_GAIN")->load() - 7.5f) < 0.02f, "Invalid state must be ignored");
+        // Streaming resampling: a 44.1 <-> 48 kHz round trip in irregular blocks returns
+        // exactly as many samples as it was given, with no drift or discontinuity.
+        {
+            StreamResampler up, down;
+            up.prepare(44100, 48000, 600); down.prepare(48000, 44100, 600); down.pushSilence(16);
+            std::vector<float> in(44100), out, mid(700), back(600);
+            for (size_t i = 0; i < in.size(); ++i) in[i] = .5f * std::sin(juce::MathConstants<float>::twoPi * 1000.0f * static_cast<float>(i) / 44100.0f);
+            for (size_t offset = 0, n = 1; offset < in.size(); offset += n, n = 1 + (n * 37 + 11) % 256)
+            {
+                n = std::min(n, in.size() - offset);
+                up.push(in.data() + offset, static_cast<int>(n));
+                const int produced = up.available(); up.pull(mid.data(), produced); down.push(mid.data(), produced);
+                check(down.available() >= static_cast<int>(n), "Resampler must always deliver a full block");
+                down.pull(back.data(), static_cast<int>(n)); out.insert(out.end(), back.begin(), back.begin() + static_cast<std::ptrdiff_t>(n));
+            }
+            check(out.size() == in.size(), "Resampler must neither drop nor add samples");
+            int latency = 0; double bestError = 1e9;
+            for (int lag = 0; lag < 40; ++lag)
+            {
+                double error = 0;
+                for (size_t i = 2000; i < 40000; ++i) error = std::max(error, static_cast<double>(std::abs(out[i] - in[i - static_cast<size_t>(lag)])));
+                if (error < bestError) { bestError = error; latency = lag; }
+            }
+            std::cout << "Resampler round trip: latency " << latency << " samples, max error " << bestError << '\n';
+            check(bestError < .01, "Resampled audio must match the input after a fixed latency");
+        }
+        // Capture loudness is matched to -18 dB; amp-only metadata enables the built-in speaker.
+        {
+            const auto dir = juce::File(argv[1]).getParentDirectory();
+            NamWrapper quiet {dir.getChildFile("lstm.nam")}, reference {juce::File(argv[1])};
+            check(quiet.hasLoudness() && std::abs(quiet.levelMatchDb() - (-18.0 - quiet.loudness())) < 1e-6, "Quiet captures must be raised to the target loudness");
+            check(quiet.levelMatchDb() > 15 && reference.levelMatchDb() < 5, "Level matching must follow each capture's loudness");
+            check(quiet.cabinetIsKnown() && !quiet.hasCabinet(), "Amp-only gear type must be recognised");
+            AmpSuiteAudioProcessor rig; rig.prepareToPlay(48000, 128);
+            rig.requestFile(true, juce::File(argv[1]));
+            for (int t = 0; t < 200 && !rig.status()["message"].toString().startsWith("Loaded"); ++t) std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            juce::AudioBuffer<float> audio(2, 128);
+            for (int b = 0; b < 4; ++b) { audio.clear(); audio.setSample(0, 0, .1f); rig.processBlock(audio, midi); }
+            const auto rigStatus = rig.status();
+            check(static_cast<bool>(rigStatus["ampLevelled"]) && static_cast<bool>(rigStatus["speakerSim"]), "An amp-only capture without an IR must use the built-in speaker");
+            check(!static_cast<bool>(rigStatus["fallbackAmp"]), "A loaded capture replaces the built-in amp");
+        }
+        // The pitch tracker only runs while the tuner is open or Thicken needs it.
+        {
+            AmpSuiteAudioProcessor tunerRig; set(tunerRig, "GATE_ON", 0); tunerRig.prepareToPlay(48000, 128);
+            juce::AudioBuffer<float> audio(2, 128);
+            auto play = [&] { for (int b = 0; b < 60; ++b) { audio.clear();
+                for (int i = 0; i < 128; ++i) audio.setSample(0, i, .2f * std::sin(juce::MathConstants<float>::twoPi * 110.0f * static_cast<float>(b * 128 + i) / 48000.0f));
+                tunerRig.processBlock(audio, midi); } };
+            play();
+            check(!static_cast<bool>(tunerRig.status()["tunerActive"]), "The tuner must stay idle while closed");
+            tunerRig.setTunerActive(true); play();
+            check(tunerRig.status()["tunerNote"].toString() == "A2", "The tuner must track once opened");
+        }
         std::cout << "Processor checks passed\n";
         return 0;
     }

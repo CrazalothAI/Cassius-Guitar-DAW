@@ -3,18 +3,20 @@
 class IrLoader
 {
 public:
-    // Called under the processor DSP lock; never concurrently with process.
-    void load(const juce::File& file)
+    // Safe while audio runs: JUCE builds the new IR on its own background thread
+    // and crossfades it in, so loading never holds the DSP lock.
+    void load(juce::AudioBuffer<float>&& impulse, double sampleRate)
     {
-        convolution.loadImpulseResponse(file, juce::dsp::Convolution::Stereo::yes,
-            juce::dsp::Convolution::Trim::yes, 0, juce::dsp::Convolution::Normalise::yes);
-        loaded = true;
+        convolution.loadImpulseResponse(std::move(impulse), sampleRate, juce::dsp::Convolution::Stereo::yes,
+            juce::dsp::Convolution::Trim::yes, juce::dsp::Convolution::Normalise::yes);
+        loaded.store(true);
     }
     void prepare(const juce::dsp::ProcessSpec& spec) { convolution.prepare(spec); }
     void process(juce::dsp::ProcessContextReplacing<float>& context)
-    { if (loaded) convolution.process(context); }
-    void clear() { loaded = false; }
+    { if (loaded.load()) convolution.process(context); }
+    void clear() { loaded.store(false); }
+    bool isLoaded() const { return loaded.load(); }
 private:
     juce::dsp::Convolution convolution;
-    bool loaded = false;
+    std::atomic<bool> loaded {false};
 };

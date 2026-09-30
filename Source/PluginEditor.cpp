@@ -20,6 +20,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("loadIR", [this](const auto&, auto complete) { chooseFile(1); complete(true); })
         .withNativeFunction("loadPedal", [this](const auto&, auto complete) { chooseFile(2); complete(true); })
         .withNativeFunction("selectAmpVoice", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.selectAmpVoice(args[0].toString())); })
+        .withNativeFunction("setTuner", [this](const auto& args, auto complete) { processor.setTunerActive(args.size() == 1 && static_cast<bool>(args[0])); complete(true); })
         .withNativeFunction("getStatus", [this](const auto&, auto complete) { complete(processor.status()); });
     for (const auto& parameter : Params::definitions)
     {
@@ -34,6 +35,8 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     setResizable(true, true); setResizeLimits(860, 620, 1800, 1200); setSize(1100, 760);
 }
+// A closed editor cannot show the tuner, so stop its analysis.
+AmpSuiteAudioProcessorEditor::~AmpSuiteAudioProcessorEditor() { processor.setTunerActive(false); }
 void AmpSuiteAudioProcessorEditor::resized() { webView->setBounds(getLocalBounds()); }
 void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
 {
