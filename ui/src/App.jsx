@@ -6,6 +6,7 @@ import { invoke, native } from './juce/bridge.js';
 import { restoreSnapshot, setParameter, snapshotParameters, useParameters, useToggle } from './parameterState.js';
 import { applyPreset, familyOf, matchPreset, notes, presetParameterIds, presets, voices } from './presets.js';
 import cassianLogo from './assets/cassian-logo.png';
+import ampHeadArt from './assets/cassian-amp-head-v2.png';
 
 const mainControls = ['DRIVE_GAIN', 'AMP_BASS', 'AMP_MID', 'AMP_TREBLE', 'REVERB_MIX', 'MASTER_VOL'];
 const initialStatus = {
@@ -154,7 +155,8 @@ export default function App() {
       </section>
       <section className="amp-stage" aria-label="Amplifier">
         <div className="amp-handle" />
-        <div className="amp-head">
+        <div className="amp-head premium-head">
+          <img className="amp-head-art" src={ampHeadArt} alt="" aria-hidden="true" />
           <div className="grille">
             <span className="corner tl" /><span className="corner tr" />
             <div className="tube-bank" aria-hidden="true">{[0, 1, 2, 3, 4, 5].map(i => <span className="glass-tube" key={i}><i /></span>)}</div>
