@@ -78,17 +78,21 @@ const resampled = (on, expected, status) => on && expected > 0 && status.sampleR
 
 function Rig({ clean, native, status, onLoad }) {
   const ampRate = resampled(status.ampResampled, status.ampExpectedRate, status);
+  const signed = db => `${db > 0 ? '+' : ''}${db.toFixed(1)} dB`;
+  const ampNote = [status.model && status.ampLevelled ? `Level matched ${signed(status.ampLevelDb)}` : '', ampRate].filter(Boolean).join(' · ');
   const pedalRate = resampled(status.pedalResampled, status.pedalExpectedRate, status);
   const load = (type, text) => <button className="text-button" disabled={!native} onClick={() => onLoad(type)}>{text}<span aria-hidden="true"> ↗</span></button>;
   return <div className="rig-list">
-    <RigRow label="AMP" file={status.model} empty="No capture loaded" note={clean ? 'Bypassed · Lumen clean is active' : ampRate}>
+    <RigRow label="AMP" file={status.model} empty={status.fallbackAmp ? 'Built-in high-gain amp' : 'No capture loaded'}
+      note={clean ? 'Bypassed · Lumen clean is active' : status.model ? ampNote : status.fallbackAmp && 'Load a capture to replace it'}>
       {load('amp', status.model ? 'Change amp' : 'Load amp model')}
     </RigRow>
     <RigRow label="PEDAL" file={status.pedal} empty="No pedal capture" note={['Before the amp · bypassed on cleans', pedalRate].filter(Boolean).join(' · ')}>
       <Switch id="PEDAL_ON" name="Pedal enabled" disabled={clean || !status.pedal} forcedOff={clean} />
       {load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
     </RigRow>
-    <RigRow label="CAB" file={status.ir} empty="Off · optional for full-rig captures" note={clean && 'Bypassed · clean uses its own speaker rolloff'}>
+    <RigRow label="CAB" file={status.ir} empty={status.speakerSim ? 'Built-in 4×12 speaker' : 'Off · optional for full-rig captures'}
+      note={clean ? 'Bypassed · clean uses its own speaker rolloff' : !status.ir && status.speakerSim && 'Used while no IR is loaded and the amp has no cabinet'}>
       {load('cab', status.ir ? 'Change cabinet' : 'Load cabinet IR')}
     </RigRow>
   </div>;

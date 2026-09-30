@@ -11,6 +11,8 @@
 #include "dsp/PiezoSimulator.h"
 #include "dsp/SubSynthesizer.h"
 #include "dsp/MicroDelay.h"
+#include "dsp/HighGainAmp.h"
+#include "dsp/SpeakerCab.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, private juce::Thread
 {
@@ -37,6 +39,8 @@ public:
     void requestFile(bool model, const juce::File&);
     void requestPedal(const juce::File&);
     bool selectAmpVoice(const juce::String&);
+    // The pitch tracker only runs while the tuner is open (or Thicken needs it).
+    void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
     juce::AudioProcessorValueTreeState apvts;
 private:
@@ -58,6 +62,8 @@ private:
     PiezoSimulator piezo;
     SubSynthesizer subSynth;
     MicroDelay microDelay;
+    HighGainAmp fallbackAmp;
+    SpeakerCab speaker;
     juce::dsp::Gain<float> inputGain, ampGain, masterGain;
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
     juce::SmoothedValue<float> cleanBlend, tightCutoff;
@@ -66,6 +72,8 @@ private:
     std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio;
     juce::SmoothedValue<float> pedalBlend;
     float cleanLow = 0, cleanHigh = 0, metalLow = 0, metalLow2 = 0;
+    // Filter coefficients are recomputed only when their smoothed cutoff moves.
+    float tightCoeffHz = -1, tightCoeff = 0, highCoeffHz = -1, highCoeff = 0, cleanDriveGain = -1, cleanDrive = 1;
     std::array<std::array<float, 2>, 2> highCutState {};
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delay;
     juce::dsp::Reverb reverb;
@@ -83,5 +91,8 @@ private:
     std::atomic<bool> inputClipped {false};
     std::atomic<double> reportedRate {48000}, ampExpectedRate {0}, pedalExpectedRate {0};
     std::atomic<int> reportedBlock {512};
+    std::atomic<bool> tunerRequested {false}, speakerActive {false}, fallbackActive {false};
+    // Loaded capture details for the editor; guarded by requestLock.
+    juce::String ampGear; double ampLevelDb = 0; bool ampLevelled = false, ampHasCab = false, ampCabKnown = false;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AmpSuiteAudioProcessor)
 };

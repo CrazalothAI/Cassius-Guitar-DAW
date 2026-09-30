@@ -41,6 +41,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     piezo.prepare(rate);
     subSynth.prepare(rate);
     microDelay.prepare(rate);
+    fallbackAmp.prepare(rate, maxBlock); speaker.prepare(rate);
     cab.prepare(spec); tone.prepare(rate);
     cleanAudio.resize(static_cast<size_t>(maxBlock));
     gateEnvelope.resize(static_cast<size_t>(maxBlock));
@@ -48,6 +49,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     subSynthAudio.resize(static_cast<size_t>(maxBlock));
     pedalBlend.reset(rate, 0.02); pedalBlend.setCurrentAndTargetValue(value(Params::pedalOn) >= .5f ? 1.0f : 0.0f);
     cleanLow = cleanHigh = metalLow = metalLow2 = 0;
+    tightCoeffHz = highCoeffHz = cleanDriveGain = -1;
     highCutState = {};
     cleanCompressor.prepare({rate, static_cast<juce::uint32>(maxBlock), 1}); cleanCompressor.reset();
     cleanCompressor.setThreshold(-20); cleanCompressor.setRatio(2.5f);
@@ -77,15 +79,15 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     auto mainBuffer = getBusBuffer(buffer, false, 0);
     auto backingBuffer = getBusBuffer(buffer, true, 1);
     // Asset replacement never makes the audio thread wait or destroy a model.
-    // Pass the current input through during the short swap window instead of
-    // clearing a block, which was audible as a click/static burst.
+    // Models are prepared and IRs built off the lock, so it is held only for a
+    // pointer swap; on the rare contention, output silence rather than the raw
+    // DI, which bypassed the whole rig at full interface level.
     const juce::ScopedTryLock lock(dspLock);
     if (!lock.isLocked())
     {
-        if (mainBuffer.getNumChannels() > 1)
-            mainBuffer.copyFrom(1, 0, mainBuffer, 0, 0, mainBuffer.getNumSamples());
+        buffer.clear();
         swapBypasses.fetch_add(1);
-        outputPeak.store(mainBuffer.getMagnitude(0, 0, mainBuffer.getNumSamples()));
+        outputPeak.store(0);
         return;
     }
     if (mainBuffer.getNumChannels() == 0 || mainBuffer.getNumSamples() == 0) return;
@@ -127,9 +129,13 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     inputGain.setGainDecibels(value(Params::input)); inputGain.process(context);
     auto* mono = buffer.getWritePointer(0);
 
-    // 1. Real-time Pitch Tracking & Tuner
-    for (int i = 0; i < buffer.getNumSamples(); ++i)
-        pitchTracker.processSample(mono[i]);
+    // 1. Pitch tracking for the tuner and Thicken. Idle otherwise: its analysis
+    //    used to overrun the callback several times a second, heard as crackle.
+    const bool thicken = value(Params::thickenOn) >= 0.5f;
+    pitchTracker.setActive(tunerRequested.load(std::memory_order_relaxed) || thicken);
+    if (pitchTracker.isActive())
+        for (int i = 0; i < buffer.getNumSamples(); ++i)
+            pitchTracker.processSample(mono[i]);
     const float trackedPitch = pitchTracker.getTrackedPitchHz();
 
     // 2. Tim Henson Acoustic Piezo Resonator
@@ -153,7 +159,7 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         mono[i] = dynamicResonance.processSample(mono[i]);
 
     // 5. Thall "Thicken" Sub-Octave Parallel Synthesizer
-    subSynth.configure(value(Params::thickenOn) >= 0.5f, value(Params::thickenMix));
+    subSynth.configure(thicken, value(Params::thickenMix));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
         subSynthAudio[static_cast<size_t>(i)] = subSynth.processSample(mono[i], trackedPitch);
 
@@ -161,46 +167,43 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     cleanBlend.setTargetValue(value(Params::clean) >= 0.5f ? 1.0f : 0.0f);
     tightCutoff.setTargetValue(value(Params::tight));
     compressionMix.setTargetValue(value(Params::cleanComp) / 100);
+    // A channel that is fully faded out is not computed: on Clean the captures
+    // and cabinet rest, on Metal the clean preamp does. Crossfades run both.
+    const bool cleanAudible = cleanBlend.getCurrentValue() > 0 || cleanBlend.getTargetValue() > 0;
+    const bool metalAudible = cleanBlend.getCurrentValue() < 1 || cleanBlend.getTargetValue() < 1;
     const float cleanHP = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * 45.0f / static_cast<float>(rate));
     const float cleanLP = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * 6500.0f / static_cast<float>(rate));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
         const float gain = driveGain.getNextValue();
-        // Independent clean preamp: gentle saturation and cabinet-like rolloff.
-        // Keep it warm alongside the capture so channel changes can crossfade.
-        cleanLow += cleanHP * (mono[i] - cleanLow);
-        const float cleanDrive = 1.0f + std::log2(gain) * 0.15f;
-        const float dryClean = mono[i] - cleanLow;
-        const float compressed = cleanCompressor.processSample(0, dryClean) * 1.41254f;
-        const float cleanSample = std::tanh((dryClean + compressionMix.getNextValue() * (compressed - dryClean)) * cleanDrive) / cleanDrive;
-        cleanHigh += cleanLP * (cleanSample - cleanHigh);
-        cleanAudio[static_cast<size_t>(i)] = cleanHigh;
-        const float cutoff = tightCutoff.getNextValue();
-        const float hp = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * cutoff / static_cast<float>(rate));
-        metalLow += hp * (mono[i] - metalLow);
-        const float highPassed = mono[i] - metalLow;
-        metalLow2 += hp * (highPassed - metalLow2);
-        mono[i] += juce::jlimit(0.0f, 1.0f, (cutoff - 20.0f) / 10.0f) * (highPassed - metalLow2 - mono[i]);
-        // A capture supplies the distortion. Drive pushes its input rather
-        // than adding a second clipper. When no capture is loaded, keep the
-        // metal channel useful with a real tube-like fallback instead of the
-        // old effectively-linear path at 0 dB Drive.
-        if (model)
-            mono[i] *= gain;
-        else
+        const float compression = compressionMix.getNextValue();
+        if (cleanAudible)
         {
-            const float fallbackDrive = value(Params::clean) >= 0.5f
-                ? 1.0f
-                : 1.7f + 0.24f * (gain - 1.0f);
-            const float shaped = std::tanh(mono[i] * fallbackDrive);
-            const float secondStage = std::tanh(shaped * 2.4f);
-            const float blended = 0.84f * shaped + 0.16f * secondStage;
-            mono[i] = blended / std::max(0.65f, std::tanh(fallbackDrive));
+            // Independent clean preamp: gentle saturation and cabinet-like rolloff.
+            if (gain != cleanDriveGain) { cleanDriveGain = gain; cleanDrive = 1.0f + std::log2(gain) * 0.15f; }
+            cleanLow += cleanHP * (mono[i] - cleanLow);
+            const float dryClean = mono[i] - cleanLow;
+            const float compressed = cleanCompressor.processSample(0, dryClean) * 1.41254f;
+            const float cleanSample = std::tanh((dryClean + compression * (compressed - dryClean)) * cleanDrive) / cleanDrive;
+            cleanHigh += cleanLP * (cleanSample - cleanHigh);
+            cleanAudio[static_cast<size_t>(i)] = cleanHigh;
         }
+        const float cutoff = tightCutoff.getNextValue();
+        if (cutoff != tightCoeffHz)
+        {
+            tightCoeffHz = cutoff;
+            tightCoeff = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * cutoff / static_cast<float>(rate));
+        }
+        metalLow += tightCoeff * (mono[i] - metalLow);
+        const float highPassed = mono[i] - metalLow;
+        metalLow2 += tightCoeff * (highPassed - metalLow2);
+        mono[i] += juce::jlimit(0.0f, 1.0f, (cutoff - 20.0f) / 10.0f) * (highPassed - metalLow2 - mono[i]);
+        // Drive pushes the next stage: the pedal and the capture (or the built-in amp).
+        mono[i] *= gain;
     }
     prePedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     pedalBlend.setTargetValue(value(Params::pedalOn) >= .5f && value(Params::clean) < .5f ? 1.0f : 0.0f);
-    if (pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
+    if (metalAudible && pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
     {
         std::copy_n(mono, buffer.getNumSamples(), pedalAudio.data());
         pedal->process(pedalAudio.data(), buffer.getNumSamples());
@@ -209,10 +212,23 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     }
     else pedalBlend.skip(buffer.getNumSamples());
     postPedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
-    if (model) model->process(mono, buffer.getNumSamples());
+    // The amp: the loaded capture, or a real high-gain voice when there is none,
+    // so the metal channel distorts out of the box instead of passing a clean boost.
+    fallbackActive.store(!model);
+    if (metalAudible)
+    {
+        if (model) model->process(mono, buffer.getNumSamples());
+        else fallbackAmp.process(mono, buffer.getNumSamples());
+    }
     postAmpPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
+    // Cabinet: the loaded IR; otherwise the built-in speaker when the amp has none
+    // (no capture, or a capture whose metadata says amp-only). Raw amp output with
+    // no speaker is mostly fizz.
+    const bool builtInSpeaker = !cab.isLoaded() && (!model || (model->cabinetIsKnown() && !model->hasCabinet()));
+    speakerActive.store(builtInSpeaker);
+    if (metalAudible && builtInSpeaker) speaker.process(mono, buffer.getNumSamples());
     for (int ch = 1; ch < buffer.getNumChannels(); ++ch) buffer.copyFrom(ch, 0, mono, buffer.getNumSamples());
-    cab.process(context);
+    if (metalAudible) cab.process(context);
     postCabPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
@@ -225,7 +241,7 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     }
 
     // Blend parallel sub-synthesis layer (bypasses pre-gain distortion)
-    if (value(Params::thickenOn) >= 0.5f)
+    if (thicken)
     {
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
             for (int i = 0; i < buffer.getNumSamples(); ++i)
@@ -238,7 +254,12 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
         const float cutoff = highCutoff.getNextValue();
-        const float coefficient = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * juce::jmin(cutoff, static_cast<float>(rate) * 0.45f) / static_cast<float>(rate));
+        if (cutoff != highCoeffHz)
+        {
+            highCoeffHz = cutoff;
+            highCoeff = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * juce::jmin(cutoff, static_cast<float>(rate) * 0.45f) / static_cast<float>(rate));
+        }
+        const float coefficient = highCoeff;
         const float amount = juce::jlimit(0.0f, 1.0f, (20000.0f - cutoff) / 1000.0f);
         for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
         {
@@ -313,26 +334,52 @@ void AmpSuiteAudioProcessor::run()
                 const juce::File file(path);
                 if (path.isNotEmpty() && !file.existsAsFile()) throw std::runtime_error("File not found: " + path.toStdString());
                 std::unique_ptr<NamWrapper> next;
-                if (isNam && path.isNotEmpty()) next = std::make_unique<NamWrapper>(file);
-                if (!isNam && path.isNotEmpty())
+                if (isNam && path.isNotEmpty())
+                {
+                    next = std::make_unique<NamWrapper>(file);
+                    // Prepare (and prewarm) outside the DSP lock: this takes long enough
+                    // that holding the lock meant many silent callbacks per load.
+                    double preparedRate; int preparedBlock;
+                    { const juce::ScopedLock lock(dspLock); preparedRate = rate; preparedBlock = maxBlock; }
+                    next->prepare(preparedRate, preparedBlock);
+                    if (isModel) next->setOutputGain(juce::Decibels::decibelsToGain(static_cast<float>(next->levelMatchDb())));
+                    const juce::ScopedLock lock(dspLock);
+                    if (rate != preparedRate || maxBlock != preparedBlock) next->prepare(rate, maxBlock);
+                    (isPedal ? pedalExpectedRate : ampExpectedRate).store(next->expectedRate());
+                    (isPedal ? pedal : model).swap(next);
+                }
+                else if (isNam)
+                {
+                    // Clearing: detach under the lock, destroy after it (via `next`).
+                    const juce::ScopedLock lock(dspLock);
+                    (isPedal ? pedalExpectedRate : ampExpectedRate).store(0);
+                    (isPedal ? pedal : model).swap(next);
+                }
+                else if (path.isEmpty()) cab.clear();
+                else
                 {
                     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
                     if (!reader || reader->lengthInSamples == 0 || reader->numChannels > 2
                         || reader->lengthInSamples > reader->sampleRate * 10)
                         throw std::runtime_error("Choose a mono/stereo WAV impulse response up to 10 seconds.");
+                    juce::AudioBuffer<float> impulse(static_cast<int>(reader->numChannels), static_cast<int>(reader->lengthInSamples));
+                    reader->read(&impulse, 0, impulse.getNumSamples(), 0, true, true);
+                    cab.load(std::move(impulse), reader->sampleRate);
                 }
+                // `next` now holds the previous model; describe the one just installed.
+                juce::String gear; double levelDb = 0; bool levelled = false, hasCab = false, cabKnown = false;
+                if (isModel)
                 {
-                    const juce::ScopedLock lock(dspLock);
-                    if (isNam)
+                    const juce::ScopedLock dsp(dspLock);
+                    if (model)
                     {
-                        if (next) next->prepare(rate, maxBlock);
-                        (isPedal ? pedalExpectedRate : ampExpectedRate).store(next ? next->expectedRate() : 0);
-                        (isPedal ? pedal : model).swap(next);
+                        gear = model->gear(); levelled = model->hasLoudness(); levelDb = model->levelMatchDb();
+                        hasCab = model->hasCabinet(); cabKnown = model->cabinetIsKnown();
                     }
-                    else if (path.isEmpty()) cab.clear(); else cab.load(file);
                 }
                 const juce::ScopedLock lock(requestLock);
                 (isPedal ? pedalPath : isModel ? modelPath : irPath) = path;
+                if (isModel) { ampGear = gear; ampLevelDb = levelDb; ampLevelled = levelled; ampHasCab = hasCab; ampCabKnown = cabKnown; }
                 if (!message.startsWith("Load failed:")) message = path.isEmpty() ? "Stage cleared" : "Loaded " + file.getFileName();
             }
             catch (const std::exception& e)
@@ -382,6 +429,16 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("tunerCents", pitchTracker.getDetectedCents());
     result->setProperty("tunerHz", pitchTracker.getDetectedHz());
     result->setProperty("dynResCut", dynamicResonance.getCurrentCutDb());
+    result->setProperty("speakerSim", speakerActive.load());
+    result->setProperty("fallbackAmp", fallbackActive.load());
+    {
+        const juce::ScopedLock lock(requestLock);
+        result->setProperty("ampGear", ampGear);
+        result->setProperty("ampLevelled", ampLevelled);
+        result->setProperty("ampLevelDb", ampLevelDb);
+        result->setProperty("ampHasCab", ampHasCab);
+        result->setProperty("ampCabKnown", ampCabKnown);
+    }
 
     return juce::var(result.release());
 }
