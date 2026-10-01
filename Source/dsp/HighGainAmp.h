@@ -71,8 +71,8 @@ private:
             return y;
         }
     };
-    static constexpr float stage1Gain = 14.0f, stage2Gain = 9.0f, stage3Gain = 2.5f;
-    static constexpr float bias1 = 0.25f, bias2 = 0.15f;
+    static constexpr float stage1Gain = 6.0f, stage2Gain = 9.0f, stage3Gain = 2.5f;
+    static constexpr float bias1 = 0.15f, bias2 = 0.15f;
     // Output trim: a -27 dBFS RMS DI take lands near the -18 dB level of normalized captures.
     static constexpr float outputLevel = 0.085f;
     const float tanhBias1 = std::tanh(bias1), tanhBias2 = std::tanh(bias2);

@@ -41,12 +41,13 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     piezo.prepare(rate);
     subSynth.prepare(rate);
     microDelay.prepare(rate);
-    fallbackAmp.prepare(rate, maxBlock); speaker.prepare(rate);
+    fallbackAmp.prepare(rate, maxBlock); speaker.prepare(rate); noiseShield.prepare(rate);
     cab.prepare(spec); tone.prepare(rate);
     cleanAudio.resize(static_cast<size_t>(maxBlock));
     gateEnvelope.resize(static_cast<size_t>(maxBlock));
     pedalAudio.resize(static_cast<size_t>(maxBlock));
     subSynthAudio.resize(static_cast<size_t>(maxBlock));
+    dryInput.resize(static_cast<size_t>(maxBlock));
     pedalBlend.reset(rate, 0.02); pedalBlend.setCurrentAndTargetValue(value(Params::pedalOn) >= .5f ? 1.0f : 0.0f);
     cleanLow = cleanHigh = metalLow = metalLow2 = 0;
     tightCoeffHz = highCoeffHz = cleanDriveGain = -1;
@@ -145,6 +146,7 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
 
     // 3. Noise Gate & Intelligent "Chug" Attack Dynamics
     gate.configure(value(Params::gate), value(Params::gateRelease), value(Params::gateOn) >= 0.5f, value(Params::chugAttack));
+    std::copy_n(mono, buffer.getNumSamples(), dryInput.data());
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
         const float gain = gate.tick(buffer.getSample(0, i));
@@ -201,6 +203,8 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         // Drive pushes the next stage: the pedal and the capture (or the built-in amp).
         mono[i] *= gain;
     }
+    // Keep the DI noise floor out of the distortion, where it becomes fuzz under notes.
+    if (metalAudible) noiseShield.process(mono, dryInput.data(), buffer.getNumSamples(), value(Params::gate), value(Params::gateOn) >= 0.5f);
     prePedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     pedalBlend.setTargetValue(value(Params::pedalOn) >= .5f && value(Params::clean) < .5f ? 1.0f : 0.0f);
     if (metalAudible && pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))

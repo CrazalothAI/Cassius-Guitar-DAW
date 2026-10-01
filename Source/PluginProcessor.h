@@ -13,6 +13,7 @@
 #include "dsp/MicroDelay.h"
 #include "dsp/HighGainAmp.h"
 #include "dsp/SpeakerCab.h"
+#include "dsp/NoiseShield.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, private juce::Thread
 {
@@ -64,12 +65,13 @@ private:
     MicroDelay microDelay;
     HighGainAmp fallbackAmp;
     SpeakerCab speaker;
+    NoiseShield noiseShield;
     juce::dsp::Gain<float> inputGain, ampGain, masterGain;
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
     juce::SmoothedValue<float> cleanBlend, tightCutoff;
     juce::SmoothedValue<float> compressionMix, highCutoff, stereoWidth;
     juce::dsp::Compressor<float> cleanCompressor;
-    std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio;
+    std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio, dryInput;
     juce::SmoothedValue<float> pedalBlend;
     float cleanLow = 0, cleanHigh = 0, metalLow = 0, metalLow2 = 0;
     // Filter coefficients are recomputed only when their smoothed cutoff moves.

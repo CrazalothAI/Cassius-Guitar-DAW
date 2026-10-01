@@ -57,7 +57,7 @@ describe('editor connected to the audio engine', () => {
   });
   it('loads a cabinet while the clean channel is active', async () => {
     render(<App/>);
-    fireEvent.click(screen.getByRole('button', { name: 'Clean', exact: true }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Preset' }), { target: { value: 'Glass clean' } });
     fireEvent.click(screen.getByRole('button', { name: /RIG & TONE/ }));
     fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
     const cab = screen.getByRole('button', { name: /Load cabinet IR/ });
@@ -77,7 +77,7 @@ describe('editor connected to the audio engine', () => {
   it('describes the built-in amp and speaker when no capture or IR is loaded', async () => {
     engine.status = { ...engine.status, model: '', fallbackAmp: true, speakerSim: true };
     render(<App/>);
-    fireEvent.click(screen.getByRole('button', { name: 'Metal', exact: true }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Preset' }), { target: { value: 'Modern metalcore' } });
     expect(await screen.findByText('Ferrum · built-in high gain')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /RIG & TONE/ }));
     fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
@@ -87,7 +87,7 @@ describe('editor connected to the audio engine', () => {
   it('shows how much a capture was level matched', async () => {
     engine.status = { ...engine.status, ampLevelled: true, ampLevelDb: 19.84, speakerSim: false };
     render(<App/>);
-    fireEvent.click(screen.getByRole('button', { name: 'Metal', exact: true }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Preset' }), { target: { value: 'Modern metalcore' } });
     fireEvent.click(screen.getByRole('button', { name: /RIG & TONE/ }));
     fireEvent.click(screen.getByRole('tab', { name: 'Rig' }));
     expect(await screen.findByText('Level matched +19.8 dB')).toBeTruthy();

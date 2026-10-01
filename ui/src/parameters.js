@@ -27,16 +27,17 @@ export const parameters = [
   ['DYN_RES_AMOUNT', 'Chug cut', 0, 100, 50, '%', 1],
   ['CHUG_ATTACK', 'Pick attack', 0, 100, 0, '%', 1],
   ['THICKEN_ON', 'Sub-synthesis', 0, 1, 0, '', 1],
-  ['THICKEN_MIX', 'Sub mix', 0, 100, 30, '%', 1],
+  ['THICKEN_MIX', 'Sub', 0, 100, 30, '%', 1],
   ['PIEZO_ON', 'Piezo resonator', 0, 1, 0, '', 1],
-  ['PIEZO_BLEND', 'Piezo sparkle', 0, 100, 40, '%', 1],
+  ['PIEZO_BLEND', 'Piezo', 0, 100, 40, '%', 1],
   ['MICRO_DELAY', 'Micro-delay', 0, 1.0, 0.0, 'ms', 0.01],
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));
 
-// The DSP treats these range ends as bypass: Tight blends in above 20 Hz, High cut fades out at 20 kHz.
-const offAt = { TIGHT: 'min', HIGH_CUT: 'max' };
+// Range ends that mean "off": the DSP bypasses Tight at 20 Hz and High cut at 20 kHz, and
+// the gate and the character effects switch off when their knob is fully down.
+const offAt = { TIGHT: 'min', HIGH_CUT: 'max', GATE_THRESH: 'min', DYN_RES_AMOUNT: 'min', THICKEN_MIX: 'min', PIEZO_BLEND: 'min' };
 
 export const clamp = (p, value) => Math.min(p.max, Math.max(p.min, value));
 // Knob travel (and the host's normalised value) for a value, and back.
