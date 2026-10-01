@@ -223,8 +223,10 @@ int main(int argc, char** argv)
         const auto attackDry = measure(1000, .1f, {{"TIGHT", 20}}).preAmpPeak;
         const auto attackTight = measure(1000, .1f, {{"TIGHT", 180}}).preAmpPeak;
         check(attackTight > attackDry * .85, "Tight must retain the guitar's midrange attack");
-        const auto bright = measure(12000, .1f, {{"HIGH_CUT", 20000}}).rms;
-        const auto dark = measure(12000, .1f, {{"HIGH_CUT", 3000}}).rms;
+        // High cut follows the amp on both channels; the clean channel keeps the test linear
+        // (the metal channel band-limits 12 kHz before the amp to keep hiss out of the distortion).
+        const auto bright = measure(12000, .1f, {{"AMP_CLEAN", 1}, {"HIGH_CUT", 20000}}).rms;
+        const auto dark = measure(12000, .1f, {{"AMP_CLEAN", 1}, {"HIGH_CUT", 3000}}).rms;
         check(dark < bright * .25, "High cut must attenuate treble energy");
         const auto softDry = measure(220, .03f, {{"AMP_CLEAN", 1}, {"CLEAN_COMP", 0}}).rms;
         const auto hardDry = measure(220, .6f, {{"AMP_CLEAN", 1}, {"CLEAN_COMP", 0}}).rms;
@@ -369,6 +371,25 @@ int main(int argc, char** argv)
             ranges.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
             check(ranges.apvts.getRawParameterValue("GATE_ON")->load() == 0 && ranges.apvts.getRawParameterValue("AMP_CLEAN")->load() == 1, "Saved switch states must restore");
             check(std::abs(ranges.apvts.getRawParameterValue("HIGH_CUT")->load() - 6500) < 1, "Saved skewed values must restore");
+        }
+        // The noise shield closes on hiss near the gate threshold, stays open for loud
+        // playing, and leaves only the fixed band-limit when the gate is switched off.
+        {
+            auto hissThrough = [](float detectorLevel, bool dynamic) {
+                NoiseShield shield; shield.prepare(48000);
+                juce::Random random(11); std::vector<float> x(256), detector(256, detectorLevel);
+                double energy = 0;
+                for (int b = 0; b < 400; ++b)
+                {
+                    for (auto& v : x) v = .01f * (random.nextFloat() * 2 - 1);
+                    shield.process(x.data(), detector.data(), 256, -48, dynamic);
+                    if (b >= 200) for (auto v : x) energy += v * v;
+                }
+                return energy;
+            };
+            const auto loud = hissThrough(1.0f, true), decaying = hissThrough(.005f, true), raw = hissThrough(.005f, false);
+            check(decaying < loud * .5, "Hiss near the gate threshold must be filtered ahead of the amp");
+            check(std::abs(raw / loud - 1) < .05, "With the gate off the shield must not react to level");
         }
         // The pitch tracker only runs while the tuner is open or Thicken needs it.
         {

@@ -164,3 +164,12 @@ The built-in amp and speaker were voiced by measurement, not by ear; listening f
 - **Switches:** the six on/off controls (Clean channel, Gate, Pedal, Resonance cut, Thicken, Piezo) are exposed to hosts as on/off parameters instead of 0–1 knobs. Saved sessions restore unchanged.
 - **A/B** compares tone only: input calibration and master level stay put when switching sides, as with presets.
 - **Size:** the UI bundle embedded in the plugin shrank from 930 KB to 329 KB by using a 192 px copy of the logo (drawn at 38–56 px); the original stays in `ui/src/assets`.
+
+### Simpler panel and less fuzz under notes
+
+- **One preset display** replaces the seven tone-family buttons and the "More tones" menu: ‹ › step through every preset in family order, clicking the name opens the full list grouped by family, and Revert appears once a preset is edited. A/B sits beside it.
+- **Fewer controls on screen:** the main view keeps the six amp knobs, the source, IN/OUT meters and the gate light. The drawer has three pages (Amp, Effects, Rig) instead of five. Stage meters and Auto trim moved to Rig.
+- **No effect switches:** the gate, Chug cut, Sub and Piezo switch off by turning their knob fully down (it reads Off) and back on by turning it up, like Tight and High cut. The pedal keeps its switch next to its file.
+- **Fuzz while playing:** the DI noise floor rides on every note into the distortion and becomes fuzz the gate cannot remove. The metal channel now band-limits the DI above 7 kHz (pure hiss in a guitar signal) and closes a low-pass ahead of the amp as notes decay toward the gate threshold (7.5 kHz down to 1.8 kHz), when the string's own treble has already faded. It follows the gate switch. The built-in amp's first stage has less gain and bias: 30 dB more input now moves the output about 3 dB instead of 1, for more note definition, still at high gain. With a −70 dBFS noise floor, noise-induced fuzz fell from −40 to −47 dB relative to the note with the A2 capture and from −46 to −49 dB with the built-in amp; the played tone changed by at most about 1 dB per octave band.
+
+Remaining fuzz mostly comes from the noise entering the interface: keep the guitar volume up and the interface gain just below clipping (Auto trim on Rig matches Input to it), and raise the gate threshold or lower Drive for very high-gain captures.
