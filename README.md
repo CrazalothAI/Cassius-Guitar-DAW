@@ -2,6 +2,10 @@
 
 The Project A guitar workstation and VST3 plugin: JUCE 8 / C++20 audio engine, Neural Amp Modeler captures, cabinet convolution, and an embedded React editor.
 
+## Download
+
+Every push to `main` publishes **Latest build** on the repository's Releases page: `Cassian-Windows.zip` holds `Cassian.exe` (standalone) and the `Cassian.vst3` bundle. Executables are not committed to Git; building locally puts them under `build/AmpSuite_artefacts/Release/` (see below).
+
 ## Run the interface preview
 
 Requires Node.js 20.19+ (Node 22 LTS recommended).
@@ -102,20 +106,20 @@ JUCE is available under AGPLv3 or a commercial JUCE licence. NAM Core is MIT lic
 
 ### Sound and interface update — 2026-09-28
 
-The amp-head editor has ten primary knobs, Metal/Clean channel buttons, a Cassian wolf badge on the chrome faceplate, instant A/B compare, one-click AudioBox Auto Trim, and a collapsible Shape & Effects panel. Starting points cover tight rhythm, singing lead, neoclassical lead, progressive clean, wide low-tuned, glass clean, warm clean, and ambient clean. The independent clean channel was verified against a processor with a loaded WaveNet capture: identical clean output, with finite nonzero audio and state recall. Signal-based regressions verify bass attenuation with retained midrange attack, high-cut attenuation, compression dynamic-range reduction, and distinct stereo delay repeats. All four native CTest checks and 26 UI tests pass. Standalone and VST3 Release builds succeed; the native Glass clean starting point was exercised and its parameter values verified, with Master unchanged at -12 dB.
+The amp-head editor has ten primary knobs, Metal/Clean channel buttons, a Cassian wolf badge on the chrome faceplate, instant A/B compare, one-click AudioBox Auto Trim, and a collapsible Shape & Effects panel. Starting points cover tight rhythm, singing lead, neoclassical lead, progressive clean, wide thall, glass clean, warm clean, and ambient clean. The independent clean channel was verified against a processor with a loaded WaveNet capture: identical clean output, with finite nonzero audio and state recall. Signal-based regressions verify bass attenuation with retained midrange attack, high-cut attenuation, compression dynamic-range reduction, and distinct stereo delay repeats. All four native CTest checks and eight UI tests pass. Standalone and VST3 Release builds succeed; the native Glass clean starting point was exercised and its parameter values verified, with Master unchanged at -12 dB.
 
 Backing tracks continue to play in your existing player or DAW; this build does not include a backing-track player or tempo sync. Use Singing lead as a starting point and adjust delay time/mix to suit the track. Clean presets use a softer gate threshold for sustained notes.
 
 
 ### EVH rig and noise cleanup
 
-The optional drive-pedal NAM stage runs before the amp NAM and uses a smoothed bypass. When no capture is loaded, the same switch uses a built-in asymmetric drive, so metal tones do not silently lose their front-end push. Clean bypasses both captures and the external cab. Pedal file paths and bypass state are recalled with the rest of the rig. Load/change the drive pedal under Shape & Effects, then enable its switch on Metal. User-supplied packs are extracted under `.local/rigs/` and excluded from Git.
+The optional pedal NAM stage runs before the amp NAM and uses a smoothed bypass. Clean bypasses both captures and the external cab. Pedal file paths and bypass state are recalled with the rest of the rig. Load/change the pedal under Shape & Effects, then enable its switch on Metal. User-supplied packs are extracted under `.local/rigs/` and excluded from Git.
 
-The gate now detects the dry input and controls both pre-amp and post-amp gain, with 6 dB hysteresis, a short hold, fast opening and adjustable release. Post-amp gating suppresses capture self-noise before delay/reverb, preserving their tails. Noise gate is labeled on the main panel and has an on/off switch and live open/closed indicator. Metal channel switching no longer inherits a clean preset's very low threshold. Rhythm and lead starting points push the capture into its calibrated gain range, while the clean presets stay transparent. A DC/subsonic input blocker and softened post-gate curve prevent interface offset and gate modulation from becoming crackle in the high-gain path.
+The gate now detects the dry input and controls both pre-amp and post-amp gain, with 6 dB hysteresis, a short hold, fast opening and adjustable release. Post-amp gating suppresses capture self-noise before delay/reverb, preserving their tails. Noise gate is labeled on the main panel and has an on/off switch and live open/closed indicator. Metal channel switching no longer inherits a clean preset's very low threshold. Rhythm and lead starting points avoid stacking extra built-in overdrive onto a high-gain capture.
 
 The footer reports audio block size, DSP load and processing overruns. An input-clipping banner helps identify excessive interface gain. The user's AudioBox buffer was changed from 128 to 256 and then 512 samples at 48 kHz after observing repeated DSP overruns with two NAM captures. This trades additional latency for scheduling headroom; listening feedback is still required. The previous settings are backed up in `build/Cassian.settings.before-noise-fix`.
 
-All four native checks and 26 UI tests pass. The supplied EVH Red I + Fortin TS9 1 + Mesa Oversized SM57/VR2 chain also passed the complete processor test: finite bounded output, played notes, exact idle suppression with the gate closed, and clean-channel isolation from the loaded rig. Synthetic full-rig output peak was 0.158192 at the test settings. This does not prove the hardware crackling is resolved.
+All four native checks and seven UI tests pass. The supplied EVH Red I + Fortin TS9 1 + Mesa Oversized SM57/VR2 chain also passed the complete processor test: finite bounded output, played notes, exact idle suppression with the gate closed, and clean-channel isolation from the loaded rig. Synthetic full-rig output peak was 0.158192 at the test settings. This does not prove the hardware crackling is resolved.
 
 Standalone launch supports explicit `--amp "absolute path.nam" --cab "absolute path.wav" --pedal "absolute path.nam"` for loading a complete rig. Ordinary launches recall saved state. The amp flag must refer to an existing file to apply the import and conservative starting settings. Input gain and master remain unchanged.
 
@@ -128,7 +132,7 @@ The main amp now has six controls: Drive, Bass, Middle, Treble, Space (reverb mi
 
 With the supplied EVH Ivory pack active, Rock selects Blue I; Lead and Metal select Red I from the same folder. Other captures remain in place when the expected EVH sibling is unavailable. Clean and Ambient use Lumen independently of the loaded captures. Modern metalcore enables the loaded pedal; 80s rock and Singing lead bypass it. These are starting points, not emulations of a particular artist's commercial plugin. Choosing tones preserves input calibration and master level.
 
-26 UI tests and all four native checks pass. Native Rock selection was verified to load APP-5153-Ivory-Blue-I.nam and update its tone controls with Master unchanged. The Low-Tuned family name avoids artist or product trademarks while retaining the same low-register presets.
+Seven UI tests and all four native checks pass. Native Rock selection was verified to load APP-5153-Ivory-Blue-I.nam and update its tone controls with Master unchanged.
 
 ### Interface polish
 
@@ -151,3 +155,21 @@ Measured with a headless build of the engine on Linux, rendering a synthetic DI 
 - **Idle stages:** the channel that is fully faded out is not computed (captures and cabinet rest on Clean), and filter coefficients are recalculated only when their cutoff moves.
 
 The built-in amp and speaker were voiced by measurement, not by ear; listening feedback is still required. Native tests cover the resampler round trip, loudness matching and gear-type detection, the fallback's saturation, and the tuner staying idle while closed. Checks for Tight and the dynamic resonance filter now measure at the amp input, since the built-in amp re-saturates its input.
+
+### Controls and downloads
+
+- **Releases:** CI replaces a `latest` pre-release with the zipped standalone and VST3 on each push to `main`, and fails if the build produced no files. Actions moved off the deprecated Node 20 versions.
+- **Remove:** the Rig page can unload the amp capture, pedal capture or cabinet IR. Removing the capture returns Metal to the built-in amp; removing the IR returns amp-only rigs to the built-in speaker.
+- **Knob travel:** High cut, Tight, delay Time and gate Release put a musical value at mid-travel (8 kHz, 70 Hz, 300 ms, 150 ms) instead of the arithmetic middle, which gave High cut half its travel above 11.5 kHz. Arrow keys move 1% of travel. Saved sessions keep their values; DAW automation lanes recorded for these four controls will follow the new curve.
+- **Switches:** the six on/off controls (Clean channel, Gate, Pedal, Resonance cut, Thicken, Piezo) are exposed to hosts as on/off parameters instead of 0–1 knobs. Saved sessions restore unchanged.
+- **A/B** compares tone only: input calibration and master level stay put when switching sides, as with presets.
+- **Size:** the UI bundle embedded in the plugin shrank from 930 KB to 329 KB by using a 192 px copy of the logo (drawn at 38–56 px); the original stays in `ui/src/assets`.
+
+### Simpler panel and less fuzz under notes
+
+- **One preset display** replaces the seven tone-family buttons and the "More tones" menu: ‹ › step through every preset in family order, clicking the name opens the full list grouped by family, and Revert appears once a preset is edited. A/B sits beside it.
+- **Fewer controls on screen:** the main view keeps the six amp knobs, the source, IN/OUT meters and the gate light. The drawer has three pages (Amp, Effects, Rig) instead of five. Stage meters and Auto trim moved to Rig.
+- **No effect switches:** the gate, Chug cut, Sub and Piezo switch off by turning their knob fully down (it reads Off) and back on by turning it up, like Tight and High cut. The pedal keeps its switch next to its file.
+- **Fuzz while playing:** the DI noise floor rides on every note into the distortion and becomes fuzz the gate cannot remove. The metal channel now band-limits the DI above 7 kHz (pure hiss in a guitar signal) and closes a low-pass ahead of the amp as notes decay toward the gate threshold (7.5 kHz down to 1.8 kHz), when the string's own treble has already faded. It follows the gate switch. The built-in amp's first stage has less gain and bias: 30 dB more input now moves the output about 3 dB instead of 1, for more note definition, still at high gain. With a −70 dBFS noise floor, noise-induced fuzz fell from −40 to −47 dB relative to the note with the A2 capture and from −46 to −49 dB with the built-in amp; the played tone changed by at most about 1 dB per octave band.
+
+Remaining fuzz mostly comes from the noise entering the interface: keep the guitar volume up and the interface gain just below clipping (Auto trim on Rig matches Input to it), and raise the gate threshold or lower Drive for very high-gain captures.

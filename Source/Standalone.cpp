@@ -66,11 +66,8 @@ public:
                             if (auto* ranged = dynamic_cast<juce::RangedAudioParameter*>(parameter); ranged && ranged->paramID == id)
                                 ranged->setValueNotifyingHost(ranged->convertTo0to1(value));
                     };
-                    set("AMP_CLEAN", 0); set("PEDAL_ON", 1);
-                    // EVH/Fortin captures are calibrated below a guitar's
-                    // pickup level. Start with a musical push so the first
-                    // strum reaches the capture's gain stages.
-                    set("DRIVE_GAIN", 8); set("GATE_ON", 1); set("GATE_THRESH", -48); set("GATE_RELEASE", 100);
+                    set("AMP_CLEAN", 0); set("PEDAL_ON", importedPedal ? 1.0f : 0.0f);
+                    set("DRIVE_GAIN", 0); set("GATE_ON", 1); set("GATE_THRESH", -48); set("GATE_RELEASE", 100);
                     set("TIGHT", 70); set("HIGH_CUT", 8500); set("AMP_OUT", -3);
                     set("AMP_BASS", -1); set("AMP_MID", 1); set("AMP_TREBLE", 0); set("PRESENCE", 0);
                     set("DELAY_MIX", 0); set("REVERB_MIX", 4);

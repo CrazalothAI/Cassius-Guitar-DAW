@@ -7,9 +7,14 @@ const dragPixels = 200, fineDivisor = 10;
 const keySteps = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 10, PageDown: -10 };
 const hint = 'Drag up or down · Shift for fine control · Double-click to reset';
 
-export default function Knob({ id, small = false, muted = false }) {
+// `enable` folds a stage's on/off switch into its knob: fully down is Off, and
+// turning it up switches the stage on, so the panel needs no separate buttons.
+export default function Knob({ id, small = false, muted = false, enable = null }) {
   const p = byId[id];
-  const value = useParameter(id);
+  const raw = useParameter(id);
+  const enabled = useParameter(enable ?? id) >= .5 || !enable;
+  const value = enabled ? raw : p.min;
+  const resetValue = enable && byId[enable].initial < .5 ? p.min : p.initial;
   // The value in hand during a drag or held key; host echoes of earlier values must not pull it back.
   const [pending, setPending] = useState(null);
   // Focus taken by a press shows no keyboard ring; Chromium treats our programmatic focus as focus-visible.
@@ -24,10 +29,14 @@ export default function Knob({ id, small = false, muted = false }) {
   };
   useEffect(() => () => { if (gesture.current) endGesture(id); }, [id]);
 
-  const change = raw => {
-    const next = snap(p, raw), oneShot = !gesture.current;
+  const change = target => {
+    const next = snap(p, target), oneShot = !gesture.current;
     if (oneShot) begin(); else setPending(next);
     setParameter(id, next, { gesture: false });
+    if (enable) {
+      const on = next > p.min + p.step / 2;
+      if (on !== enabled) setParameter(enable, on ? 1 : 0);
+    }
     if (oneShot) end();
   };
 
@@ -51,7 +60,14 @@ export default function Knob({ id, small = false, muted = false }) {
   };
   const keyDown = e => {
     let next;
-    if (e.key in keySteps) next = shown + keySteps[e.key] * (e.shiftKey ? p.step : Math.max(p.step, (p.max - p.min) / 100));
+    if (e.key in keySteps)
+    {
+      // 1% or 10% of the knob's travel (not of the value range, which matters on skewed
+      // knobs); Shift moves one step. A press always moves at least one step.
+      const direction = Math.sign(keySteps[e.key]);
+      next = e.shiftKey ? shown + direction * p.step : fromFraction(p, toFraction(p, shown) + keySteps[e.key] / 100);
+      if (snap(p, next) === shown) next = shown + direction * p.step;
+    }
     else if (e.key === 'Home') next = p.min;
     else if (e.key === 'End') next = p.max;
     else return;
@@ -68,7 +84,7 @@ export default function Knob({ id, small = false, muted = false }) {
     <span className="dial" title={hint} data-pressed={pressed || undefined}
       style={{ '--angle': `${-135 + fraction * 270}deg`, '--from': `${Math.min(zero, fraction) * 270}deg`, '--to': `${Math.max(zero, fraction) * 270}deg` }}
       onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={end} onPointerCancel={end} onLostPointerCapture={end}
-      onDoubleClick={() => change(p.initial)}>
+      onDoubleClick={() => change(resetValue)}>
       <span className="dial-face"><span className="needle" /></span>
       <input ref={input} aria-label={p.label} aria-valuetext={unit ? `${text} ${unit}` : text} type="range"
         min={p.min} max={p.max} step={p.step} value={shown}

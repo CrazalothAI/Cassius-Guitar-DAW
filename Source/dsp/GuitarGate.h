@@ -54,11 +54,8 @@ public:
 
             if (energyDelta > 0.015f && open)
             {
-                // Trigger transient attack punch, but slew into it. An
-                // instantaneous gain jump on a pick scrape is a literal
-                // discontinuity and becomes a crackle after high gain.
-                const float boostTarget = 1.0f + chugAttackAmount * 0.65f;
-                attackBoost += 0.12f * (boostTarget - attackBoost);
+                // Trigger transient attack punch
+                attackBoost = 1.0f + chugAttackAmount * 0.65f;
             }
             else
             {
