@@ -40,11 +40,17 @@ inline constexpr std::array definitions {
     Definition { "THICKEN_MIX", "Sub mix", 0, 100, 30, "%" },
     Definition { "PIEZO_ON", "Piezo resonator", 0, 1, 0, "" },
     Definition { "PIEZO_BLEND", "Piezo sparkle", 0, 100, 40, "%" },
-    Definition { "MICRO_DELAY", "Micro-delay", 0, 1.0f, 0.0f, "ms" }
+    Definition { "MICRO_DELAY", "Micro-delay", 0, 1.0f, 0.0f, "ms" },
+    // Added last so existing sessions' parameter indices never move.
+    Definition { "METRO_ON", "Metronome", 0, 1, 0, "" },
+    Definition { "METRO_BPM", "Metronome tempo", 40, 240, 120, "BPM" },
+    Definition { "METRO_BEATS", "Metronome beats per bar", 1, 12, 4, "beats" },
+    Definition { "METRO_LEVEL", "Metronome level", -40, 0, -12, "dB" }
 };
 enum Index { input, gate, drive, bass, mid, treble, ampOut, delayTime, delayMix, reverbMix, master, clean, tight,
              presence, cleanComp, highCut, delayWidth, reverbSize, gateOn, gateRelease, pedalOn,
-             dynResOn, dynResAmount, chugAttack, thickenOn, thickenMix, piezoOn, piezoBlend, microDelay };
+             dynResOn, dynResAmount, chugAttack, thickenOn, thickenMix, piezoOn, piezoBlend, microDelay,
+             metroOn, metroBpm, metroBeats, metroLevel };
 inline juce::AudioProcessorValueTreeState::ParameterLayout layout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout result;

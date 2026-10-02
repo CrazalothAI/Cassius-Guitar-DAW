@@ -1,5 +1,6 @@
 #include "../Source/PluginProcessor.h"
 #include "../Source/AudioBoxSetup.h"
+#include <complex>
 #include <iostream>
 #include <stdexcept>
 #include <thread>
@@ -390,6 +391,102 @@ int main(int argc, char** argv)
             const auto loud = hissThrough(1.0f, true), decaying = hissThrough(.005f, true), raw = hissThrough(.005f, false);
             check(decaying < loud * .5, "Hiss near the gate threshold must be filtered ahead of the amp");
             check(std::abs(raw / loud - 1) < .05, "With the gate off the shield must not react to level");
+        }
+        // Mains hum is learned between notes and cancelled under them, on either mains
+        // frequency; a DI without hum passes through untouched.
+        {
+            struct Run { double residual, hum; bool cancelling; float mains; bool exact; };
+            const auto run = [](double mainsHz, float humLevel) {
+                HumCanceller canceller; canceller.prepare(48000);
+                juce::Random random(5); std::vector<float> x(128), in(128);
+                // Hum left in the output: its energy at the mains harmonics over the last
+                // second, while a 110 Hz note rings (Hann-windowed, so the note leaks nothing).
+                std::vector<std::complex<double>> before(30), after(30);
+                long long n = 0; bool exact = true;
+                for (int b = 0; b < 48000 * 5 / 128; ++b)
+                {
+                    for (int i = 0; i < 128; ++i)
+                    {
+                        const double t = static_cast<double>(n + i) / 48000;
+                        float buzz = 0;
+                        for (int k = 1; k <= 30; ++k)
+                            buzz += humLevel / static_cast<float>(k) * static_cast<float>(std::sin(juce::MathConstants<double>::twoPi * mainsHz * k * t + k));
+                        // Three seconds of quiet strings, then a held note.
+                        in[i] = x[i] = (t > 3 ? .2f * static_cast<float>(std::sin(juce::MathConstants<double>::twoPi * 110 * t)) : 0.0f)
+                                     + 1e-4f * (random.nextFloat() * 2 - 1) + buzz;
+                    }
+                    canceller.process(x.data(), 128);
+                    for (int i = 0; i < 128; ++i, ++n)
+                    {
+                        if (x[i] != in[i]) exact = false;
+                        if (n < 48000 * 4) continue;
+                        const double t = static_cast<double>(n) / 48000, w = 0.5 - 0.5 * std::cos(juce::MathConstants<double>::twoPi * (t - 4));
+                        for (int k = 1; k <= 30; ++k)
+                        {
+                            const auto phasor = std::polar(w, -juce::MathConstants<double>::twoPi * mainsHz * k * t);
+                            before[static_cast<size_t>(k - 1)] += static_cast<double>(in[i]) * phasor;
+                            after[static_cast<size_t>(k - 1)] += static_cast<double>(x[i]) * phasor;
+                        }
+                    }
+                }
+                double residual = 0, hum = 0;
+                for (int k = 0; k < 30; ++k) { residual += std::norm(after[static_cast<size_t>(k)]); hum += std::norm(before[static_cast<size_t>(k)]); }
+                return Run {residual, hum, canceller.cancelling(), canceller.mainsHz(), exact};
+            };
+            const auto sixty = run(60, .003f), fifty = run(50, .003f), none = run(60, 0);
+            check(sixty.cancelling && sixty.residual < sixty.hum * .01, "60 Hz hum must be cancelled by 20 dB under a note");
+            check(fifty.cancelling && fifty.mains == 50 && fifty.residual < fifty.hum * .01, "50 Hz mains must be found and cancelled");
+            check(!none.cancelling && none.exact, "Without hum the DI must pass through untouched");
+        }
+        // The metronome keeps its own time standalone and follows a playing host's grid.
+        {
+            Metronome click; click.prepare(48000);
+            const Metronome::Settings settings {true, 120, 3, -6};
+            juce::AudioBuffer<float> audio(2, 64), one(2, 1);
+            // One sample at a time over 1.9 s, so each click's sample is exact.
+            std::vector<int> beats; std::vector<long long> onsets; int seen = click.clickCount();
+            for (long long n = 0; n < 48000 * 19 / 10; ++n)
+            {
+                one.clear();
+                click.process(one.getArrayOfWritePointers(), 2, 1, settings, {});
+                if (click.clickCount() != seen) { seen = click.clickCount(); beats.push_back(click.currentBeat()); onsets.push_back(n); }
+            }
+            check(beats == std::vector<int> {0, 1, 2, 0}, "120 BPM in 3 must click on 0, 0.5, 1 and 1.5 s with the bar accented");
+            check(onsets.size() == 4 && onsets[0] == 0 && std::abs(onsets[1] - 24000) <= 1 && std::abs(onsets[3] - 72000) <= 1, "Clicks must land on the beat");
+            // A host at 90 BPM, half a beat before bar 2 of a 4/4 song.
+            Metronome synced; synced.prepare(48000);
+            juce::AudioPlayHead::PositionInfo host;
+            host.setIsPlaying(true); host.setBpm(90); host.setTimeSignature(juce::AudioPlayHead::TimeSignature {4, 4});
+            long long first = -1, n = 0;
+            for (int b = 0; b < 400 && first < 0; ++b, n += 64)
+            {
+                const double ppq = 3.5 + static_cast<double>(n) * 90.0 / 60.0 / 48000.0;
+                host.setPpqPosition(ppq); host.setPpqPositionOfLastBarStart(ppq < 4 ? 0.0 : 4.0);
+                audio.clear();
+                synced.process(audio.getArrayOfWritePointers(), 2, 64, settings, host);
+                for (int i = 0; i < 64 && first < 0; ++i) if (audio.getSample(0, i) != 0) first = n + i;
+            }
+            check(std::abs(first - 16000) <= 1 && synced.currentBeat() == 0, "A playing host's downbeat must click on time and accented");
+            Metronome off; off.prepare(48000); audio.clear();
+            off.process(audio.getArrayOfWritePointers(), 2, 64, {false, 120, 4, 0}, {});
+            check(audio.getMagnitude(0, 64) == 0, "A metronome that is off adds nothing");
+        }
+        // The pick attack shaper never steps the gain: the boost ramps up and back down.
+        {
+            GuitarGate gate; gate.prepare(48000); gate.configure(-60, 140, true, 100);
+            float largestStep = 0, previous = 1, peak = 1;
+            for (int n = 0; n < 48000; ++n)
+            {
+                const float t = static_cast<float>(n % 9600) / 48000; // a pick every 200 ms
+                const float x = .3f * std::exp(-t * 30) * std::sin(juce::MathConstants<float>::twoPi * 110 * t)
+                              + (t < .002f ? .2f * std::sin(juce::MathConstants<float>::twoPi * 5000 * t) : 0.0f);
+                gate.tick(x);
+                largestStep = std::max(largestStep, std::abs(gate.attackGain() - previous));
+                previous = gate.attackGain(); peak = std::max(peak, previous);
+            }
+            check(peak > 1.2f, "Pick attack must still lift the attack");
+            // It rises over about a millisecond and a half; the old shaper jumped 0.65 in one sample.
+            check(largestStep < .05f, "Pick attack must not step the gain (a click in front of the amp)");
         }
         // The pitch tracker only runs while the tuner is open or Thicken needs it.
         {

@@ -24,6 +24,8 @@ export function useParameter(id) {
     const localSync = e => { if (e.detail.id === id) setValue(e.detail.value); };
     window.addEventListener('cassian-parameter', localSync);
     if (!state) {
+      // A knob that switches parameter (Tight ↔ Compression) must show the new one's value.
+      setValue(preview.get(id) ?? byId[id].initial);
       return () => window.removeEventListener('cassian-parameter', localSync);
     }
     const sync = () => setValue(state.getScaledValue());
@@ -61,8 +63,8 @@ export function useParameters(ids) {
   }, [key]);
   return values;
 }
-// A/B compares tone, like presets: input calibration and master level stay where they are.
-const calibration = new Set(['INPUT_GAIN', 'MASTER_VOL']);
+// A/B compares tone, like presets: input calibration, master level and the metronome stay where they are.
+const calibration = new Set(['INPUT_GAIN', 'MASTER_VOL', 'METRO_ON', 'METRO_BPM', 'METRO_BEATS', 'METRO_LEVEL']);
 export function snapshotParameters() {
   return Object.fromEntries(parameters.filter(({id}) => !calibration.has(id)).map(({id}) => [id, readParameter(id)]));
 }

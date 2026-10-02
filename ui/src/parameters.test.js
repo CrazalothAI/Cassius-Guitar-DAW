@@ -8,7 +8,7 @@ describe('parameter table', () => {
     const header = readFileSync(new URL('../../Source/params/ParameterIDs.h', import.meta.url), 'utf8');
     const native = [...header.matchAll(/Definition \{ "(\w+)", "[^"]*", (-?[\d.]+)f?, (-?[\d.]+)f?, (-?[\d.]+)f?, "([^"]*)"(?:, (-?[\d.]+)f?)? \}/g)]
       .map(([, id, min, max, initial, unit, centre]) => ({ id, min: Number(min), max: Number(max), initial: Number(initial), unit, centre: Number(centre ?? 0) }));
-    expect(native).toHaveLength(29);
+    expect(native).toHaveLength(33);
     expect(parameters.map(({ id, min, max, initial, unit, centre }) => ({ id, min, max, initial, unit, centre }))).toEqual(native);
   });
   it('formats values the way the DSP treats them', () => {
@@ -22,6 +22,7 @@ describe('parameter table', () => {
     expect(text('MASTER_VOL', -12)).toBe('-12.0 dB');
     expect(text('DRIVE_GAIN', 6)).toBe('6.0 dB');
     expect(text('REVERB_MIX', 12.4)).toBe('12 %');
+    expect(text('METRO_BPM', 120)).toBe('120 BPM');
   });
   it('maps skewed ranges like JUCE setSkewForCentre and round-trips', () => {
     for (const p of parameters) {

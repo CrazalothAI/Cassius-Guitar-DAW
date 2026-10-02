@@ -1,6 +1,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
 #include "AudioBoxSetup.h"
+#include "DeviceHooks.h"
 
 class CassianApplication final : public juce::JUCEApplication
 {
@@ -73,6 +74,19 @@ public:
                     set("DELAY_MIX", 0); set("REVERB_MIX", 4);
                 }
             }
+        }
+        // Let the editor see dropouts on the audio device and change its buffer size.
+        if (auto* cassian = dynamic_cast<StandaloneDeviceHooks*>(window->getAudioProcessor()))
+        {
+            auto& devices = window->getDeviceManager();
+            cassian->deviceDropouts = [&devices] { auto* d = devices.getCurrentAudioDevice(); return d != nullptr ? d->getXRunCount() : -1; };
+            cassian->deviceBufferSizes = [&devices] { auto* d = devices.getCurrentAudioDevice(); return d != nullptr ? d->getAvailableBufferSizes() : juce::Array<int> {}; };
+            cassian->setDeviceBufferSize = [&devices](int size)
+            {
+                auto setup = devices.getAudioDeviceSetup();
+                setup.bufferSize = size;
+                return devices.setAudioDeviceSetup(setup, true);
+            };
         }
         // Only automatically monitor a confirmed AudioBox device, never a fallback laptop microphone.
         auto* device = window->getDeviceManager().getCurrentAudioDevice();

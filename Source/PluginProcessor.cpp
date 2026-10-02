@@ -41,7 +41,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     piezo.prepare(rate);
     subSynth.prepare(rate);
     microDelay.prepare(rate);
-    fallbackAmp.prepare(rate, maxBlock); speaker.prepare(rate); noiseShield.prepare(rate);
+    fallbackAmp.prepare(rate, maxBlock); speaker.prepare(rate); noiseShield.prepare(rate); humCanceller.prepare(rate); metronome.prepare(rate);
     cab.prepare(spec); tone.prepare(rate);
     cleanAudio.resize(static_cast<size_t>(maxBlock));
     gateEnvelope.resize(static_cast<size_t>(maxBlock));
@@ -118,6 +118,17 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
             if (mainBuffer.getNumChannels() > 1) mainBuffer.addSample(1, i, right);
         }
     }
+    // The click joins after everything, so the rig never processes it.
+    {
+        const auto position = getPlayHead() != nullptr ? getPlayHead()->getPosition() : juce::Optional<juce::AudioPlayHead::PositionInfo> {};
+        const bool follows = position && position->getIsPlaying() && position->getBpm() && position->getPpqPosition();
+        metronomeFollowsHost.store(follows);
+        metronomeBpm.store(follows ? *position->getBpm() : static_cast<double>(value(Params::metroBpm)));
+        metronome.process(mainBuffer.getArrayOfWritePointers(), mainBuffer.getNumChannels(), mainBuffer.getNumSamples(),
+            {value(Params::metroOn) >= 0.5f, value(Params::metroBpm), juce::roundToInt(value(Params::metroBeats)), value(Params::metroLevel)}, position);
+        for (int ch = 0; ch < mainBuffer.getNumChannels(); ++ch)
+            juce::FloatVectorOperations::clip(mainBuffer.getWritePointer(ch), mainBuffer.getReadPointer(ch), -1.0f, 1.0f, mainBuffer.getNumSamples());
+    }
     outputPeak.store(mainBuffer.getMagnitude(0, 0, mainBuffer.getNumSamples()));
 }
 void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
@@ -129,6 +140,8 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     juce::dsp::ProcessContextReplacing<float> context(block);
     inputGain.setGainDecibels(value(Params::input)); inputGain.process(context);
     auto* mono = buffer.getWritePointer(0);
+    // Mains hum out first, so neither the gate nor the amp ever sees it.
+    humCanceller.process(mono, buffer.getNumSamples());
 
     // 1. Pitch tracking for the tuner and Thicken. Idle otherwise: its analysis
     //    used to overrun the callback several times a second, heard as crackle.
@@ -426,6 +439,20 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("cpu", processLoad.getLoadAsPercentage());
     result->setProperty("overruns", processLoad.getXRunCount());
     result->setProperty("inputClipped", inputClipped.load());
+    // Driver-level dropouts (standalone only; -1 when the device cannot report them).
+    result->setProperty("dropouts", deviceDropouts ? deviceDropouts() : -1);
+    if (deviceBufferSizes)
+    {
+        juce::Array<juce::var> sizes;
+        for (const auto size : deviceBufferSizes()) sizes.add(size);
+        result->setProperty("bufferSizes", sizes);
+    }
+    result->setProperty("metronomeBeat", metronome.currentBeat());
+    result->setProperty("metronomeClicks", metronome.clickCount());
+    result->setProperty("metronomeFollowsHost", metronomeFollowsHost.load());
+    result->setProperty("metronomeBpm", metronomeBpm.load());
+    result->setProperty("humCancelling", humCanceller.cancelling());
+    result->setProperty("mainsHz", humCanceller.mainsHz());
 
     // Tuner & Real-time Thall DSP telemetry
     result->setProperty("tunerActive", pitchTracker.isNoteActive());

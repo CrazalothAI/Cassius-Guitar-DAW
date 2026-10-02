@@ -28,6 +28,12 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             else if (stage == "amp" || stage == "cab") processor.requestFile(stage == "amp", juce::File());
             complete(stage == "amp" || stage == "pedal" || stage == "cab");
         })
+        .withNativeFunction("setBufferSize", [this](const auto& args, auto complete)
+        {
+            // Standalone only: a DAW owns its own buffer size.
+            if (args.size() != 1 || !processor.setDeviceBufferSize) { complete(juce::String("Set the buffer size in your DAW's audio settings.")); return; }
+            complete(processor.setDeviceBufferSize(static_cast<int>(args[0])));
+        })
         .withNativeFunction("setTuner", [this](const auto& args, auto complete) { processor.setTunerActive(args.size() == 1 && static_cast<bool>(args[0])); complete(true); })
         .withNativeFunction("getStatus", [this](const auto&, auto complete) { complete(processor.status()); });
     for (const auto& parameter : Params::definitions)

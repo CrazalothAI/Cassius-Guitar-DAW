@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { byId, parameters, snap } from './parameters.js';
 import { familyOf, matchPreset, notes, presets } from './presets.js';
 describe('presets', () => {
-  it('set every tone parameter, leave calibration alone and stay on the control grid', () => {
-    const expected = parameters.map(p => p.id).filter(id => id !== 'INPUT_GAIN' && id !== 'MASTER_VOL').sort();
+  it('set every tone parameter, leave calibration and the metronome alone and stay on the control grid', () => {
+    const expected = parameters.map(p => p.id).filter(id => id !== 'INPUT_GAIN' && id !== 'MASTER_VOL' && !id.startsWith('METRO_')).sort();
     for (const [name, preset] of Object.entries(presets)) {
       expect(Object.keys(preset).sort(), name).toEqual(expected);
       for (const [id, value] of Object.entries(preset)) expect(snap(byId[id], value), `${name} ${id}`).toBe(value);
