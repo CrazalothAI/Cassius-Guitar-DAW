@@ -16,9 +16,9 @@
 #include "dsp/NoiseShield.h"
 #include "dsp/HumCanceller.h"
 #include "dsp/Metronome.h"
-#include <functional>
+#include "DeviceHooks.h"
 
-class AmpSuiteAudioProcessor final : public juce::AudioProcessor, private juce::Thread
+class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
 public:
     AmpSuiteAudioProcessor();
@@ -47,11 +47,6 @@ public:
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
     juce::AudioProcessorValueTreeState apvts;
-    // Set by the standalone app only: its audio device, so the editor can warn about
-    // dropouts (crackles) and offer a larger buffer. Called on the message thread.
-    std::function<int()> deviceDropouts;
-    std::function<juce::Array<int>()> deviceBufferSizes;
-    std::function<juce::String(int)> setDeviceBufferSize;
 private:
     void run() override;
     float value(Params::Index i) const { return parameters[static_cast<size_t>(i)]->load(); }

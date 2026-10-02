@@ -1,7 +1,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
 #include "AudioBoxSetup.h"
-#include "PluginProcessor.h"
+#include "DeviceHooks.h"
 
 class CassianApplication final : public juce::JUCEApplication
 {
@@ -76,7 +76,7 @@ public:
             }
         }
         // Let the editor see dropouts on the audio device and change its buffer size.
-        if (auto* cassian = dynamic_cast<AmpSuiteAudioProcessor*>(window->getAudioProcessor()))
+        if (auto* cassian = dynamic_cast<StandaloneDeviceHooks*>(window->getAudioProcessor()))
         {
             auto& devices = window->getDeviceManager();
             cassian->deviceDropouts = [&devices] { auto* d = devices.getCurrentAudioDevice(); return d != nullptr ? d->getXRunCount() : -1; };
