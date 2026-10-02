@@ -31,6 +31,10 @@ export const parameters = [
   ['PIEZO_ON', 'Piezo resonator', 0, 1, 0, '', 1],
   ['PIEZO_BLEND', 'Piezo', 0, 100, 40, '%', 1],
   ['MICRO_DELAY', 'Micro-delay', 0, 1.0, 0.0, 'ms', 0.01],
+  ['METRO_ON', 'Metronome', 0, 1, 0, '', 1],
+  ['METRO_BPM', 'Tempo', 40, 240, 120, 'BPM', 1],
+  ['METRO_BEATS', 'Beats', 1, 12, 4, 'beats', 1],
+  ['METRO_LEVEL', 'Click', -40, 0, -12, 'dB', 0.1],
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));

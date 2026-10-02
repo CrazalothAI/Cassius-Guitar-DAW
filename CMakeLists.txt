@@ -21,7 +21,9 @@ file(GLOB_RECURSE NAM_SOURCES CONFIGURE_DEPENDS "${nam_SOURCE_DIR}/NAM/*.cpp")
 add_library(nam_core STATIC ${NAM_SOURCES})
 set_target_properties(nam_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(nam_core SYSTEM PUBLIC "${nam_SOURCE_DIR}" "${nam_SOURCE_DIR}/Dependencies/eigen" "${nam_SOURCE_DIR}/Dependencies/nlohmann")
-target_compile_definitions(nam_core PUBLIC NAM_SAMPLE_FLOAT EIGEN_MAX_ALIGN_BYTES=0 NAM_ENABLE_A2_FAST)
+# Eigen keeps its default 16-byte alignment (guaranteed by 64-bit allocators): turning
+# alignment off also turned off most of its vectorisation, and NAM ran 2-3x slower.
+target_compile_definitions(nam_core PUBLIC NAM_SAMPLE_FLOAT NAM_ENABLE_A2_FAST)
 # NAM registers architectures through static initializers. Retain every factory
 # even when nothing directly references its translation unit.
 if(MSVC)
