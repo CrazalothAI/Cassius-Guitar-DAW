@@ -54,14 +54,18 @@ file(GLOB_RECURSE UI_INPUTS CONFIGURE_DEPENDS "${UI_DIR}/src/*")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${UI_INPUTS} "${UI_DIR}/package-lock.json" "${UI_DIR}/vite.config.js" "${UI_DIR}/index.html")
 # Vite produces a single self-contained HTML resource; no install-time asset paths.
 juce_add_binary_data(AmpSuiteAssets SOURCES "${UI_DIR}/dist/index.html")
+set(CASSIAN_ICON "${UI_DIR}/src/assets/cassian-logo-192.png")
+juce_add_binary_data(CassianBrandAssets NAMESPACE CassianBrand HEADER_NAME CassianBrandData.h SOURCES "${CASSIAN_ICON}")
 juce_add_plugin(AmpSuite COMPANY_NAME MyAudioLab BUNDLE_ID com.myaudiolab.ampsuite
     PLUGIN_MANUFACTURER_CODE Maud PLUGIN_CODE Apsu
     FORMATS Standalone VST3 PRODUCT_NAME Cassian
+    ICON_BIG "${CASSIAN_ICON}" ICON_SMALL "${CASSIAN_ICON}"
     IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE COPY_PLUGIN_AFTER_BUILD FALSE
     NEEDS_WEB_BROWSER TRUE NEEDS_WEBVIEW2 TRUE)
 target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp)
 target_sources(AmpSuite_Standalone PRIVATE Source/Standalone.cpp)
+target_link_libraries(AmpSuite_Standalone PRIVATE CassianBrandAssets)
 target_compile_definitions(AmpSuite_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
 target_compile_definitions(AmpSuite PUBLIC JUCE_WEB_BROWSER=1 JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
     JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)

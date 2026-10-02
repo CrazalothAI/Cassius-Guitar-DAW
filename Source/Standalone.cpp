@@ -2,6 +2,38 @@
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
 #include "AudioBoxSetup.h"
 #include "DeviceHooks.h"
+#include <CassianBrandData.h>
+
+#if JUCE_WINDOWS || JUCE_LINUX
+class CassianTrayIcon final : public juce::SystemTrayIconComponent
+{
+public:
+    CassianTrayIcon(const juce::Image& icon, std::function<void()> show, std::function<void()> quit)
+        : showWindow(std::move(show)), quitApp(std::move(quit))
+    {
+        setIconImage(icon, {});
+        setIconTooltip("Cassian");
+    }
+
+    void mouseUp(const juce::MouseEvent& event) override
+    {
+        if (!event.mods.isPopupMenu()) { showWindow(); return; }
+        juce::PopupMenu menu;
+        menu.addItem(1, "Show Cassian");
+        menu.addSeparator();
+        menu.addItem(2, "Quit Cassian");
+        const juce::Component::SafePointer<CassianTrayIcon> safe(this);
+        menu.showMenuAsync(juce::PopupMenu::Options(), [safe](int selected)
+        {
+            if (safe == nullptr) return;
+            if (selected == 1) safe->showWindow();
+            if (selected == 2) safe->quitApp();
+        });
+    }
+private:
+    std::function<void()> showWindow, quitApp;
+};
+#endif
 
 class CassianApplication final : public juce::JUCEApplication
 {
@@ -27,6 +59,15 @@ public:
             }
         }
         window = std::make_unique<juce::StandaloneFilterWindow>("Cassian", juce::Colour(0xff101312), settings, false);
+        int iconSize = 0;
+        const auto* iconData = CassianBrand::getNamedResource(CassianBrand::namedResourceList[0], iconSize);
+        // At tray sizes the head reads better than the small wordmark beneath it.
+        const auto logo = juce::ImageCache::getFromMemory(iconData, iconSize);
+        const auto icon = logo.getClippedImage({0, 0, logo.getWidth(), logo.getWidth()});
+        window->setIcon(icon);
+#if JUCE_WINDOWS || JUCE_LINUX
+        tray = std::make_unique<CassianTrayIcon>(icon, [this] { showWindow(); }, [this] { systemRequestedQuit(); });
+#endif
         // Saved stereo device settings can make JUCE negotiate stereo input and
         // mix the unused second preamp into the guitar. Keep this rig mono.
         auto& deviceManager = window->getDeviceManager();
@@ -96,6 +137,9 @@ public:
     }
     void shutdown() override
     {
+#if JUCE_WINDOWS || JUCE_LINUX
+        tray.reset();
+#endif
         if (window) window->getPluginHolder()->savePluginState();
         window.reset(); properties.saveIfNeeded();
     }
@@ -105,9 +149,19 @@ public:
             juce::Timer::callAfterDelay(100, [] { if (auto* app = juce::JUCEApplication::getInstance()) app->systemRequestedQuit(); });
         else quit();
     }
-    void anotherInstanceStarted(const juce::String&) override { if (window) window->toFront(true); }
+    void anotherInstanceStarted(const juce::String&) override { showWindow(); }
 private:
+    void showWindow()
+    {
+        if (!window) return;
+        window->setMinimised(false);
+        window->setVisible(true);
+        window->toFront(true);
+    }
     juce::ApplicationProperties properties;
     std::unique_ptr<juce::StandaloneFilterWindow> window;
+#if JUCE_WINDOWS || JUCE_LINUX
+    std::unique_ptr<CassianTrayIcon> tray;
+#endif
 };
 JUCE_CREATE_APPLICATION_DEFINE(CassianApplication)

@@ -471,6 +471,118 @@ int main(int argc, char** argv)
             off.process(audio.getArrayOfWritePointers(), 2, 64, {false, 120, 4, 0}, {});
             check(audio.getMagnitude(0, 64) == 0, "A metronome that is off adds nothing");
         }
+        // Master controls the whole mix, including a click on an idle high-gain rig.
+        {
+            const auto clickPeak = [&](float master) {
+                AmpSuiteAudioProcessor rig;
+                set(rig, "REVERB_MIX", 0); set(rig, "METRO_ON", 1); set(rig, "METRO_LEVEL", -12);
+                set(rig, "DRIVE_GAIN", 24); set(rig, "MASTER_VOL", master);
+                rig.prepareToPlay(48000, 128);
+                juce::AudioBuffer<float> audio(2, 128); float peak = 0;
+                for (int b = 0; b < 24; ++b) { audio.clear(); rig.processBlock(audio, midi); peak = std::max(peak, audio.getMagnitude(0, 0, 128)); }
+                return peak;
+            };
+            const float normal = clickPeak(-6), quiet = clickPeak(-26);
+            std::cout << "Metronome master ratio: " << normal / quiet << '\n';
+            check(normal > .01f && std::abs(normal / quiet - 10) < .05f, "Turning Master down 20 dB must turn the metronome down 20 dB too");
+        }
+        // A mono guitar + stereo backing input shares a channel with the output.
+        // The backing must survive intact and bypass both clean and high-gain rigs.
+        {
+            AmpSuiteAudioProcessor cleanRig, metalRig;
+            for (auto* rig : {&cleanRig, &metalRig})
+            {
+                auto layout = rig->getBusesLayout(); layout.inputBuses.set(1, juce::AudioChannelSet::stereo());
+                check(rig->setBusesLayout(layout), "Stereo backing bus must be supported");
+                set(*rig, "REVERB_MIX", 100); set(*rig, "DRIVE_GAIN", 24); set(*rig, "MASTER_VOL", -12);
+            }
+            set(cleanRig, "AMP_CLEAN", 1); set(metalRig, "AMP_CLEAN", 0);
+            cleanRig.prepareToPlay(48000, 64); metalRig.prepareToPlay(48000, 64);
+            juce::AudioBuffer<float> a(3, 257), b(3, 257);
+            float peak = 0;
+            for (int block = 0; block < 24; ++block)
+            {
+                a.clear(); b.clear();
+                for (int i = 0; i < 257; ++i) {
+                    const float x = .08f * std::sin(static_cast<float>(block * 257 + i) * .05f);
+                    a.setSample(1, i, x); a.setSample(2, i, 2 * x);
+                    b.setSample(1, i, x); b.setSample(2, i, 2 * x);
+                }
+                cleanRig.processBlock(a, midi); metalRig.processBlock(b, midi);
+                peak = std::max(peak, a.getMagnitude(0, 0, 257));
+                for (int i = 0; i < 257; ++i) {
+                    check(std::abs(a.getSample(1, i) - 2 * a.getSample(0, i)) < 1e-6f, "Backing track stereo balance must survive output overlap");
+                    check(std::abs(a.getSample(0, i) - b.getSample(0, i)) < 1e-6f, "Backing audio must not enter the distortion or effects");
+                }
+            }
+            check(peak > .01f, "The backing bus's left channel must not be overwritten by the guitar rig");
+        }
+        // Stopping or changing the click level during a beep must not chop its waveform.
+        {
+            Metronome click; click.prepare(48000);
+            juce::AudioBuffer<float> audio(2, 512); audio.clear();
+            click.process(audio.getArrayOfWritePointers(), 2, 512, {true, 120, 4, -3}, {});
+            const float last = audio.getSample(0, 511);
+            audio.clear(); click.process(audio.getArrayOfWritePointers(), 2, 512, {false, 120, 4, -3}, {});
+            check(std::abs(audio.getSample(0, 0) - last) < .08f, "Turning off the metronome must fade its current click");
+            audio.clear(); click.process(audio.getArrayOfWritePointers(), 2, 512, {false, 120, 4, -3}, {});
+            check(audio.getMagnitude(0, 0, 512) == 0, "The stopped metronome must settle to silence");
+            click.prepare(48000); audio.clear();
+            click.process(audio.getArrayOfWritePointers(), 2, 512, {true, 120, 4, -3}, {});
+            const float before = audio.getSample(0, 511);
+            audio.clear(); click.process(audio.getArrayOfWritePointers(), 2, 512, {true, 120, 4, -40}, {});
+            check(std::abs(audio.getSample(0, 0) - before) < .08f, "Metronome level changes must ramp instead of stepping");
+        }
+        // Measured EQ response, stereo isolation, bypass, and automation continuity.
+        {
+            const auto rms = [](double rate, float frequency, PedalEq::Settings settings) {
+                PedalEq eq; eq.prepare(rate, settings);
+                juce::AudioBuffer<float> audio(2, 257); double energy = 0; int samples = 0;
+                for (int b = 0; b < 80; ++b) {
+                    audio.clear();
+                    for (int i = 0; i < 257; ++i)
+                        audio.setSample(0, i, .03f * std::sin(juce::MathConstants<float>::twoPi * frequency * static_cast<float>(b * 257 + i) / static_cast<float>(rate)));
+                    eq.process(audio);
+                    check(audio.getMagnitude(1, 0, 257) == 0, "EQ must not leak signal between stereo channels");
+                    if (b < 40) continue;
+                    for (int i = 0; i < 257; ++i) { const float x = audio.getSample(0, i); check(std::isfinite(x), "EQ output must be finite"); energy += x * x; ++samples; }
+                }
+                return std::sqrt(energy / samples);
+            };
+            for (const double sampleRate : {44100.0, 48000.0, 96000.0}) {
+                const PedalEq::Settings flat {true, 0, 0, 0, 0};
+                check(rms(sampleRate, 80, {true, -6, 0, 0, 0}) < rms(sampleRate, 80, flat) * .7, "Body EQ must reduce booming lows");
+                check(rms(sampleRate, 350, {true, 0, -6, 0, 0}) < rms(sampleRate, 350, flat) * .55, "Mud EQ must cut low mids by 6 dB at its centre");
+                check(rms(sampleRate, 1200, {true, 0, 0, 6, 0}) > rms(sampleRate, 1200, flat) * 1.85, "Focus EQ must lift note definition");
+                check(rms(sampleRate, 10000, {true, 0, 0, 0, -6}) < rms(sampleRate, 10000, flat) * .6, "Fizz EQ must tame upper-treble noise");
+                check(rms(sampleRate, 1000, {true, 0, 0, 0, -6}) > rms(sampleRate, 1000, flat) * .9, "Fizz cuts must preserve the note's midrange");
+            }
+            PedalEq eq; eq.prepare(48000, {false, -12, -12, 12, -12});
+            juce::AudioBuffer<float> audio(2, 257), original(2, 257);
+            juce::Random random(3);
+            for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < 257; ++i) audio.setSample(ch, i, .03f * (random.nextFloat() * 2 - 1));
+            original.makeCopyOf(audio); eq.process(audio);
+            for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < 257; ++i)
+                check(audio.getSample(ch, i) == original.getSample(ch, i), "Bypassed EQ must leave cleans unchanged bit for bit");
+            eq.prepare(48000, {true, 0, 0, -12, 0});
+            float previous = 0, largestStep = 0;
+            for (int b = 0; b < 60; ++b) {
+                if (b == 20) eq.configure({true, 0, 0, 12, 0});
+                if (b == 40) eq.configure({false, 0, 0, 12, 0});
+                for (int i = 0; i < 257; ++i) audio.setSample(0, i, .03f * std::sin(static_cast<float>(b * 257 + i) * .15f));
+                eq.process(audio);
+                for (int i = 0; i < 257; ++i) { const float x = audio.getSample(0, i); largestStep = std::max(largestStep, std::abs(x - previous)); previous = x; }
+            }
+            check(largestStep < .025f, "EQ changes and bypass must not produce gain-step clicks");
+            AmpSuiteAudioProcessor restored;
+            set(restored, "EQ_ON", 1); set(restored, "EQ_FIZZ", -4);
+            juce::MemoryBlock saved; restored.getStateInformation(saved);
+            set(restored, "EQ_ON", 0); set(restored, "EQ_FIZZ", 0); restored.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+            check(restored.apvts.getRawParameterValue("EQ_ON")->load() == 1 && restored.apvts.getRawParameterValue("EQ_FIZZ")->load() == -4, "Sessions must recall the EQ pedal");
+            const auto old = juce::ValueTree::fromXml(R"(<AmpSuiteState><PARAM id="AMP_CLEAN" value="1"/></AmpSuiteState>)");
+            juce::AudioProcessor::copyXmlToBinary(*old.createXml(), saved); restored.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
+            check(restored.apvts.getRawParameterValue("EQ_ON")->load() == 0 && restored.apvts.getRawParameterValue("EQ_FIZZ")->load() == 0, "Older sessions must restore without the new EQ colouring them");
+        }
         // The pick attack shaper never steps the gain: the boost ramps up and back down.
         {
             GuitarGate gate; gate.prepare(48000); gate.configure(-60, 140, true, 100);

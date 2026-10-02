@@ -18,15 +18,17 @@ public:
         rate = sampleRate;
         decay = static_cast<float>(std::exp(-1.0 / (0.012 * rate)));
         attack = static_cast<float>(1.0 - std::exp(-1.0 / (0.0007 * rate)));
+        levelGain.reset(rate, .01);
         reset();
     }
-    void reset() { phase = 0; beat = -1; envelope = 0; target = 0; wasOn = false; wasHostPlaying = false; }
+    void reset() { phase = 0; beat = -1; envelope = 0; target = 0; wasOn = false; wasHostPlaying = false; levelGain.setCurrentAndTargetValue(0); }
 
     // Adds the clicks to `channels`. `host` is the DAW transport, if any.
     void process(float* const* channels, int numChannels, int numSamples, const Settings& s,
                  const juce::Optional<juce::AudioPlayHead::PositionInfo>& host)
     {
-        if (!s.on) { wasOn = false; envelope = 0; target = 0; return; }
+        levelGain.setTargetValue(s.on ? juce::Decibels::decibelsToGain(juce::jlimit(-60.0f, 0.0f, s.levelDb)) : 0.0f);
+        if (!s.on && !levelGain.isSmoothing()) { wasOn = false; envelope = 0; target = 0; return; }
         const int beats = juce::jlimit(1, 12, s.beatsPerBar);
         double bpm = juce::jlimit(20.0, 400.0, s.bpm);
         // A playing host owns the grid: its tempo, its beat position, its bar length.
@@ -45,7 +47,6 @@ public:
         if (!wasOn || hostPlaying != wasHostPlaying) { phase = 0; beat = -1; }
         wasOn = true; wasHostPlaying = hostPlaying;
         if (hostPlaying) phase = hostBeat;
-        const float level = juce::Decibels::decibelsToGain(juce::jlimit(-60.0f, 0.0f, s.levelDb));
         const int barLength = hostPlaying ? hostBeats : beats;
         const auto barStart = hostPlaying ? static_cast<long long>(std::llround(hostBarStart)) : 0LL;
         for (int i = 0; i < numSamples; ++i)
@@ -57,7 +58,7 @@ public:
             if (std::floor(next) > std::floor(phase)) whole = static_cast<long long>(std::floor(next));
             else if (i == 0 && phase - std::floor(phase) < beatsPerSample && beat != static_cast<long long>(std::floor(phase)))
                 whole = static_cast<long long>(std::floor(phase));
-            if (whole >= 0 && whole != beat)
+            if (s.on && whole >= 0 && whole != beat)
             {
                 const auto inBar = static_cast<int>(((whole - barStart) % barLength + barLength) % barLength);
                 trigger(inBar, barLength);
@@ -66,7 +67,7 @@ public:
             phase = next;
             envelope += attack * (target - envelope);
             target *= decay;
-            const float tone = std::sin(oscillator) * envelope * level * (accent ? 1.0f : 0.6f);
+            const float tone = std::sin(oscillator) * envelope * levelGain.getNextValue() * (accent ? 1.0f : 0.6f);
             oscillator += step;
             if (oscillator > juce::MathConstants<float>::twoPi) oscillator -= juce::MathConstants<float>::twoPi;
             for (int ch = 0; ch < numChannels; ++ch) channels[ch][i] += tone;
@@ -94,5 +95,6 @@ private:
     long long beat = -1;
     float decay = 0, attack = 0, envelope = 0, target = 0, oscillator = 0, step = 0;
     bool accent = false, wasOn = false, wasHostPlaying = false;
+    juce::SmoothedValue<float> levelGain;
     std::atomic<int> lastBeat {0}, clicks {0};
 };

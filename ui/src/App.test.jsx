@@ -11,13 +11,36 @@ describe('amp and signal chain', () => {
   it('shows six amp controls and the selected stage’s controls below, in signal order', () => {
     render(<App/>);
     expect(amp().getAllByRole('slider')).toHaveLength(6);
-    expect(screen.getAllByRole('tab').map(t => t.getAttribute('aria-label'))).toEqual(['Input', 'Pedal', 'Amp', 'Cab', 'Effects']);
+    expect(screen.getAllByRole('tab').map(t => t.getAttribute('aria-label'))).toEqual(['Input', 'Pedal', 'Amp', 'Cab', 'EQ', 'Effects']);
     expect(screen.getByRole('tab', { name: 'Amp' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('slider', { name: 'High cut' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Load amp model/ }).disabled).toBe(true);
     stage('Cab');
     expect(screen.getByRole('button', { name: /Load cabinet IR/ }).disabled).toBe(true);
     expect(screen.getByText(/Browser preview ·/)).toBeTruthy();
+  });
+  it('smooths distortion with the EQ pedal and preserves the clean starting points', () => {
+    render(<App/>);
+    choose('Modern metalcore'); stage('EQ');
+    expect(screen.getByRole('button', { name: 'EQ enabled' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('slider', { name: 'Fizz' }).value).toBe('-4');
+    fireEvent.click(screen.getByRole('button', { name: 'Flat EQ' }));
+    expect(screen.getByRole('slider', { name: 'Mud' }).value).toBe('0');
+    fireEvent.click(screen.getByRole('button', { name: 'Smooth distortion' }));
+    expect(screen.getByRole('slider', { name: 'Body' }).value).toBe('-2');
+    expect(screen.getByRole('slider', { name: 'Focus' }).value).toBe('1');
+    choose('Glass clean');
+    expect(screen.getByRole('button', { name: 'EQ enabled' }).getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('slider', { name: 'Fizz' }).value).toBe('0');
+  });
+  it('includes the EQ pedal in A/B comparisons', () => {
+    render(<App/>);
+    choose('Modern metalcore'); stage('EQ');
+    fireEvent.change(screen.getByRole('slider', { name: 'Fizz' }), { target: { value: '-9' } });
+    fireEvent.click(screen.getByRole('button', { name: 'A/B compare' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Flat EQ' }));
+    fireEvent.click(screen.getByRole('button', { name: 'A/B compare' }));
+    expect(screen.getByRole('slider', { name: 'Fizz' }).value).toBe('-9');
   });
   it('keeps the header to a handful of buttons', () => {
     render(<App/>);

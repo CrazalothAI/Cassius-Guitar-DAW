@@ -4,7 +4,7 @@ import Switch from './Switch.jsx';
 import { setParameter, useParameters, useToggle } from '../parameterState.js';
 
 // The rig in signal order. Each stage is a tab; its controls open in the panel below.
-export const pages = ['Input', 'Pedal', 'Amp', 'Cab', 'Effects'];
+export const pages = ['Input', 'Pedal', 'Amp', 'Cab', 'EQ', 'Effects'];
 
 const level = value => Math.max(0, Math.min(1, value > 0 ? (20 * Math.log10(value) + 60) / 60 : 0));
 
@@ -97,6 +97,22 @@ function Cab({ clean, status, load, remove }) {
   </div>;
 }
 
+function EQ() {
+  const enabled = useToggle('EQ_ON');
+  const setTone = values => Object.entries(values).forEach(([id, value]) => setParameter(id, value));
+  return <div className="eq-pedal">
+    <Group title="EQ pedal" status={<Switch id="EQ_ON" name="EQ enabled" />}>
+      <Knob id="EQ_BODY" small muted={!enabled} /><Knob id="EQ_MUD" small muted={!enabled} />
+      <Knob id="EQ_FOCUS" small muted={!enabled} /><Knob id="EQ_FIZZ" small muted={!enabled} />
+    </Group>
+    <div className="eq-actions">
+      <button className="text-button" onClick={() => setTone({EQ_BODY: -2, EQ_MUD: -3, EQ_FOCUS: 1, EQ_FIZZ: -4, EQ_ON: 1})}>Smooth distortion</button>
+      <button className="text-button quiet" onClick={() => setTone({EQ_BODY: 0, EQ_MUD: 0, EQ_FOCUS: 0, EQ_FIZZ: 0})}>Flat EQ</button>
+      <small>After the cabinet · Body 120 Hz · Mud 350 Hz · Focus 1.2 kHz · Fizz 4.8 kHz</small>
+    </div>
+  </div>;
+}
+
 function Effects({ status }) {
   const resonance = useToggle('DYN_RES_ON');
   return <div className="control-groups">
@@ -108,7 +124,7 @@ function Effects({ status }) {
   </div>;
 }
 
-const views = { Input, Pedal, Amp, Cab, Effects };
+const views = { Input, Pedal, Amp, Cab, EQ, Effects };
 const shortAmp = (clean, status) => clean ? 'Lumen clean'
   : status.model ? status.model.replace('APP-5153-Ivory-', '5150III ').replace(/\.nam$/i, '').replace(/-/g, ' ')
   : status.fallbackAmp ? 'Ferrum built-in' : 'No capture';
@@ -117,7 +133,7 @@ const stripExtension = name => name.replace(/\.(nam|wav)$/i, '');
 // Signal chain: stages in order, each with its live level, then the selected stage's controls.
 export default function Stages({ page, onPage, clean, native, status, onLoad, onRemove }) {
   const tabs = useRef([]);
-  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'PEDAL_ON', 'GATE_ON']);
+  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON']);
   const View = views[page] ?? Amp;
   const pedalOn = fx.PEDAL_ON >= .5 && Boolean(status.pedal) && !clean;
   const gate = fx.GATE_ON < .5 ? 'Gate off' : !native ? 'Gate on' : status.gate > .1 ? 'Gate open' : 'Gate closed';
@@ -127,6 +143,7 @@ export default function Stages({ page, onPage, clean, native, status, onLoad, on
     Pedal: { detail: status.pedal ? stripExtension(status.pedal) : 'Empty', value: status.postPedal, lit: pedalOn, off: !pedalOn },
     Amp: { detail: shortAmp(clean, status), value: status.postAmp, lit: native },
     Cab: { detail: clean ? 'Clean rolloff' : status.ir ? stripExtension(status.ir) : status.speakerSim ? 'Built-in 4×12' : 'Off', value: status.postCab, lit: native && (Boolean(status.ir) || status.speakerSim) && !clean },
+    EQ: { detail: fx.EQ_ON >= .5 ? 'Tone shaping' : 'Bypassed', value: status.postEq, lit: fx.EQ_ON >= .5, off: fx.EQ_ON < .5 },
     Effects: { detail: effects, value: status.output, lit: effects !== 'Dry' },
   };
   const keyDown = e => {

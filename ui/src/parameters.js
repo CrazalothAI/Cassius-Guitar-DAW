@@ -34,7 +34,12 @@ export const parameters = [
   ['METRO_ON', 'Metronome', 0, 1, 0, '', 1],
   ['METRO_BPM', 'Tempo', 40, 240, 120, 'BPM', 1],
   ['METRO_BEATS', 'Beats', 1, 12, 4, 'beats', 1],
-  ['METRO_LEVEL', 'Click', -40, 0, -12, 'dB', 0.1],
+  ['METRO_LEVEL', 'Click', -40, 0, -18, 'dB', 0.1],
+  ['EQ_ON', 'EQ enabled', 0, 1, 0, '', 1],
+  ['EQ_BODY', 'Body', -12, 12, 0, 'dB', 0.1],
+  ['EQ_MUD', 'Mud', -12, 12, 0, 'dB', 0.1],
+  ['EQ_FOCUS', 'Focus', -12, 12, 0, 'dB', 0.1],
+  ['EQ_FIZZ', 'Fizz', -12, 12, 0, 'dB', 0.1],
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));

@@ -43,6 +43,8 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     microDelay.prepare(rate);
     fallbackAmp.prepare(rate, maxBlock); speaker.prepare(rate); noiseShield.prepare(rate); humCanceller.prepare(rate); metronome.prepare(rate);
     cab.prepare(spec); tone.prepare(rate);
+    pedalEq.prepare(rate, {value(Params::eqOn) >= .5f, value(Params::eqBody), value(Params::eqMud), value(Params::eqFocus), value(Params::eqFizz)});
+    backingAudio.setSize(2, maxBlock);
     cleanAudio.resize(static_cast<size_t>(maxBlock));
     gateEnvelope.resize(static_cast<size_t>(maxBlock));
     pedalAudio.resize(static_cast<size_t>(maxBlock));
@@ -69,6 +71,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     if (pedal) pedal->prepare(rate, maxBlock);
     reportedRate.store(rate); reportedBlock.store(hostBlock);
     prePedalPeak.store(0); postPedalPeak.store(0); postAmpPeak.store(0); postCabPeak.store(0);
+    postEqPeak.store(0);
     swapBypasses.store(0);
     ampExpectedRate.store(model ? model->expectedRate() : 0);
     pedalExpectedRate.store(pedal ? pedal->expectedRate() : 0);
@@ -103,20 +106,17 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         float* channels[2] {mainBuffer.getWritePointer(0, offset), nullptr};
         if (mainBuffer.getNumChannels() > 1) channels[1] = mainBuffer.getWritePointer(1, offset);
         juce::AudioBuffer<float> chunk(channels, juce::jmin(2, mainBuffer.getNumChannels()), size);
+        // The mono guitar input plus a stereo auxiliary bus overlaps the stereo
+        // output's second channel. Save the backing input before the rig writes it.
+        const int backingChannels = backingBuffer.getNumChannels();
+        if (backingChannels > 0)
+            for (int ch = 0; ch < chunk.getNumChannels(); ++ch)
+                backingAudio.copyFrom(ch, 0, backingBuffer, juce::jmin(ch, backingChannels - 1), offset, size);
         processChunk(chunk);
-    }
-    // Optional DAW backing-track bus is mixed after the amp chain, so it never
-    // reaches the gate, pedal, NAM, or cabinet.
-    if (backingBuffer.getNumChannels() > 0)
-    {
-        const auto samples = juce::jmin(mainBuffer.getNumSamples(), backingBuffer.getNumSamples());
-        for (int i = 0; i < samples; ++i)
-        {
-            const auto left = backingBuffer.getSample(0, i);
-            const auto right = backingBuffer.getNumChannels() > 1 ? backingBuffer.getSample(1, i) : left;
-            mainBuffer.addSample(0, i, left);
-            if (mainBuffer.getNumChannels() > 1) mainBuffer.addSample(1, i, right);
-        }
+        // Backing audio bypasses all guitar processing, including the EQ and effects.
+        if (backingChannels > 0)
+            for (int ch = 0; ch < chunk.getNumChannels(); ++ch)
+                chunk.addFrom(ch, 0, backingAudio, ch, 0, size);
     }
     // The click joins after everything, so the rig never processes it.
     {
@@ -126,9 +126,19 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         metronomeBpm.store(follows ? *position->getBpm() : static_cast<double>(value(Params::metroBpm)));
         metronome.process(mainBuffer.getArrayOfWritePointers(), mainBuffer.getNumChannels(), mainBuffer.getNumSamples(),
             {value(Params::metroOn) >= 0.5f, value(Params::metroBpm), juce::roundToInt(value(Params::metroBeats)), value(Params::metroLevel)}, position);
-        for (int ch = 0; ch < mainBuffer.getNumChannels(); ++ch)
-            juce::FloatVectorOperations::clip(mainBuffer.getWritePointer(ch), mainBuffer.getReadPointer(ch), -1.0f, 1.0f, mainBuffer.getNumSamples());
     }
+    // Protect the complete mix. Previously the click bypassed Master and the
+    // limiter, and guitar + click + backing audio was only hard-clipped.
+    juce::dsp::AudioBlock<float> outputBlock(mainBuffer);
+    juce::dsp::ProcessContextReplacing<float> outputContext(outputBlock);
+    masterGain.setGainDecibels(value(Params::master)); masterGain.process(outputContext);
+    // Remove invalid input before it can poison the limiter's envelope state.
+    for (int ch = 0; ch < mainBuffer.getNumChannels(); ++ch)
+        for (int i = 0; i < mainBuffer.getNumSamples(); ++i)
+            if (!std::isfinite(mainBuffer.getSample(ch, i))) mainBuffer.setSample(ch, i, 0);
+    limiter.process(outputContext);
+    for (int ch = 0; ch < mainBuffer.getNumChannels(); ++ch)
+        juce::FloatVectorOperations::clip(mainBuffer.getWritePointer(ch), mainBuffer.getReadPointer(ch), -1.0f, 1.0f, mainBuffer.getNumSamples());
     outputPeak.store(mainBuffer.getMagnitude(0, 0, mainBuffer.getNumSamples()));
 }
 void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
@@ -288,6 +298,9 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
             sample *= gateEnvelope[static_cast<size_t>(i)];
         }
     }
+    pedalEq.configure({value(Params::eqOn) >= .5f, value(Params::eqBody), value(Params::eqMud), value(Params::eqFocus), value(Params::eqFizz)});
+    pedalEq.process(buffer);
+    postEqPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     delayTime.setTargetValue(value(Params::delayTime) * static_cast<float>(rate) / 1000);
     delayMix.setTargetValue(value(Params::delayMix) / 100);
     stereoWidth.setTargetValue(value(Params::delayWidth) / 100);
@@ -312,13 +325,6 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     if (buffer.getNumChannels() >= 2)
         microDelay.processStereo(buffer.getWritePointer(0), buffer.getWritePointer(1), buffer.getNumSamples());
 
-    masterGain.setGainDecibels(value(Params::master)); masterGain.process(context); limiter.process(context);
-    for (int ch = 0; ch < buffer.getNumChannels(); ++ch)
-        for (int i = 0; i < buffer.getNumSamples(); ++i)
-        {
-            auto& sample = buffer.getWritePointer(ch)[i];
-            sample = std::isfinite(sample) ? juce::jlimit(-1.0f, 1.0f, sample) : 0.0f;
-        }
 }
 void AmpSuiteAudioProcessor::requestFile(bool isModel, const juce::File& file)
 {
@@ -434,6 +440,7 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("postPedal", postPedalPeak.load());
     result->setProperty("postAmp", postAmpPeak.load());
     result->setProperty("postCab", postCabPeak.load());
+    result->setProperty("postEq", postEqPeak.load());
     result->setProperty("swapBypasses", swapBypasses.load());
     result->setProperty("gate", gateLevel.load());
     result->setProperty("cpu", processLoad.getLoadAsPercentage());
@@ -484,7 +491,20 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
 {
     const auto xml = getXmlFromBinary(data, size);
     if (!xml || !xml->hasTagName(apvts.state.getType())) return;
-    const auto state = juce::ValueTree::fromXml(*xml);
+    auto state = juce::ValueTree::fromXml(*xml);
+    // Older sessions have no EQ parameters. Recall their original sound even
+    // when an EQ was active before loading that session.
+    for (size_t i = Params::eqOn; i < Params::definitions.size(); ++i)
+    {
+        const auto& definition = Params::definitions[i];
+        if (!state.getChildWithProperty("id", definition.id).isValid())
+        {
+            juce::ValueTree parameter("PARAM");
+            parameter.setProperty("id", definition.id, nullptr);
+            parameter.setProperty("value", definition.initial, nullptr);
+            state.addChild(parameter, -1, nullptr);
+        }
+    }
     apvts.replaceState(state);
     { const juce::ScopedLock lock(requestLock);
       desiredModel = state.getProperty("modelPath").toString(); desiredIr = state.getProperty("irPath").toString();

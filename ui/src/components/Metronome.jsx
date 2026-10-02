@@ -69,6 +69,6 @@ export default function MetronomePanel({ status, onClose }) {
       </label>
       <Knob id="METRO_LEVEL" small />
     </div>
-    <p className="metro-note">{host ? 'Following your DAW’s tempo and bars while it plays.' : 'Accent on beat one · in a DAW it follows the song while playing.'}</p>
+    <p className="metro-note"><span>{host ? 'Following your DAW’s tempo and bars while it plays.' : 'Accent on beat one · in a DAW it follows the song while playing.'}</span><br/>Click level follows Master.</p>
   </div>;
 }

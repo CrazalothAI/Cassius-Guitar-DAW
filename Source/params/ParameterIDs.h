@@ -45,12 +45,17 @@ inline constexpr std::array definitions {
     Definition { "METRO_ON", "Metronome", 0, 1, 0, "" },
     Definition { "METRO_BPM", "Metronome tempo", 40, 240, 120, "BPM" },
     Definition { "METRO_BEATS", "Metronome beats per bar", 1, 12, 4, "beats" },
-    Definition { "METRO_LEVEL", "Metronome level", -40, 0, -12, "dB" }
+    Definition { "METRO_LEVEL", "Metronome level", -40, 0, -18, "dB" },
+    Definition { "EQ_ON", "EQ pedal enabled", 0, 1, 0, "" },
+    Definition { "EQ_BODY", "EQ body", -12, 12, 0, "dB" },
+    Definition { "EQ_MUD", "EQ mud", -12, 12, 0, "dB" },
+    Definition { "EQ_FOCUS", "EQ focus", -12, 12, 0, "dB" },
+    Definition { "EQ_FIZZ", "EQ fizz", -12, 12, 0, "dB" }
 };
 enum Index { input, gate, drive, bass, mid, treble, ampOut, delayTime, delayMix, reverbMix, master, clean, tight,
              presence, cleanComp, highCut, delayWidth, reverbSize, gateOn, gateRelease, pedalOn,
              dynResOn, dynResAmount, chugAttack, thickenOn, thickenMix, piezoOn, piezoBlend, microDelay,
-             metroOn, metroBpm, metroBeats, metroLevel };
+             metroOn, metroBpm, metroBeats, metroLevel, eqOn, eqBody, eqMud, eqFocus, eqFizz };
 inline juce::AudioProcessorValueTreeState::ParameterLayout layout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout result;

@@ -16,6 +16,7 @@
 #include "dsp/NoiseShield.h"
 #include "dsp/HumCanceller.h"
 #include "dsp/Metronome.h"
+#include "dsp/PedalEq.h"
 #include "DeviceHooks.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
@@ -71,12 +72,14 @@ private:
     NoiseShield noiseShield;
     HumCanceller humCanceller;
     Metronome metronome;
+    PedalEq pedalEq;
     juce::dsp::Gain<float> inputGain, ampGain, masterGain;
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
     juce::SmoothedValue<float> cleanBlend, tightCutoff;
     juce::SmoothedValue<float> compressionMix, highCutoff, stereoWidth;
     juce::dsp::Compressor<float> cleanCompressor;
     std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio, dryInput;
+    juce::AudioBuffer<float> backingAudio;
     juce::SmoothedValue<float> pedalBlend;
     float cleanLow = 0, cleanHigh = 0, metalLow = 0, metalLow2 = 0;
     // Filter coefficients are recomputed only when their smoothed cutoff moves.
@@ -91,6 +94,7 @@ private:
     int hostBlock = 512;
     std::atomic<float> inputPeak {0}, outputPeak {0};
     std::atomic<float> prePedalPeak {0}, postPedalPeak {0}, postAmpPeak {0}, postCabPeak {0};
+    std::atomic<float> postEqPeak {0};
     std::atomic<int> swapBypasses {0};
     std::atomic<float> gateLevel {0};
     juce::AudioProcessLoadMeasurer processLoad;

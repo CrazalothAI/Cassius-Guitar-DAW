@@ -53,6 +53,8 @@ Outputs:
 
 Copy the entire VST3 bundle to your host's plugin location. The build does not modify installed plugins. The GitHub Actions workflow builds both formats and runs tests when pushed to a repository with Actions enabled.
 
+The Windows executable embeds the Cassian logo as its app icon. The standalone window and Windows/Linux tray use the logo head; click the tray icon to restore the window, or right-click for **Show Cassian** and **Quit Cassian**. Closing the main window still quits normally. Linux tray display requires a desktop providing the X11 system-tray protocol used by JUCE; it has not been runtime-tested on Linux.
+
 ## Play
 
 1. Open `build/AmpSuite_artefacts/Release/Standalone/Cassian.exe`. On first launch, Cassian selects an installed AudioBox ASIO driver at 48 kHz / 128 samples, with input 1 and stereo output. Later launches recall your saved setup. Use **Options → Audio/MIDI Settings** to change it; a DAW uses the host's audio settings. Cassian uses AudioBox input 1 for guitar even if the host exposes a stereo input bus, so unused input 2 noise is not mixed into the amp.
@@ -62,7 +64,13 @@ Copy the entire VST3 bundle to your host's plugin location. The build does not m
 
 NAM Core 0.5.4 supports `.nam` file versions 0.5.x through 0.7.0, including newer A2 / SlimmableContainer captures. Model failures appear in a banner above the amp. A capture labeled **FULL RIG** may already contain cabinet coloration; start without a separate cabinet IR for such captures.
 
-Signal path: input gain → gate → parallel amp paths → amp output → bass/middle/treble/presence → high cut → stereo delay → reverb → master → output limiter. Metal uses a two-stage low cut, pre-drive, NAM and optional cabinet convolution. Clean uses parallel compression, gentle saturation and speaker-style rolloff, bypassing NAM and the external cabinet. Channel changes crossfade over 30 ms; the capture remains loaded.
+Signal path: input gain → gate → parallel amp paths → amp output → bass/middle/treble/presence → high cut → post-amp gate → EQ pedal → stereo delay → reverb → backing/click mix → master → output limiter. Metal uses a two-stage low cut, pre-drive, NAM and optional cabinet convolution. Clean uses parallel compression, gentle saturation and speaker-style rolloff, bypassing NAM and the external cabinet. Channel changes crossfade over 30 ms; the capture remains loaded.
+
+### Distortion cleanup and EQ
+
+The **EQ** page adds four post-cabinet bands: Body (120 Hz shelf), Mud (350 Hz bell), Focus (1.2 kHz bell), and Fizz (4.8 kHz shelf), each adjustable by ±12 dB. **Smooth distortion** enables a restrained low/mud/fizz cut with a small mid boost; **Flat EQ** resets the bands. Metal, rock, and lead starting points use tailored cuts. Clean starting points leave the pedal flat and bypassed. Gain and bypass changes are smoothed, and the pedal adds no buffering latency.
+
+The metronome and optional backing bus bypass guitar distortion and effects, then share Master and the output limiter with the guitar. The click defaults to −18 dB and fades through level/on/off changes. Saved click levels remain intact. The final limiter protects the combined signal; EQ shapes tone but cannot remove acoustic feedback or input clipping.
 
 ### AudioBox USB 96
 
@@ -78,9 +86,11 @@ Mono and stereo buses and mono/stereo outputs are supported; stereo host input b
 
 DAW/standalone state includes every parameter and absolute model/IR paths. Assets are referenced, not embedded; keep them at those locations for recall. Missing/invalid assets report errors and preserve the current stage. Native file selection is asynchronous; parsing and model warm-up run on a loader thread. Captures are prepared and warmed and IRs are read off the audio thread; a DSP lock is held only for the final pointer swap (tens of microseconds). The audio callback only tries this lock; on the rare contention it outputs one silent block and counts the event instead of blocking or passing the raw DI through. Models are destroyed on the loader thread.
 
-DSP buffers are allocated in preparation, captures are warmed with five silent blocks, and host callbacks are split into a bounded 256-sample internal quantum. Capture and pedal stages use fixed-size resampling buffers, so 44.1 kHz and 48 kHz rigs can share the same host session. Stage meters expose input, pre-pedal, post-amp, post-cab, and output peaks. An optional stereo backing-track bus is mixed after the amp/cab chain, keeping playback out of the gate and high-gain stages. EQ coefficient changes use fixed storage but are not interpolated. This is a first implementation requiring native audio/host validation before release.
+DSP buffers are allocated in preparation, captures are warmed with five silent blocks, and host callbacks are split into a bounded 256-sample internal quantum. Capture and pedal stages use fixed-size resampling buffers, so 44.1 kHz and 48 kHz rigs can share the same host session. Stage meters expose input, pre-pedal, post-amp, post-cab, post-EQ, and output peaks. The optional stereo backing-track bus is preserved before overlapping host output buffers are written and mixed after the guitar effects. The EQ pedal uses fixed filter storage and smoothed gain targets; existing tone-stack coefficient updates remain immediate. New EQ parameter IDs are appended, preserving existing automation indices. Older sessions restore the new pedal bypassed and flat. Native listening and DAW host validation remain necessary before release.
 
 ## Validation status
+
+On 2026-10-02, the distortion/EQ update passed all 46 UI tests and all four native CTest suites, and both Windows Release formats rebuilt successfully. Native regressions cover click level following Master (a 20 dB change produces a 10:1 peak ratio), click transitions, stereo backing isolation, EQ response at 44.1/48/96 kHz, independent stereo filters, exact dry bypass, parameter transitions, and legacy state recall. An additional render with the WaveNet fixture, user-supplied SD-1 capture, and Mesa cabinet IR passed. These automated checks do not establish whether the user's live feedback or crackling is resolved.
 
 The frontend production build and six UI tests pass, the browser preview has been visually checked, and the installed npm dependency audit reports zero vulnerabilities. Vite reports an `eval` warning from the unchanged official JUCE native interop shim.
 
