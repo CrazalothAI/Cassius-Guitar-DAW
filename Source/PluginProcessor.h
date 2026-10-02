@@ -14,6 +14,9 @@
 #include "dsp/HighGainAmp.h"
 #include "dsp/SpeakerCab.h"
 #include "dsp/NoiseShield.h"
+#include "dsp/HumCanceller.h"
+#include "dsp/Metronome.h"
+#include <functional>
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, private juce::Thread
 {
@@ -44,6 +47,11 @@ public:
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
     juce::AudioProcessorValueTreeState apvts;
+    // Set by the standalone app only: its audio device, so the editor can warn about
+    // dropouts (crackles) and offer a larger buffer. Called on the message thread.
+    std::function<int()> deviceDropouts;
+    std::function<juce::Array<int>()> deviceBufferSizes;
+    std::function<juce::String(int)> setDeviceBufferSize;
 private:
     void run() override;
     float value(Params::Index i) const { return parameters[static_cast<size_t>(i)]->load(); }
@@ -66,6 +74,8 @@ private:
     HighGainAmp fallbackAmp;
     SpeakerCab speaker;
     NoiseShield noiseShield;
+    HumCanceller humCanceller;
+    Metronome metronome;
     juce::dsp::Gain<float> inputGain, ampGain, masterGain;
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
     juce::SmoothedValue<float> cleanBlend, tightCutoff;
@@ -93,7 +103,8 @@ private:
     std::atomic<bool> inputClipped {false};
     std::atomic<double> reportedRate {48000}, ampExpectedRate {0}, pedalExpectedRate {0};
     std::atomic<int> reportedBlock {512};
-    std::atomic<bool> tunerRequested {false}, speakerActive {false}, fallbackActive {false};
+    std::atomic<bool> tunerRequested {false}, speakerActive {false}, fallbackActive {false}, metronomeFollowsHost {false};
+    std::atomic<double> metronomeBpm {120};
     // Loaded capture details for the editor; guarded by requestLock.
     juce::String ampGear; double ampLevelDb = 0; bool ampLevelled = false, ampHasCab = false, ampCabKnown = false;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AmpSuiteAudioProcessor)

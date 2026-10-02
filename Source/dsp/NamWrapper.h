@@ -1,8 +1,10 @@
 #pragma once
 #include <NAM/get_dsp.h>
+#include <NAM/activations.h>
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 #include "StreamResampler.h"
+#include <mutex>
 #include <optional>
 #include <string>
 class NamWrapper
@@ -21,6 +23,10 @@ public:
         if (const auto metadata = config.find("metadata"); metadata != config.end() && metadata->is_object())
             if (const auto gear = metadata->find("gear_type"); gear != metadata->end() && gear->is_string())
                 gearType = gear->get<std::string>();
+        // The rational tanh the official NAM plugin uses: within 1e-4 of std::tanh and
+        // several times cheaper. It must be chosen before the engine is built.
+        static std::once_flag fastTanh;
+        std::call_once(fastTanh, [] { nam::activations::Activation::enable_fast_tanh(); });
         engine = nam::get_dsp(config, nam::DspLoadOptions {false});
         if (!engine) throw std::runtime_error("The capture did not produce a NAM engine.");
         if (engine->NumInputChannels() != 1 || engine->NumOutputChannels() != 1)
