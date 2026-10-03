@@ -1,6 +1,6 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_audio_plugin_client/Standalone/juce_StandaloneFilterWindow.h>
-#include "AudioBoxSetup.h"
+#include "AudioInterfaceSetup.h"
 #include "DeviceHooks.h"
 #include <CassianBrandData.h>
 
@@ -52,12 +52,13 @@ public:
         if (!settings->containsKey("audioSetup"))
         {
             juce::AudioDeviceManager devices;
-            if (auto setup = findAudioBoxSetup(devices))
+            if (auto setup = findInterfaceSetup(devices))
             {
                 settings->setValue("audioSetup", setup.get());
                 settings->setValue("shouldMuteInput", false);
             }
         }
+        const auto requestedSetup = settings->getXmlValue("audioSetup");
         window = std::make_unique<juce::StandaloneFilterWindow>("Cassian", juce::Colour(0xff101312), settings, false);
         int iconSize = 0;
         const auto* iconData = CassianBrand::getNamedResource(CassianBrand::namedResourceList[0], iconSize);
@@ -68,18 +69,7 @@ public:
 #if JUCE_WINDOWS || JUCE_LINUX
         tray = std::make_unique<CassianTrayIcon>(icon, [this] { showWindow(); }, [this] { systemRequestedQuit(); });
 #endif
-        // Saved stereo device settings can make JUCE negotiate stereo input and
-        // mix the unused second preamp into the guitar. Keep this rig mono.
-        auto& deviceManager = window->getDeviceManager();
-        if (auto* audioDevice = deviceManager.getCurrentAudioDevice();
-            audioDevice && audioDevice->getName().containsIgnoreCase("AudioBox"))
-        {
-            auto setup = deviceManager.getAudioDeviceSetup();
-            selectAudioBoxGuitarInput(setup);
-            const auto error = deviceManager.setAudioDeviceSetup(setup, true);
-            if (error.isNotEmpty())
-                window->getPluginHolder()->getMuteInputValue().setValue(true);
-        }
+        // Keep the user's physical input and output channel selections on every interface.
         // Explicit launch-time rig import; ordinary launches recall the saved state.
         const auto args = juce::StringArray::fromTokens(commandLine, true);
         auto* processor = window->getAudioProcessor();
@@ -128,12 +118,30 @@ public:
                 setup.bufferSize = size;
                 return devices.setAudioDeviceSetup(setup, true);
             };
+            cassian->deviceInputChannels = [&devices] {
+                auto* device = devices.getCurrentAudioDevice(); return device ? device->getInputChannelNames() : juce::StringArray {};
+            };
+            cassian->deviceSelectedInput = [&devices] { return devices.getAudioDeviceSetup().inputChannels.findNextSetBit(0); };
+            cassian->setDeviceInputChannel = [&devices](int channel) {
+                auto* device = devices.getCurrentAudioDevice();
+                if (!device || channel < 0 || channel >= device->getInputChannelNames().size()) return juce::String("Choose an available guitar input.");
+                auto setup = devices.getAudioDeviceSetup();
+                setup.useDefaultInputChannels = false; setup.inputChannels.clear(); setup.inputChannels.setBit(channel);
+                return devices.setAudioDeviceSetup(setup, true);
+            };
+            cassian->showDeviceSettings = [this] { if (window) window->getPluginHolder()->showAudioSettingsDialog(); };
         }
-        // Only automatically monitor a confirmed AudioBox device, never a fallback laptop microphone.
+        // Honor saved monitoring for any confirmed interface. A missing device
+        // must not accidentally start monitoring a fallback built-in microphone.
         auto* device = window->getDeviceManager().getCurrentAudioDevice();
-        if (!device || !device->getName().containsIgnoreCase("AudioBox"))
+        auto& manager = window->getDeviceManager();
+        const bool confirmed = device && !device->getActiveInputChannels().isZero() && !device->getActiveOutputChannels().isZero()
+            && matchesRequestedInterface(requestedSetup.get(), manager.getAudioDeviceSetup(), manager.getCurrentAudioDeviceType());
+        if (!confirmed)
             window->getPluginHolder()->getMuteInputValue().setValue(true);
         window->setVisible(true);
+        if (!confirmed)
+            window->getPluginHolder()->showAudioSettingsDialog();
     }
     void shutdown() override
     {

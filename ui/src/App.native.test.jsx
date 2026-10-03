@@ -23,6 +23,17 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('editor connected to the audio engine', () => {
+  it('lets a standalone user choose a physical input and open driver settings', async () => {
+    engine.status = {...engine.status, deviceSettingsAvailable: true, inputChannels: ['Instrument 1', 'Instrument 2', 'Line 3'], selectedInput: 0};
+    render(<App/>);
+    const input = await screen.findByRole('combobox', {name: 'Guitar input'});
+    fireEvent.change(input, {target: {value: '1'}});
+    await waitFor(() => expect(engine.calls).toContainEqual(['setInputChannel', 1]));
+    fireEvent.click(screen.getByRole('button', {name: 'Audio settings'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['showAudioSettings']));
+    engine.status = {...engine.status, selectedInput: 1};
+    await waitFor(() => expect(input.value).toBe('1'));
+  });
   it('requests optional A/B matching without changing the default comparison', async () => {
     render(<App/>); fireEvent.click(screen.getByRole('checkbox', {name: 'Match A/B loudness'}));
     fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));

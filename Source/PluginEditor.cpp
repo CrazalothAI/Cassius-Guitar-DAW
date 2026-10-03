@@ -53,6 +53,14 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             complete(processor.setDeviceBufferSize(static_cast<int>(args[0])));
         })
         .withNativeFunction("setTuner", [this](const auto& args, auto complete) { processor.setTunerActive(args.size() == 1 && static_cast<bool>(args[0])); complete(true); })
+        .withNativeFunction("showAudioSettings", [this](const auto&, auto complete) {
+            if (processor.showDeviceSettings) { processor.showDeviceSettings(); complete(juce::String()); }
+            else complete(juce::String("Choose the interface in your DAW's audio settings."));
+        })
+        .withNativeFunction("setInputChannel", [this](const auto& args, auto complete) {
+            if (args.size() != 1 || !processor.setDeviceInputChannel) { complete(juce::String("Choose the guitar input in your DAW.")); return; }
+            complete(processor.setDeviceInputChannel(static_cast<int>(args[0])));
+        })
         .withNativeFunction("getStatus", [this](const auto&, auto complete) { complete(processor.status()); });
     for (const auto& parameter : Params::definitions)
     {

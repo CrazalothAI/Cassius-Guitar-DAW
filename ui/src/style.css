@@ -358,6 +358,9 @@ footer > span:first-child { max-width: 70%; overflow: hidden; text-overflow: ell
 footer > span:last-child { white-space: nowrap; letter-spacing: 1px; }
 footer .warn { color: #efb86a; }
 .buffer-select { padding: 1px 4px; font-size: 10px; letter-spacing: 0; }
+.device-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.input-select { max-width: 150px; }
+.device-settings { border: 1px solid #45413b; border-radius: 4px; padding: 2px 6px; font-size: 10px; color: #e1dcd2; background: #1b1917; white-space: nowrap; }
 
 /* ---------- Responsive ---------- */
 @media (max-width: 960px) {

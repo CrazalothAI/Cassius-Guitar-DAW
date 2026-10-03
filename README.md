@@ -14,17 +14,21 @@ The native window, executable, and supported system tray use the Cassian wolf lo
 
 ## Start playing
 
-1. Connect your guitar to **input 1** and headphones or speakers to your audio interface. Cassian uses input 1 for guitar even when a stereo input bus is available.
-2. In standalone, open **Options → Audio/MIDI Settings** to select your driver and outputs. A DAW controls its own device, sample rate, and buffer size.
+1. Connect your guitar and headphones/speakers to your audio interface. Input 1 and outputs 1–2 are the initial defaults. In standalone, choose any physical guitar input with the footer's **Guitar input** menu; **Audio settings** opens driver/device/output selection. In a DAW, route the intended guitar input to Cassian's first input channel.
+2. In standalone, open **Audio settings** in the footer (or **Options → Audio/MIDI Settings**) to select your driver and outputs. A DAW controls its own device, sample rate, and buffer size.
 3. Choose a starting preset from the header. Clean, ambient, piezo, rock, lead, metal, and extended-range voices are available. **Natural Nylon** provides a neutral DI starting point for a real nylon or piezo input.
 4. Select **Amp** below the head to choose Lumen, Ferrum, a NAM capture, or Natural DI. The built-in amps work without downloading captures.
 5. Raise Master gradually from its default −12 dB. Use the IN/OUT and stage meters to check levels, then save the result in **Library → Presets → Save current rig**.
 
-### AudioBox USB 96
+### Audio interfaces
 
-On first launch, the standalone app looks for an AudioBox ASIO driver and requests 48 kHz / 128 samples, input 1, and outputs 1–2. Subsequent launches recall the saved device setup. If it falls back to a different device, automatic monitoring stays muted until the intended setup is selected.
+Cassian has no manufacturer whitelist. Standalone supports interfaces exposed through its JUCE audio backends, including ASIO and Windows Audio on Windows. A VST3 host manages the interface itself. Compatibility depends on the installed driver and its supported channels, rates, and buffers; each hardware model has not been independently tested.
 
-Turn the AudioBox **Mixer** knob toward **Playback** to hear the processed guitar. Set input 1 gain below clipping. If crackling coincides with the dropout warning, use the footer's buffer menu or audio settings to try 256 or 512 samples. Larger buffers give processing more time at the cost of additional latency.
+On a first launch with exactly one ASIO input/output device, Cassian selects it and requests 48 kHz / 128 samples, input 1, and outputs 1–2. With multiple ASIO choices or no ASIO device, it opens **Audio/MIDI Settings** so you can choose the driver, input, output, and channels. For interfaces without ASIO, choose the available Windows Audio backend. Turn off **Mute audio input** in that dialog when ready to monitor your selected input.
+
+Subsequent launches preserve the saved driver, physical channels, timing, and monitoring setting for any manufacturer. If the requested device is unavailable and JUCE falls back to another device, monitoring starts muted and audio settings opens; choose the intended interface and unmute it. Device selection does not force a saved input back to input 1. The footer's **Guitar input** menu selects one physical channel, including the second input of a two-channel interface; the JUCE settings dialog can display paired channel groups.
+
+Use the interface's direct-monitor/mix control to hear processed playback without doubling the dry guitar. On AudioBox USB 96, turn **Mixer** toward **Playback**. Set the chosen input gain below clipping. If crackling coincides with the dropout warning, use the footer's buffer menu or audio settings to try 256 or 512 samples. Larger buffers give processing more time at the cost of additional latency.
 
 ## Amp and cabinet routing
 
@@ -130,7 +134,7 @@ Optional resonance reduction precedes the pedal; the parallel sub-octave layer j
 
 | Symptom | Check |
 |---|---|
-| No guitar | Input 1, intended driver/output pair, Master, load-error banner, and selected Amp source. Explicit NAM requires a loaded capture. |
+| No guitar | Selected physical input, intended driver/output pair, Mute audio input in standalone audio settings, Master, load-error banner, and selected Amp source. Explicit NAM requires a loaded capture. |
 | Dry/doubled guitar | Turn the interface Mixer toward Playback and check for another monitored DI path in the DAW. |
 | Hollow or fuzzy capture | Check capture type and cabinet mode; avoid an unintended second cabinet. Reduce Drive or pedal gain, and try Smooth distortion EQ. |
 | Noise while idle | Raise the gate threshold enough to close between notes, with a release that preserves sustain. |
@@ -139,7 +143,7 @@ Optional resonance reduction precedes the pedal; the parallel sub-octave layer j
 | Missing rig files | Managed copies survive moved downloads. Relink if the managed file is also missing. Rig JSON references files; portable packs include them. |
 | Wrong sound after selecting a preset | Presets choose control/source settings. Recall a saved complete rig for exact files and routing. |
 
-For an independent Windows interface check, close apps holding the ASIO driver and run `build/CassianAudioCheck_artefacts/Release/CassianAudioCheck.exe`. It opens the interface for three seconds, reports callbacks, input peak, timing, and xruns, and sends silence to the outputs without recording audio.
+For an independent Windows interface check, close apps holding the driver and run `build/CassianAudioCheck_artefacts/Release/CassianAudioCheck.exe --list`. Then choose a listed driver/device, for example `CassianAudioCheck.exe --driver "ASIO" --device "Your interface driver name" --input 1 --output 1`. For separate endpoints use `--input-device` and `--output-device`. Optional `--rate`, `--buffer`, and `--outputs` flags select timing and mono/stereo playback. `--help` describes the options. With no arguments, the diagnostic uses the sole ASIO device. It opens the chosen interface for three seconds, reports callbacks, input peak, timing, and xruns, and sends silence to the outputs without recording audio.
 
 ## Build from source
 
@@ -214,7 +218,9 @@ File reading, hashing, parsing, capture preparation, warm-up, and managed storag
 
 Sample-rate conversion retains streaming state between callbacks. New controls append to the previous 41 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **59 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and three-stage portable packs with tamper/path rejection. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-03**: **60 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and three-stage portable packs with tamper/path rejection. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+
+Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
 Automated renders do not establish live sound quality, long-run AudioBox reliability, or compatibility across DAW hosts. The latest foundation pass did not perform Linux host validation or live AudioBox listening. The production UI build reports an existing `eval` warning from the official JUCE native interop shim.
 

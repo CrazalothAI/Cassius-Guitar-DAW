@@ -140,6 +140,10 @@ export default function App() {
       if (typeof error === 'string' && error) setNotice({ title: 'Couldn’t change the buffer size', text: error });
     } catch { setNotice({ title: 'Couldn’t change the buffer size', text: 'Please try again.' }); }
   };
+  const deviceAction = async (name, ...args) => {
+    try { const error = await invoke(name, ...args); if (typeof error === 'string' && error) setNotice({title: 'Audio settings', text: error}); }
+    catch { setNotice({title: 'Audio settings', text: 'Couldn’t update the device. Please try again.'}); }
+  };
 
   // Recognise a preset from the parameters themselves, so the name survives reopening the editor.
   const matched = matchPreset(values), current = matched ?? (chosen || null), edited = !matched && Boolean(chosen);
@@ -170,13 +174,18 @@ export default function App() {
     {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} />}
     <footer>
       <span role="status">{footerMessage}</span>
+      <span className="device-controls">
+      {native && status.deviceSettingsAvailable && <button className="device-settings" onClick={() => deviceAction('showAudioSettings')}>Audio settings</button>}
+      {native && status.inputChannels?.length > 0 && <select className="buffer-select input-select" aria-label="Guitar input" title="Physical guitar input · input monitoring is controlled in Audio settings" value={status.selectedInput ?? -1} onChange={e => deviceAction('setInputChannel', Number(e.target.value))}>
+        <option value={-1} disabled>No input</option>{status.inputChannels.map((name, index) => <option key={index} value={index}>{index + 1} · {name}</option>)}
+      </select>}
       <span>{status.sampleRate ? <>{(status.sampleRate / 1000).toFixed(1)} kHz · {status.bufferSizes?.length
         ? <select className="buffer-select" aria-label="Buffer size" value={status.bufferSize} onChange={e => setBuffer(Number(e.target.value))}>
             {status.bufferSizes.map(size => <option key={size} value={size}>{size}</option>)}
           </select>
         : status.bufferSize || '—'} samples
         {showLoad && <span className={status.overrunRecent || status.cpu >= 80 ? 'warn' : ''}> · DSP {Math.round(status.cpu || 0)}% · {status.overruns || 0} overruns</span>}</>
-        : 'NO AUDIO IN PREVIEW'}</span>
+        : 'NO AUDIO IN PREVIEW'}</span></span>
     </footer>
   </div>;
 }

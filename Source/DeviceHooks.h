@@ -11,4 +11,8 @@ struct StandaloneDeviceHooks
     std::function<int()> deviceDropouts;
     std::function<juce::Array<int>()> deviceBufferSizes;
     std::function<juce::String(int)> setDeviceBufferSize;
+    std::function<juce::StringArray()> deviceInputChannels;
+    std::function<int()> deviceSelectedInput;
+    std::function<juce::String(int)> setDeviceInputChannel;
+    std::function<void()> showDeviceSettings;
 };

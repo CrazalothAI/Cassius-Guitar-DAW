@@ -1,5 +1,5 @@
 #include "../Source/PluginProcessor.h"
-#include "../Source/AudioBoxSetup.h"
+#include "../Source/AudioInterfaceSetup.h"
 #include <complex>
 #include <iostream>
 #include <stdexcept>
@@ -48,11 +48,34 @@ int main(int argc, char** argv)
         guitarSetup.inputChannels.setRange(0, 2, true);
         guitarSetup.outputChannels.setRange(0, 2, true);
         guitarSetup.sampleRate = 48000; guitarSetup.bufferSize = 512;
-        selectAudioBoxGuitarInput(guitarSetup);
+        selectGuitarChannels(guitarSetup);
         check(!guitarSetup.useDefaultInputChannels && guitarSetup.inputChannels.toInteger() == 1,
-              "AudioBox must use only guitar input 1, excluding the unused preamp");
+              "Initial setup must use only guitar input 1, excluding the unused preamp");
         check(guitarSetup.outputChannels.toInteger() == 3 && guitarSetup.sampleRate == 48000 && guitarSetup.bufferSize == 512,
               "Input correction must preserve stereo playback and device timing");
+        selectGuitarChannels(guitarSetup, 3, 4, 1);
+        check(guitarSetup.inputChannels.toInteger() == 8 && guitarSetup.outputChannels.toInteger() == 16,
+              "Interface setup must support a different guitar input and mono output without changing timing");
+        for (const auto& name : {"AudioBox ASIO", "Focusrite USB ASIO", "MOTU USB", "Generic interface"}) {
+            auto requested = makeInterfaceSetup("ASIO", name, name, 3, 4);
+            check(requested->getStringAttribute("audioDeviceInChans") == "1000" && requested->getStringAttribute("audioDeviceOutChans") == "110000",
+                  "Saved channel masks must use JUCE's binary format for arbitrary physical channels");
+            guitarSetup.inputDeviceName = name; guitarSetup.outputDeviceName = name;
+            check(matchesRequestedInterface(requested.get(), guitarSetup, "ASIO"), "Monitoring must not depend on the interface manufacturer");
+            check(!matchesRequestedInterface(requested.get(), guitarSetup, "Windows Audio"), "A fallback driver must not inherit automatic monitoring");
+            guitarSetup.inputDeviceName = "Built-in microphone";
+            check(!matchesRequestedInterface(requested.get(), guitarSetup, "ASIO"), "A fallback microphone must not inherit monitoring");
+        }
+        auto requested = makeInterfaceSetup("Windows Audio", "USB input", "USB output");
+        guitarSetup.inputDeviceName = "USB input"; guitarSetup.outputDeviceName = "USB output";
+        check(matchesRequestedInterface(requested.get(), guitarSetup, "Windows Audio"), "Explicit non-ASIO interfaces must retain monitoring");
+        requested->setAttribute("audioDeviceName", "Legacy interface");
+        guitarSetup.inputDeviceName = guitarSetup.outputDeviceName = "Legacy interface";
+        check(matchesRequestedInterface(requested.get(), guitarSetup, "Windows Audio"), "Older combined-name device settings must remain supported");
+        check(!matchesRequestedInterface(nullptr, guitarSetup, "Windows Audio"), "An unselected default device must remain unconfirmed");
+        check(chooseSingleAsioInterface({"Generic USB ASIO"}) != nullptr, "One ASIO interface can configure automatically regardless of its name");
+        check(chooseSingleAsioInterface({}) == nullptr && chooseSingleAsioInterface({"Interface A", "Interface B"}) == nullptr,
+              "Absent or ambiguous ASIO devices require explicit selection");
         GuitarGate gateTest;
         gateTest.prepare(48000); gateTest.configure(-48, 80, true);
         float gateGain = 0;
@@ -86,7 +109,7 @@ int main(int argc, char** argv)
             }
         }
         check(buffer.getMagnitude(0, 257) > 0.001f, "Bypassed amp must pass audio");
-        // The second AudioBox preamp is deliberately ignored. A hot signal
+        // The second input channel is deliberately ignored. A hot signal
         // arriving there must not leak into the guitar path as crackle.
         set(processor, "GATE_ON", 0); set(processor, "REVERB_MIX", 0);
         processor.prepareToPlay(48000, 64);
@@ -95,7 +118,7 @@ int main(int argc, char** argv)
         for (int i = 0; i < unusedInput.getNumSamples(); ++i) unusedInput.setSample(1, i, 0.5f);
         processor.processBlock(unusedInput, midi);
         check(unusedInput.getMagnitude(0, 0, unusedInput.getNumSamples()) < 1e-6f,
-              "Unused AudioBox input must not enter the amp chain");
+              "Unused input must not enter the amp chain");
         const auto meterStatus = processor.status();
         check(meterStatus.hasProperty("prePedal") && meterStatus.hasProperty("postAmp")
               && meterStatus.hasProperty("postCab"), "Stage meters must be exposed in status");

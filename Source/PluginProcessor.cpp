@@ -211,8 +211,9 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     cleanCompressor.setAttack(value(Params::compAttack)); cleanCompressor.setRelease(value(Params::compRelease));
     compressionMakeupGain = 1.41254f * juce::Decibels::decibelsToGain(value(Params::compMakeup) - 3);
     if (model) model->setOutputGain(value(Params::captureMatch) >= .5f ? juce::Decibels::decibelsToGain(static_cast<float>(model->levelMatchDb())) : 1);
-    // The AudioBox guitar is input 1. If a host exposes a stereo input bus,
-    // ignore input 2 instead of averaging its noise into the high-gain chain.
+    // Guitar uses the first routed input. Standalone maps the physical channel
+    // selected in device settings; DAWs route their chosen input to this bus.
+    // Ignore a second bus channel instead of mixing unused-preamp noise into it.
     for (int ch = 1; ch < buffer.getNumChannels(); ++ch) buffer.copyFrom(ch, 0, buffer, 0, 0, buffer.getNumSamples());
     juce::dsp::AudioBlock<float> block(buffer);
     juce::dsp::ProcessContextReplacing<float> context(block);
@@ -715,6 +716,11 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("inputClipped", inputClipped.load());
     // Driver-level dropouts (standalone only; -1 when the device cannot report them).
     result->setProperty("dropouts", deviceDropouts ? deviceDropouts() : -1);
+    result->setProperty("deviceSettingsAvailable", static_cast<bool>(showDeviceSettings));
+    if (deviceInputChannels && deviceSelectedInput) {
+        juce::Array<juce::var> names; for (const auto& name : deviceInputChannels()) names.add(name);
+        result->setProperty("inputChannels", names); result->setProperty("selectedInput", deviceSelectedInput());
+    }
     if (deviceBufferSizes)
     {
         juce::Array<juce::var> sizes;
