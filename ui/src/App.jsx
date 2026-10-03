@@ -3,8 +3,9 @@ import AmpHead from './components/AmpHead.jsx';
 import MetronomePanel, { MetronomeButton } from './components/Metronome.jsx';
 import PresetBrowser from './components/PresetBrowser.jsx';
 import Stages from './components/Stages.jsx';
+import Library from './components/Library.jsx';
 import { invoke, native } from './juce/bridge.js';
-import { restoreSnapshot, snapshotParameters, useParameters, useToggle } from './parameterState.js';
+import { restoreSnapshot, snapshotParameters, useParameter, useParameters, useToggle } from './parameterState.js';
 import { applyPreset, matchPreset, presetParameterIds, presets } from './presets.js';
 import cassianLogo from './assets/cassian-logo-192.png'; // shown at 34 px; the full-size original stays in assets
 
@@ -74,11 +75,14 @@ function Alerts({ status, notice, dismissed, onDismiss, onBuffer }) {
 
 export default function App() {
   const status = useEngineStatus();
-  const clean = useToggle('AMP_CLEAN');
+  const legacyClean = useToggle('AMP_CLEAN'), source = Math.round(useParameter('AMP_SOURCE'));
+  const clean = source === 1 || (source === 0 && legacyClean);
   const values = useParameters(presetParameterIds);
   const [chosen, setChosen] = useState('');
   const [tunerOpen, setTunerOpen] = useState(false);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const comparing = useRef(false);
   const [page, setPage] = useState('Amp');
   const [dismissed, setDismissed] = useState('');
   const [compare, setCompare] = useState(null);
@@ -103,16 +107,23 @@ export default function App() {
     }
   };
   // A/B: the first press stores A; each later press swaps the stored state with the current one.
-  const toggleCompare = () => {
-    const current = snapshotParameters();
+  const toggleCompare = async () => {
+    if (comparing.current) return;
+    comparing.current = true;
+    try {
+    const current = native ? await invoke('getRig') : {parameters: snapshotParameters()};
+    if (current?.error) throw new Error(current.error);
     if (!compare) {
       setCompare(current);
       setCompareSide('A');
       return;
     }
-    restoreSnapshot(compare);
+    if (native) { const error = await invoke('applyRig', compare); if (error) throw new Error(error); }
+    else restoreSnapshot(compare.parameters);
     setCompare(current);
     setCompareSide(side => side === 'A' ? 'B' : 'A');
+    } catch (e) { setNotice({title: 'Couldn’t compare rigs', text: e.message || 'Please try again.'}); }
+    finally { comparing.current = false; }
   };
   const remove = async stage => {
     try { await invoke('clearStage', stage); }
@@ -151,9 +162,11 @@ export default function App() {
     </header>
     <main>
       <Alerts status={status} notice={notice} dismissed={dismissed} onDismiss={dismiss} onBuffer={setBuffer} />
+      <div className="library-toolbar"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><span>Amps · Pedals · Cabinets · Saved rigs</span></div>
       <AmpHead clean={clean} tunerOpen={tunerOpen} status={status} />
       <Stages page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} />
     </main>
+    {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} />}
     <footer>
       <span role="status">{footerMessage}</span>
       <span>{status.sampleRate ? <>{(status.sampleRate / 1000).toFixed(1)} kHz · {status.bufferSizes?.length

@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <thread>
 static void check(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
+void runLibraryChecks(const juce::File& fixture);
 static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
 {
     auto* parameter = p.apvts.getParameter(id);
@@ -273,7 +274,7 @@ int main(int argc, char** argv)
         check(PitchTracker::midiNoteToName(tracker.getDetectedMidiNote()) == "E2", "Tuner must name E2");
         check(std::abs(tracker.getDetectedCents()) < 6.0f, "Tuner cents detune must be close to zero");
 
-        // Test Thall Dynamic Resonance Filter:
+        // Test Dynamic Resonance Filter:
         // The notch sits ahead of the amp; measure it there, before saturation.
         const auto resOff = measure(280, 0.4f, {{"DYN_RES_ON", 0}}).preAmpPeak;
         const auto resOn = measure(280, 0.4f, {{"DYN_RES_ON", 1}, {"DYN_RES_AMOUNT", 100}}).preAmpPeak;
@@ -612,6 +613,10 @@ int main(int argc, char** argv)
             tunerRig.setTunerActive(true); play();
             check(tunerRig.status()["tunerNote"].toString() == "A2", "The tuner must track once opened");
         }
+        // The processor fixture must come from NAM's example_models directory
+        // (the loudness checks also require its sibling lstm.nam). An optional
+        // fourth path exercises the foundation with a real user amp capture.
+        runLibraryChecks(juce::File(argc > 4 ? argv[4] : argv[1]));
         std::cout << "Processor checks passed\n";
         return 0;
     }

@@ -50,17 +50,29 @@ inline constexpr std::array definitions {
     Definition { "EQ_BODY", "EQ body", -12, 12, 0, "dB" },
     Definition { "EQ_MUD", "EQ mud", -12, 12, 0, "dB" },
     Definition { "EQ_FOCUS", "EQ focus", -12, 12, 0, "dB" },
-    Definition { "EQ_FIZZ", "EQ fizz", -12, 12, 0, "dB" }
+    Definition { "EQ_FIZZ", "EQ fizz", -12, 12, 0, "dB" },
+    Definition { "AMP_SOURCE", "Amp source", 0, 4, 0, "" },
+    Definition { "CAPTURE_KIND", "Capture type", 0, 3, 0, "" },
+    Definition { "CAB_MODE", "Cabinet mode", 0, 3, 0, "" }
 };
 enum Index { input, gate, drive, bass, mid, treble, ampOut, delayTime, delayMix, reverbMix, master, clean, tight,
              presence, cleanComp, highCut, delayWidth, reverbSize, gateOn, gateRelease, pedalOn,
              dynResOn, dynResAmount, chugAttack, thickenOn, thickenMix, piezoOn, piezoBlend, microDelay,
-             metroOn, metroBpm, metroBeats, metroLevel, eqOn, eqBody, eqMud, eqFocus, eqFizz };
+             metroOn, metroBpm, metroBeats, metroLevel, eqOn, eqBody, eqMud, eqFocus, eqFizz, ampSource, captureKind, cabMode };
 inline juce::AudioProcessorValueTreeState::ParameterLayout layout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout result;
     for (const auto& p : definitions)
     {
+        const juce::String id(p.id);
+        if (id == "AMP_SOURCE" || id == "CAPTURE_KIND" || id == "CAB_MODE")
+        {
+            const auto choices = id == "AMP_SOURCE" ? juce::StringArray {"Current rig", "Lumen", "Ferrum", "NAM capture", "Natural DI"}
+                : id == "CAPTURE_KIND" ? juce::StringArray {"Auto", "Amp-only", "Preamp-only", "Full rig"}
+                : juce::StringArray {"Auto", "External IR", "Built-in speaker", "Off"};
+            result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID {p.id, 1}, p.name, choices, 0));
+            continue;
+        }
         if (p.isSwitch())
         {
             result.add(std::make_unique<juce::AudioParameterBool>(juce::ParameterID {p.id, 1}, p.name, p.initial >= 0.5f));

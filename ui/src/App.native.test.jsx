@@ -1,19 +1,24 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-const engine = vi.hoisted(() => ({ status: {}, calls: [] }));
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+const engine = vi.hoisted(() => ({ status: {}, calls: [], rig: {}, library: {}, error: '' }));
 vi.mock('./juce/bridge.js', () => ({
   native: true,
   slider: () => null,
   invoke: async (name, ...args) => {
     if (name === 'getStatus') return { ...engine.status };
     engine.calls.push([name, ...args]);
+    if (name === 'getRig') return engine.rig;
+    if (name === 'getLibrary') return engine.library;
+    if (name === 'applyRig' || name === 'loadRig' || name === 'saveRig') return engine.error;
     return true;
   },
 }));
 import App from './App.jsx';
 beforeEach(() => {
   engine.calls = [];
+  engine.rig = {schema: 1, state: 'full native rig with file references'};
+  engine.library = {assets: [], rigs: []}; engine.error = '';
   engine.status = { model: 'Rig.nam', ir: '', pedal: '', input: 0, output: 0, gate: 0, sampleRate: 48000, bufferSize: 256, cpu: 10, overruns: 0, message: 'Loaded Rig.nam' };
 });
 afterEach(cleanup);
@@ -23,7 +28,7 @@ describe('editor connected to the audio engine', () => {
     render(<App/>);
     expect(await screen.findByText('48.0 kHz capture · resampled to 44.1 kHz')).toBeTruthy();
     fireEvent.click(screen.getByRole('tab', { name: 'Pedal' }));
-    expect(screen.getByText('Before the amp · bypassed on cleans')).toBeTruthy();
+    expect(screen.getByText('Before the selected amp')).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
   it('lets a load failure be dismissed until a different one arrives', async () => {
@@ -138,5 +143,59 @@ describe('editor connected to the audio engine', () => {
     expect(screen.queryByText(/overruns/)).toBeNull();
     engine.status.overruns = 2;
     expect((await screen.findByText(/2 overruns/)).className).toBe('warn');
+  });
+  it('compares complete native rigs rather than only knob values', async () => {
+    render(<App/>);
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['getRig']));
+    engine.rig = {schema: 1, state: 'second amp and cabinet'};
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['applyRig', {schema: 1, state: 'full native rig with file references'}]));
+    expect(screen.getByRole('button', {name: 'A/B compare'}).textContent).toBe('A/B · B');
+    engine.error = 'Missing model asset. Relink it in the Library first.';
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    expect(await screen.findByText(/Missing model asset/)).toBeTruthy();
+    expect(screen.getByRole('button', {name: 'A/B compare'}).textContent).toBe('A/B · B');
+  });
+  it('finds library captures by tags and relinks missing originals', async () => {
+    engine.library.assets = [
+      {id: 'amp:123', name: 'Ivory green', kind: 'amp', ownership: 'User', tags: 'jazz clean', favorite: true, missing: true},
+      {id: 'amp:456', name: 'Ivory red', kind: 'amp', ownership: 'User', tags: 'metal lead', favorite: false},
+    ];
+    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Library'}));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText('Ivory green');
+    fireEvent.change(within(dialog).getByRole('textbox', {name: 'Search library'}), {target: {value: 'jazz'}});
+    expect(within(dialog).queryByText('Ivory red')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Relink'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['relinkAsset', 'amp:123']));
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Import NAM files'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['importAssets', 'amp']));
+  });
+  it('saves named full rigs and reports native recall errors inside the library', async () => {
+    engine.library.rigs = [{id: 'rig-one', name: 'Quiet lead'}];
+    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Library'}));
+    const dialog = screen.getByRole('dialog');
+    fireEvent.change(within(dialog).getByRole('textbox', {name: 'Rig name'}), {target: {value: 'My nylon'}});
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Save current rig'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['saveRig', 'My nylon']));
+    const row = (await within(dialog).findByText('Quiet lead')).closest('article');
+    engine.error = 'Missing cabinet asset';
+    fireEvent.click(within(row).getByRole('button', {name: 'Use'}));
+    expect(await within(dialog).findByRole('alert')).toHaveProperty('textContent', 'Missing cabinet asset');
+    expect(screen.getByRole('dialog')).toBeTruthy();
+  });
+  it('keeps the universal pedal available and labels full-rig cabinets as included', async () => {
+    engine.status = {...engine.status, pedal: 'Boost.nam', ir: 'Cab.wav', ampHasCab: true};
+    render(<App/>);
+    fireEvent.change(screen.getByRole('combobox', {name: 'Preset'}), {target: {value: 'Glass clean'}});
+    fireEvent.change(screen.getByRole('combobox', {name: 'Amp source'}), {target: {value: '3'}});
+    await screen.findByRole('button', {name: 'Change amp'});
+    fireEvent.click(screen.getByRole('tab', {name: 'Pedal'}));
+    expect(screen.getByRole('button', {name: 'Pedal enabled'}).disabled).toBe(false);
+    expect(screen.getByRole('button', {name: 'Channel'}).disabled).toBe(true);
+    expect(screen.getByRole('tab', {name: 'Cab'}).textContent).toContain('Included in capture');
+    fireEvent.click(screen.getByRole('tab', {name: 'Cab'}));
+    expect(screen.getByText('Separate cabinet bypassed · full-rig capture')).toBeTruthy();
   });
 });

@@ -1,0 +1,53 @@
+import React from 'react';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import App from './App.jsx';
+import { applyPreset } from './presets.js';
+beforeEach(() => { localStorage.clear(); applyPreset('Glass clean'); });
+afterEach(cleanup);
+const open = () => { const button = screen.getByRole('button', {name: 'Library'}); button.focus(); fireEvent.click(button); return screen.getByRole('dialog'); };
+describe('library preview', () => {
+  it('searches built-in amps, remembers favorites, and keeps keyboard focus in the dialog', async () => {
+    render(<App/>); let dialog = open();
+    const close = within(dialog).getByRole('button', {name: 'Close library'});
+    expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(close, {key: 'Tab', shiftKey: true});
+    expect(document.activeElement).toBe(within(dialog).getByRole('textbox', {name: 'Rig name'}));
+    fireEvent.change(within(dialog).getByRole('textbox', {name: 'Search library'}), {target: {value: 'jazz'}});
+    expect(within(dialog).queryByText('Ferrum')).toBeNull();
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Favorite Lumen'}));
+    await waitFor(() => expect(within(dialog).getByRole('button', {name: 'Favorite Lumen'}).getAttribute('aria-pressed')).toBe('true'));
+    fireEvent.keyDown(dialog, {key: 'Escape'});
+    expect(document.activeElement).toBe(screen.getByRole('button', {name: 'Library'}));
+    dialog = open(); fireEvent.click(within(dialog).getByRole('checkbox', {name: 'Favorites'}));
+    expect(within(dialog).getByText('Lumen')).toBeTruthy();
+    expect(within(dialog).queryByText('Ferrum')).toBeNull();
+  });
+  it('saves preview control settings without changing listening volume on recall', async () => {
+    render(<App/>);
+    fireEvent.change(screen.getByRole('slider', {name: 'Drive'}), {target: {value: '5'}});
+    let dialog = open();
+    fireEvent.change(within(dialog).getByRole('textbox', {name: 'Rig name'}), {target: {value: 'Test lead'}});
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Save current rig'}));
+    await within(dialog).findByText('Test lead');
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Close library'}));
+    fireEvent.change(screen.getByRole('slider', {name: 'Drive'}), {target: {value: '12'}});
+    fireEvent.change(screen.getByRole('slider', {name: 'Master'}), {target: {value: '-28'}});
+    dialog = open(); fireEvent.click(within(dialog).getByRole('button', {name: 'Presets'}));
+    fireEvent.click(within((await within(dialog).findByText('Test lead')).closest('article')).getByRole('button', {name: 'Use'}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByRole('slider', {name: 'Drive'}).value).toBe('5');
+    expect(screen.getByRole('slider', {name: 'Master'}).value).toBe('-28');
+  });
+  it('offers a neutral nylon path with electric simulation and cabinet disabled', async () => {
+    render(<App/>); const dialog = open();
+    fireEvent.click(within(within(dialog).getByText('Natural DI').closest('article')).getByRole('button', {name: 'Use'}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.getByText('VIA · NATURAL DI')).toBeTruthy();
+    expect(screen.getByRole('button', {name: 'Channel'}).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('tab', {name: 'Effects'}));
+    expect(screen.getByRole('slider', {name: 'Piezo'}).getAttribute('aria-valuetext')).toBe('Off');
+    fireEvent.click(screen.getByRole('tab', {name: 'Cab'}));
+    expect(screen.getByRole('combobox', {name: 'Cabinet mode'}).value).toBe('3');
+  });
+});

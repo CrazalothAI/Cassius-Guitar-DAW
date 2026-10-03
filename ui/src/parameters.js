@@ -40,6 +40,9 @@ export const parameters = [
   ['EQ_MUD', 'Mud', -12, 12, 0, 'dB', 0.1],
   ['EQ_FOCUS', 'Focus', -12, 12, 0, 'dB', 0.1],
   ['EQ_FIZZ', 'Fizz', -12, 12, 0, 'dB', 0.1],
+  ['AMP_SOURCE', 'Amp source', 0, 4, 0, '', 1],
+  ['CAPTURE_KIND', 'Capture type', 0, 3, 0, '', 1],
+  ['CAB_MODE', 'Cabinet mode', 0, 3, 0, '', 1],
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));

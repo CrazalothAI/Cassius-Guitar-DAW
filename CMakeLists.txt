@@ -57,6 +57,7 @@ juce_add_binary_data(AmpSuiteAssets SOURCES "${UI_DIR}/dist/index.html")
 set(CASSIAN_ICON "${UI_DIR}/src/assets/cassian-logo-192.png")
 juce_add_binary_data(CassianBrandAssets NAMESPACE CassianBrand HEADER_NAME CassianBrandData.h SOURCES "${CASSIAN_ICON}")
 juce_add_plugin(AmpSuite COMPANY_NAME MyAudioLab BUNDLE_ID com.myaudiolab.ampsuite
+    COMPANY_COPYRIGHT "Crazaloth"
     PLUGIN_MANUFACTURER_CODE Maud PLUGIN_CODE Apsu
     FORMATS Standalone VST3 PRODUCT_NAME Cassian
     ICON_BIG "${CASSIAN_ICON}" ICON_SMALL "${CASSIAN_ICON}"
@@ -73,12 +74,12 @@ if(WIN32)
     target_compile_definitions(AmpSuite PUBLIC JUCE_ASIO=1)
     target_include_directories(AmpSuite PUBLIC "${CASSIAN_ASIO_SDK}/common")
 endif()
-target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra
+target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra juce::juce_cryptography
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 include(CTest)
 if(BUILD_TESTING)
     juce_add_console_app(AmpSuiteTests PRODUCT_NAME CassianTests NEEDS_WEBVIEW2 TRUE NEEDS_WEB_BROWSER TRUE)
-    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp)
+    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp)
     target_link_libraries(AmpSuiteTests PRIVATE AmpSuite nam_core juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra)
     add_test(NAME processor COMMAND AmpSuiteTests "${nam_SOURCE_DIR}/example_models/wavenet.nam")
     juce_add_console_app(CassianModelCheck PRODUCT_NAME CassianModelCheck)

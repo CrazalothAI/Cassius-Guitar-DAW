@@ -18,6 +18,7 @@
 #include "dsp/Metronome.h"
 #include "dsp/PedalEq.h"
 #include "DeviceHooks.h"
+#include "AssetLibrary.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
@@ -44,6 +45,18 @@ public:
     void requestFile(bool model, const juce::File&);
     void requestPedal(const juce::File&);
     bool selectAmpVoice(const juce::String&);
+    juce::var getLibrary();
+    void importAssets(const juce::Array<juce::File>&, const juce::String& kind);
+    juce::var getRig();
+    juce::String applyRig(const juce::var&, bool preserveGlobals = true);
+    juce::String saveRig(const juce::String& name);
+    juce::String importRig(const juce::String& name, const juce::var& rig);
+    juce::String loadRig(const juce::String& id);
+    bool removeRig(const juce::String& id);
+    bool editAsset(const juce::String& id, const juce::var& changes);
+    bool selectAsset(const juce::String& id);
+    juce::String relinkAsset(const juce::String& id, const juce::File& file);
+    void reportLibraryResult(const juce::String& text) { const juce::ScopedLock lock(requestLock); message = text; }
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
@@ -52,8 +65,13 @@ private:
     void run() override;
     float value(Params::Index i) const { return parameters[static_cast<size_t>(i)]->load(); }
     void processChunk(juce::AudioBuffer<float>&);
+    void processUniversalAmp(juce::AudioBuffer<float>&);
+    void setParameterValue(const char* id, float value);
+    juce::ValueTree copyRigState(bool includeSavedRigs);
     std::array<std::atomic<float>*, Params::definitions.size()> parameters {};
     juce::CriticalSection dspLock, requestLock;
+    AssetLibrary library;
+    std::vector<std::pair<juce::File, juce::String>> pendingImports;
     juce::String desiredModel, desiredIr, modelPath, irPath, message = "Load an amp capture to get started";
     bool modelPending = false, irPending = false;
     juce::String desiredPedal, pedalPath;
@@ -76,6 +94,8 @@ private:
     juce::dsp::Gain<float> inputGain, ampGain, masterGain;
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
     juce::SmoothedValue<float> cleanBlend, tightCutoff;
+    juce::SmoothedValue<float> ampSlotGain;
+    int activeAmpSource = 0;
     juce::SmoothedValue<float> compressionMix, highCutoff, stereoWidth;
     juce::dsp::Compressor<float> cleanCompressor;
     std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio, dryInput;

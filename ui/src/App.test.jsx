@@ -153,12 +153,12 @@ describe('amp and signal chain', () => {
     expect(display()).toContain('Warm clean');
     choose('Glass clean');
     fireEvent.click(screen.getByRole('button', { name: 'Previous preset' }));
-    expect(display()).toContain('Wide thall');
+    expect(display()).toContain('Wide low-tuned metal');
   });
   it('shows the family of presets chosen from the list', () => {
     render(<App/>);
     choose('Drop-Z djent');
-    expect(document.querySelector('.preset-family').textContent).toBe('Thall');
+    expect(document.querySelector('.preset-family').textContent).toBe('Extended range');
   });
   it('moves along the signal chain with the arrow keys', () => {
     render(<App/>);
@@ -219,7 +219,7 @@ describe('metronome', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Faster' }));
     const set = tempo();
     fireEvent.click(screen.getByRole('button', { name: 'A/B compare' }));
-    choose('Thall chug');
+    choose('Low-tuned chug');
     expect(tempo()).toBe(set);
     expect(screen.getByRole('button', { name: 'Click' }).getAttribute('aria-pressed')).toBe('true');
   });

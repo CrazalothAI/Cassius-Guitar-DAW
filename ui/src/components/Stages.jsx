@@ -37,6 +37,13 @@ function RigRow({ label, file, empty, note, children }) {
 const kHz = hz => `${(hz / 1000).toFixed(1)} kHz`;
 const resampled = (on, expected, status) => on && expected > 0 && status.sampleRate > 0 ? `${kHz(expected)} capture · resampled to ${kHz(status.sampleRate)}` : '';
 
+function Choice({id, label, options, disabled = false}) {
+  const values = useParameters([id]);
+  return <label className="slot-choice">{label}<select aria-label={label} disabled={disabled} value={Math.round(values[id])} onChange={e => setParameter(id, Number(e.target.value))}>
+    {options.map((text, i) => <option key={text} value={i}>{text}</option>)}
+  </select></label>;
+}
+
 function Input({ native, status }) {
   const gateOn = useToggle('GATE_ON');
   // Sets input gain so the raw interface peak lands near -12 dBFS.
@@ -62,25 +69,31 @@ function Input({ native, status }) {
 }
 
 function Pedal({ clean, native, status, load, remove }) {
+  const source = useParameters(['AMP_SOURCE']).AMP_SOURCE;
+  const bypassed = clean && source < .5;
   const rate = resampled(status.pedalResampled, status.pedalExpectedRate, status);
   return <div className="rig-list">
-    <RigRow label="PEDAL" file={status.pedal} empty="No pedal capture" note={['Before the amp · bypassed on cleans', rate].filter(Boolean).join(' · ')}>
-      <Switch id="PEDAL_ON" name="Pedal enabled" disabled={clean || !status.pedal} forcedOff={clean} />
+    <RigRow label="PEDAL" file={status.pedal} empty="No pedal capture" note={[bypassed ? 'Bypassed by the current channel routing' : 'Before the selected amp', rate].filter(Boolean).join(' · ')}>
+      <Switch id="PEDAL_ON" name="Pedal enabled" disabled={bypassed || !status.pedal} forcedOff={bypassed} />
       {remove('pedal', status.pedal, 'pedal capture')}{load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
     </RigRow>
   </div>;
 }
 
 function Amp({ clean, status, load, remove }) {
+  const source = useParameters(['AMP_SOURCE']).AMP_SOURCE;
   const rate = resampled(status.ampResampled, status.ampExpectedRate, status);
   const signed = db => `${db > 0 ? '+' : ''}${db.toFixed(1)} dB`;
   const note = [status.model && status.ampLevelled ? `Level matched ${signed(status.ampLevelDb)}` : '', rate].filter(Boolean).join(' · ');
   return <div className="stage-split">
     <div className="rig-list">
+      <Choice id="AMP_SOURCE" label="Amp source" options={['Current rig', 'Lumen · built-in clean', 'Ferrum · built-in high gain', 'NAM capture', 'Natural DI · acoustic / nylon']} />
       <RigRow label="AMP" file={status.model} empty={status.fallbackAmp ? 'Built-in high-gain amp' : 'No capture loaded'}
-        note={clean ? 'Bypassed · Lumen clean is active' : status.model ? note : status.fallbackAmp && 'Load a capture to replace it'}>
+        note={source === 4 ? 'Neutral DI. No electric pickup simulation.' : source === 1 || (source === 0 && clean) ? 'Lumen is active · loaded capture is retained' : source === 2 ? 'Ferrum is active · loaded capture is retained' : status.model ? note : 'Select a built-in amp or load a capture'}>
         {remove('amp', status.model, 'amp capture')}{load('amp', status.model ? 'Change amp' : 'Load amp model')}
       </RigRow>
+      {source === 3 && <Choice id="CAPTURE_KIND" label="Capture type" options={['Auto · metadata', 'Amp-only', 'Preamp-only', 'Full rig · includes cabinet']} />}
+      {source === 3 && <small className="slot-note">Captures hold fixed amp settings. Drive and EQ shape the signal; they do not recreate every original knob. Preamp-only captures need a suitable power-amp stage.</small>}
     </div>
     <div className="control-groups">
       <Group title="Voice"><Knob id="AMP_OUT" small /><Knob id={clean ? 'CLEAN_COMP' : 'TIGHT'} small /><Knob id="PRESENCE" small /><Knob id="HIGH_CUT" small /></Group>
@@ -89,9 +102,13 @@ function Amp({ clean, status, load, remove }) {
 }
 
 function Cab({ clean, status, load, remove }) {
+  const values = useParameters(['AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND']);
+  const legacy = values.AMP_SOURCE === 0;
+  const fullRig = values.AMP_SOURCE === 3 && (values.CAPTURE_KIND === 3 || (values.CAPTURE_KIND === 0 && status.ampHasCab));
   return <div className="rig-list">
+    <Choice id="CAB_MODE" label="Cabinet mode" disabled={legacy} options={['Auto', 'External IR · intentional override', '4×12 · built-in', 'Off']} />
     <RigRow label="CAB" file={status.ir} empty={status.speakerSim ? 'Built-in 4×12 speaker' : 'Off · optional for full-rig captures'}
-      note={clean ? 'Bypassed · clean uses its own speaker rolloff' : !status.ir && status.speakerSim && 'Used while no IR is loaded and the amp has no cabinet'}>
+      note={legacy ? 'Current rig keeps its original routing. Choose an amp source on the Amp page to change cabinet mode.' : values.CAB_MODE === 0 && fullRig ? 'Separate cabinet bypassed · full-rig capture' : values.AMP_SOURCE === 4 && values.CAB_MODE === 0 ? 'Natural DI has no guitar cabinet · choose External IR for an optional body IR' : values.CAB_MODE === 3 ? 'Cabinet bypassed' : values.CAB_MODE === 1 && !status.ir ? 'Load an external IR for this mode' : ''}>
       {remove('cab', status.ir, 'cabinet IR')}{load('cab', status.ir ? 'Change cabinet' : 'Load cabinet IR')}
     </RigRow>
   </div>;
@@ -133,16 +150,18 @@ const stripExtension = name => name.replace(/\.(nam|wav)$/i, '');
 // Signal chain: stages in order, each with its live level, then the selected stage's controls.
 export default function Stages({ page, onPage, clean, native, status, onLoad, onRemove }) {
   const tabs = useRef([]);
-  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON']);
+  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON', 'AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND']);
   const View = views[page] ?? Amp;
-  const pedalOn = fx.PEDAL_ON >= .5 && Boolean(status.pedal) && !clean;
+  const pedalOn = fx.PEDAL_ON >= .5 && Boolean(status.pedal) && (!clean || fx.AMP_SOURCE > 0);
   const gate = fx.GATE_ON < .5 ? 'Gate off' : !native ? 'Gate on' : status.gate > .1 ? 'Gate open' : 'Gate closed';
   const effects = [fx.DELAY_MIX > 0 && `Delay ${Math.round(fx.DELAY_MIX)}%`, fx.REVERB_MIX > 0 && `Space ${Math.round(fx.REVERB_MIX)}%`].filter(Boolean).join(' · ') || 'Dry';
+  const fullRig = fx.AMP_SOURCE === 3 && fx.CAB_MODE === 0 && (fx.CAPTURE_KIND === 3 || (fx.CAPTURE_KIND === 0 && status.ampHasCab));
+  const cabOff = fx.AMP_SOURCE > 0 && (fx.CAB_MODE === 3 || fullRig || (fx.AMP_SOURCE === 4 && fx.CAB_MODE === 0));
   const nodes = {
     Input: { detail: gate, value: status.input, lit: fx.GATE_ON >= .5 && native && status.gate > .1 },
     Pedal: { detail: status.pedal ? stripExtension(status.pedal) : 'Empty', value: status.postPedal, lit: pedalOn, off: !pedalOn },
-    Amp: { detail: shortAmp(clean, status), value: status.postAmp, lit: native },
-    Cab: { detail: clean ? 'Clean rolloff' : status.ir ? stripExtension(status.ir) : status.speakerSim ? 'Built-in 4×12' : 'Off', value: status.postCab, lit: native && (Boolean(status.ir) || status.speakerSim) && !clean },
+    Amp: { detail: fx.AMP_SOURCE === 4 ? 'Natural DI' : fx.AMP_SOURCE === 2 ? 'Ferrum built-in' : shortAmp(clean, status), value: status.postAmp, lit: native },
+    Cab: { detail: fullRig ? 'Included in capture' : cabOff ? 'Off' : clean && fx.AMP_SOURCE === 0 ? 'Clean rolloff' : fx.AMP_SOURCE > 0 && fx.CAB_MODE === 2 ? 'Built-in 4×12' : status.ir ? stripExtension(status.ir) : status.speakerSim ? 'Built-in 4×12' : 'Off', value: status.postCab, lit: native && !cabOff && !(clean && fx.AMP_SOURCE === 0) && (Boolean(status.ir) || status.speakerSim || fx.CAB_MODE === 2) },
     EQ: { detail: fx.EQ_ON >= .5 ? 'Tone shaping' : 'Bypassed', value: status.postEq, lit: fx.EQ_ON >= .5, off: fx.EQ_ON < .5 },
     Effects: { detail: effects, value: status.output, lit: effects !== 'Dry' },
   };

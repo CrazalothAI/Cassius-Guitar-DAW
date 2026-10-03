@@ -1,12 +1,13 @@
 import Knob from './Knob.jsx';
 import Tuner from './Tuner.jsx';
-import { setParameter } from '../parameterState.js';
+import { setParameter, useParameter } from '../parameterState.js';
 import cassianLogo from '../assets/cassian-logo-192.png'; // shown at 34-46 px; the full-size original stays in assets
 
 const controls = ['DRIVE_GAIN', 'AMP_BASS', 'AMP_MID', 'AMP_TREBLE', 'REVERB_MIX', 'MASTER_VOL'];
 
 // The amp: a boutique-style head. Decorative hardware never intercepts the controls.
 export default function AmpHead({ clean, tunerOpen, status }) {
+  const source = Math.round(useParameter('AMP_SOURCE'));
   return <section className="amp" aria-label="Amplifier">
     <div className="amp-handle" aria-hidden="true" />
     <div className="amp-cab">
@@ -16,7 +17,7 @@ export default function AmpHead({ clean, tunerOpen, status }) {
         <div className="badge">
           <img src={cassianLogo} alt="" />
           <span className="badge-word">Cassian</span>
-          <span className="badge-model">{clean ? 'LUMEN · CLEAN' : 'FERRUM · HIGH GAIN'}</span>
+          <span className="badge-model">{source === 4 ? 'VIA · NATURAL DI' : source === 3 ? 'NAM · CAPTURE' : clean ? 'LUMEN · CLEAN' : 'FERRUM · HIGH GAIN'}</span>
         </div>
         {tunerOpen && <Tuner status={status} />}
       </div>
@@ -25,7 +26,7 @@ export default function AmpHead({ clean, tunerOpen, status }) {
           <span className="jack" aria-hidden="true"><i /></span>
           <span className="plate-caption" aria-hidden="true">INPUT</span>
         </div>
-        <button className="channel" aria-label="Channel" aria-pressed={!clean} onClick={() => setParameter('AMP_CLEAN', clean ? 0 : 1)}
+        <button className="channel" aria-label="Channel" aria-pressed={!clean} disabled={source === 3 || source === 4} onClick={() => { setParameter('AMP_SOURCE', source > 0 ? clean ? 2 : 1 : 0); setParameter('AMP_CLEAN', clean ? 0 : 1); }}
           title="Switch between the clean and high-gain channels">
           <span className={clean ? 'lit' : ''}><i />CLEAN</span>
           <span className="lever" aria-hidden="true" />
