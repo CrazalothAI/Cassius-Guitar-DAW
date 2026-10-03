@@ -16,6 +16,7 @@ public:
         asset.setProperty("kind", kind, nullptr);
         asset.setProperty("path", file.getFullPathName(), nullptr);
         asset.setProperty("name", file.getFileNameWithoutExtension(), nullptr);
+        asset.setProperty("sourceName", file.getFileNameWithoutExtension(), nullptr);
         asset.setProperty("ownership", "User", nullptr);
         asset.setProperty("rights", "Unverified — not cleared for factory redistribution", nullptr);
         asset.setProperty("favorite", false, nullptr);
@@ -73,7 +74,12 @@ public:
     void upsert(const juce::ValueTree& asset)
     {
         auto existing = find(asset["id"].toString());
-        if (existing.isValid()) rememberPath(existing, asset["path"].toString());
+        if (existing.isValid()) {
+            const auto aliases = juce::JSON::parse(asset["aliases"].toString());
+            if (aliases.isArray()) for (const auto& alias : *aliases.getArray()) rememberPath(existing, alias.toString());
+            rememberPath(existing, asset["path"].toString());
+            if (asset.hasProperty("managed")) existing.setProperty("managed", asset["managed"], nullptr);
+        }
         else tree.addChild(asset.createCopy(), -1, nullptr);
         ++revision;
     }

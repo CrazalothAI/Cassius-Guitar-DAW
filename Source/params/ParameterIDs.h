@@ -53,24 +53,45 @@ inline constexpr std::array definitions {
     Definition { "EQ_FIZZ", "EQ fizz", -12, 12, 0, "dB" },
     Definition { "AMP_SOURCE", "Amp source", 0, 4, 0, "" },
     Definition { "CAPTURE_KIND", "Capture type", 0, 3, 0, "" },
-    Definition { "CAB_MODE", "Cabinet mode", 0, 3, 0, "" }
+    Definition { "CAB_MODE", "Cabinet mode", 0, 3, 0, "" },
+    Definition { "PEDAL_INPUT", "Pedal input", -24, 24, 0, "dB" },
+    Definition { "PEDAL_OUTPUT", "Pedal output", -24, 12, 0, "dB" },
+    Definition { "COMP_THRESH", "Compressor threshold", -40, 0, -20, "dB" },
+    Definition { "COMP_RATIO", "Compressor ratio", 1, 10, 2.5f, ":1" },
+    Definition { "COMP_ATTACK", "Compressor attack", 1, 100, 15, "ms" },
+    Definition { "COMP_RELEASE", "Compressor release", 20, 500, 140, "ms", 150 },
+    Definition { "COMP_MAKEUP", "Compressor makeup", 0, 12, 3, "dB" },
+    Definition { "CHORUS_MIX", "Chorus mix", 0, 100, 0, "%" },
+    Definition { "CHORUS_RATE", "Chorus rate", 0.1f, 5, 0.8f, "Hz" },
+    Definition { "CHORUS_DEPTH", "Chorus depth", 0, 100, 35, "%" },
+    Definition { "DELAY_FEEDBACK", "Delay feedback", 0, 85, 35, "%" },
+    Definition { "DELAY_SYNC", "Delay sync", 0, 1, 0, "" },
+    Definition { "DELAY_DIVISION", "Delay division", 0, 5, 2, "" },
+    Definition { "REVERB_STYLE", "Reverb voice", 0, 2, 0, "" },
+    Definition { "REVERB_DAMP", "Reverb damping", 0, 100, 55, "%" },
+    Definition { "REVERB_PREDELAY", "Reverb pre-delay", 0, 150, 0, "ms" },
+    Definition { "CAPTURE_MATCH", "Capture level matching", 0, 1, 1, "" }
 };
 enum Index { input, gate, drive, bass, mid, treble, ampOut, delayTime, delayMix, reverbMix, master, clean, tight,
              presence, cleanComp, highCut, delayWidth, reverbSize, gateOn, gateRelease, pedalOn,
              dynResOn, dynResAmount, chugAttack, thickenOn, thickenMix, piezoOn, piezoBlend, microDelay,
-             metroOn, metroBpm, metroBeats, metroLevel, eqOn, eqBody, eqMud, eqFocus, eqFizz, ampSource, captureKind, cabMode };
+             metroOn, metroBpm, metroBeats, metroLevel, eqOn, eqBody, eqMud, eqFocus, eqFizz, ampSource, captureKind, cabMode,
+             pedalInput, pedalOutput, compThreshold, compRatio, compAttack, compRelease, compMakeup,
+             chorusMix, chorusRate, chorusDepth, delayFeedback, delaySync, delayDivision, reverbStyle, reverbDamp, reverbPredelay, captureMatch };
 inline juce::AudioProcessorValueTreeState::ParameterLayout layout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout result;
     for (const auto& p : definitions)
     {
         const juce::String id(p.id);
-        if (id == "AMP_SOURCE" || id == "CAPTURE_KIND" || id == "CAB_MODE")
+        if (id == "AMP_SOURCE" || id == "CAPTURE_KIND" || id == "CAB_MODE" || id == "DELAY_DIVISION" || id == "REVERB_STYLE")
         {
             const auto choices = id == "AMP_SOURCE" ? juce::StringArray {"Current rig", "Lumen", "Ferrum", "NAM capture", "Natural DI"}
                 : id == "CAPTURE_KIND" ? juce::StringArray {"Auto", "Amp-only", "Preamp-only", "Full rig"}
-                : juce::StringArray {"Auto", "External IR", "Built-in speaker", "Off"};
-            result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID {p.id, 1}, p.name, choices, 0));
+                : id == "CAB_MODE" ? juce::StringArray {"Auto", "External IR", "Built-in speaker", "Off"}
+                : id == "DELAY_DIVISION" ? juce::StringArray {"Quarter", "Eighth", "Dotted eighth", "Sixteenth", "Half", "Whole"}
+                : juce::StringArray {"Room", "Chamber", "Hall"};
+            result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID {p.id, 1}, p.name, choices, static_cast<int>(p.initial)));
             continue;
         }
         if (p.isSwitch())

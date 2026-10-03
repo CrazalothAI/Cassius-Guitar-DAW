@@ -23,6 +23,21 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('editor connected to the audio engine', () => {
+  it('requests optional A/B matching without changing the default comparison', async () => {
+    render(<App/>); fireEvent.click(screen.getByRole('checkbox', {name: 'Match A/B loudness'}));
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    await waitFor(() => expect(engine.calls.some(([name]) => name === 'getRig')).toBe(true));
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['applyRig', engine.rig, true]));
+  });
+  it('opens portable pack pickers separately from reference-only rig documents', async () => {
+    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Library'}));
+    const dialog = screen.getByRole('dialog'); fireEvent.click(within(dialog).getByRole('button', {name: 'Presets'}));
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Export pack'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['exportRigPack']));
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Import pack'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['importRigPack']));
+  });
   it('reports captures the engine resamples to the host rate', async () => {
     engine.status = { ...engine.status, sampleRate: 44100, ampExpectedRate: 48000, ampResampled: true, pedal: 'Drive.nam', pedalExpectedRate: 44100, pedalResampled: false };
     render(<App/>);

@@ -14,7 +14,7 @@ public:
     // NAM plugin does, so a quiet capture is not 20 dB below a hot one.
     static constexpr double targetLoudnessDb = -18.0;
 
-    explicit NamWrapper(const juce::File& file)
+    explicit NamWrapper(const juce::File& file, const juce::String& sourceName = {})
     {
         // Parse once, keeping the metadata NAM Core does not expose (gear type).
         nlohmann::json config;
@@ -35,7 +35,7 @@ public:
             loudnessDb = engine->GetLoudness();
         // A cabinet is part of the capture for amp+cab and full-rig gear types. Without
         // metadata, fall back to the naming convention used by full-rig packs.
-        const auto name = file.getFileNameWithoutExtension().toLowerCase().removeCharacters(" -_");
+        const auto name = (sourceName.isNotEmpty() ? sourceName : file.getFileNameWithoutExtension()).toLowerCase().removeCharacters(" -_");
         includesCabinet = gearType.empty() ? (name.contains("fullrig") || name.contains("cab"))
                                            : juce::String(gearType).containsIgnoreCase("cab") || gearType == "studio";
         cabinetKnown = !gearType.empty() || includesCabinet;
@@ -46,6 +46,7 @@ public:
         const auto expected = engine->GetExpectedSampleRate();
         hostRate = rate;
         modelRate = expected > 0 ? expected : rate;
+        outputGain.reset(rate, .03);
         resampling = std::abs(modelRate - hostRate) >= 1.0;
         modelBlock = static_cast<int>(std::ceil(static_cast<double>(blockSize) * modelRate / hostRate)) + 16;
         output.assign(static_cast<size_t>(juce::jmax(blockSize, modelBlock)), 0.0f);
@@ -78,7 +79,7 @@ public:
     const std::string& gear() const { return gearType; }
     bool hasCabinet() const { return includesCabinet; }
     bool cabinetIsKnown() const { return cabinetKnown; }
-    void setOutputGain(float gain) { outputGain = gain; }
+    void setOutputGain(float gain) { outputGain.setTargetValue(gain); }
     void process(float* samples, int size)
     {
         if (!resampling)
@@ -86,7 +87,7 @@ public:
             float* inputs[] {samples};
             float* outputs[] {output.data()};
             engine->process(inputs, outputs, size);
-            for (int i = 0; i < size; ++i) samples[i] = output[static_cast<size_t>(i)] * outputGain;
+            for (int i = 0; i < size; ++i) samples[i] = output[static_cast<size_t>(i)] * outputGain.getNextValue();
             return;
         }
         toModel.push(samples, size);
@@ -99,7 +100,7 @@ public:
         const int ready = juce::jmin(size, fromModel.available());
         fromModel.pull(samples, ready);
         for (int i = ready; i < size; ++i) samples[i] = ready > 0 ? samples[ready - 1] : 0.0f;
-        for (int i = 0; i < size; ++i) samples[i] *= outputGain;
+        for (int i = 0; i < size; ++i) samples[i] *= outputGain.getNextValue();
     }
 private:
     std::unique_ptr<nam::DSP> engine;
@@ -110,6 +111,6 @@ private:
     double hostRate = 48000, modelRate = 48000;
     int modelBlock = 0;
     bool resampling = false;
-    float outputGain = 1.0f;
+    juce::SmoothedValue<float> outputGain {1.0f};
     StreamResampler toModel, fromModel;
 };

@@ -1,4 +1,4 @@
-import { byId } from './parameters.js';
+import { byId, parameters } from './parameters.js';
 import { setParameter } from './parameterState.js';
 // Keep input calibration, master level and loaded files when choosing a starting point.
 export const presets = {
@@ -16,6 +16,9 @@ export const presets = {
   'Progressive clean': {AMP_CLEAN: 1, PEDAL_ON: 0, GATE_ON: 1, GATE_RELEASE: 280, GATE_THRESH: -74, DRIVE_GAIN: 1, TIGHT: 20, AMP_BASS: 1, AMP_MID: 0, AMP_TREBLE: 2.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 17000, CLEAN_COMP: 42, DELAY_TIME: 410, DELAY_MIX: 17, DELAY_WIDTH: 62, REVERB_MIX: 24, REVERB_SIZE: 68, DYN_RES_ON: 0, DYN_RES_AMOUNT: 0, CHUG_ATTACK: 0, THICKEN_ON: 0, THICKEN_MIX: 0, PIEZO_ON: 1, PIEZO_BLEND: 35, MICRO_DELAY: 0.22},
   'Wide low-tuned metal': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 70, GATE_THRESH: -45, DRIVE_GAIN: 0, TIGHT: 100, AMP_BASS: -2, AMP_MID: 2, AMP_TREBLE: -0.5, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 7000, CLEAN_COMP: 30, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 3, REVERB_SIZE: 28, DYN_RES_ON: 1, DYN_RES_AMOUNT: 80, CHUG_ATTACK: 72, THICKEN_ON: 1, THICKEN_MIX: 30, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.62},
 };
+// Appended controls default to the legacy/bypassed sound for every starting point.
+for (const preset of Object.values(presets))
+  for (const p of parameters.slice(41)) preset[p.id] = p.initial;
 // EQ is part of each tone and A/B snapshot; clean voices stay flat and bypassed.
 const flatEq = {EQ_ON: 0, EQ_BODY: 0, EQ_MUD: 0, EQ_FOCUS: 0, EQ_FIZZ: 0};
 for (const [name, preset] of Object.entries(presets)) {

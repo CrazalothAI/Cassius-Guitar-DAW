@@ -6,6 +6,7 @@
 #include <thread>
 static void check(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
 void runLibraryChecks(const juce::File& fixture);
+void runQualityChecks(const juce::File& fixture);
 static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
 {
     auto* parameter = p.apvts.getParameter(id);
@@ -15,7 +16,7 @@ struct Measurement { double rms, stereoDifference, preAmpPeak; };
 static Measurement measure(float frequency, float amplitude,
     std::initializer_list<std::pair<const char*, float>> settings)
 {
-    AmpSuiteAudioProcessor p;
+    AmpSuiteAudioProcessor p(false);
     set(p, "REVERB_MIX", 0); set(p, "GATE_THRESH", -80); set(p, "MASTER_VOL", -6);
     for (const auto& setting : settings) set(p, setting.first, setting.second);
     p.prepareToPlay(48000, 128);
@@ -39,6 +40,7 @@ static Measurement measure(float frequency, float amplitude,
 }
 int main(int argc, char** argv)
 {
+    std::cout << std::unitbuf;
     juce::ScopedJuceInitialiser_GUI initialise;
     try
     {
@@ -65,7 +67,7 @@ int main(int argc, char** argv)
         gateTest.configure(-48, 80, false);
         for (int i = 0; i < 480; ++i) gateGain = gateTest.tick(0);
         check(gateGain > .99f, "Gate bypass must pass audio");
-        AmpSuiteAudioProcessor processor;
+        AmpSuiteAudioProcessor processor(false);
         set(processor, "REVERB_MIX", 0); set(processor, "GATE_THRESH", -80);
         set(processor, "MASTER_VOL", -6);
         processor.prepareToPlay(48000, 64);
@@ -104,7 +106,7 @@ int main(int argc, char** argv)
         // A loaded NAM must not colour the clean channel. Compare the same
         // waveform through two complete processors, only one with a capture.
         check(argc > 1, "Pass a NAM fixture for the clean-channel regression");
-        AmpSuiteAudioProcessor withCapture, withoutCapture;
+        AmpSuiteAudioProcessor withCapture(false), withoutCapture(false);
         withCapture.requestFile(true, juce::File(argv[1]));
         bool loaded = false;
         for (int attempt = 0; attempt < 500; ++attempt)
@@ -114,7 +116,7 @@ int main(int argc, char** argv)
         }
         check(loaded, "NAM fixture must load");
         // With a capture, Drive is input gain, not an extra waveshaper.
-        AmpSuiteAudioProcessor driveProcessor;
+        AmpSuiteAudioProcessor driveProcessor(false);
         driveProcessor.requestFile(true, juce::File(argv[1]));
         for (int attempt = 0; attempt < 500 && driveProcessor.status().getProperty("model", {}).toString().isEmpty(); ++attempt) juce::Thread::sleep(10);
         check(driveProcessor.status().getProperty("model", {}).toString().isNotEmpty(), "Drive test capture must load");
@@ -241,7 +243,7 @@ int main(int argc, char** argv)
         check(wide.stereoDifference > .001, "Width must produce distinct left and right repeats");
         // Status polling runs on the editor thread while the callback renders.
         // It must never force a silent block by taking the DSP swap lock.
-        AmpSuiteAudioProcessor pollingProcessor;
+        AmpSuiteAudioProcessor pollingProcessor(false);
         set(pollingProcessor, "GATE_ON", 0); set(pollingProcessor, "REVERB_MIX", 0);
         pollingProcessor.prepareToPlay(48000, 64);
         std::atomic<bool> stopPolling {false};
@@ -344,7 +346,7 @@ int main(int argc, char** argv)
             check(quiet.hasLoudness() && std::abs(quiet.levelMatchDb() - (-18.0 - quiet.loudness())) < 1e-6, "Quiet captures must be raised to the target loudness");
             check(quiet.levelMatchDb() > 15 && reference.levelMatchDb() < 5, "Level matching must follow each capture's loudness");
             check(quiet.cabinetIsKnown() && !quiet.hasCabinet(), "Amp-only gear type must be recognised");
-            AmpSuiteAudioProcessor rig; rig.prepareToPlay(48000, 128);
+            AmpSuiteAudioProcessor rig(false); rig.prepareToPlay(48000, 128);
             rig.requestFile(true, juce::File(argv[1]));
             for (int t = 0; t < 200 && !rig.status()["message"].toString().startsWith("Loaded"); ++t) std::this_thread::sleep_for(std::chrono::milliseconds(20));
             juce::AudioBuffer<float> audio(2, 128);
@@ -360,7 +362,7 @@ int main(int argc, char** argv)
         }
         // Wide ranges put their musical centre at mid-travel; switches are real on/off parameters.
         {
-            AmpSuiteAudioProcessor ranges;
+            AmpSuiteAudioProcessor ranges(false);
             const std::pair<const char*, float> centres[] {{"HIGH_CUT", 8000}, {"TIGHT", 70}, {"DELAY_TIME", 300}, {"GATE_RELEASE", 150}};
             for (const auto& [id, centre] : centres)
                 check(std::abs(ranges.apvts.getParameter(id)->convertFrom0to1(0.5f) - centre) < 0.5f, "Skewed range must centre on its musical value");
@@ -475,7 +477,7 @@ int main(int argc, char** argv)
         // Master controls the whole mix, including a click on an idle high-gain rig.
         {
             const auto clickPeak = [&](float master) {
-                AmpSuiteAudioProcessor rig;
+                AmpSuiteAudioProcessor rig(false);
                 set(rig, "REVERB_MIX", 0); set(rig, "METRO_ON", 1); set(rig, "METRO_LEVEL", -12);
                 set(rig, "DRIVE_GAIN", 24); set(rig, "MASTER_VOL", master);
                 rig.prepareToPlay(48000, 128);
@@ -490,7 +492,7 @@ int main(int argc, char** argv)
         // A mono guitar + stereo backing input shares a channel with the output.
         // The backing must survive intact and bypass both clean and high-gain rigs.
         {
-            AmpSuiteAudioProcessor cleanRig, metalRig;
+            AmpSuiteAudioProcessor cleanRig(false), metalRig(false);
             for (auto* rig : {&cleanRig, &metalRig})
             {
                 auto layout = rig->getBusesLayout(); layout.inputBuses.set(1, juce::AudioChannelSet::stereo());
@@ -575,7 +577,7 @@ int main(int argc, char** argv)
                 for (int i = 0; i < 257; ++i) { const float x = audio.getSample(0, i); largestStep = std::max(largestStep, std::abs(x - previous)); previous = x; }
             }
             check(largestStep < .025f, "EQ changes and bypass must not produce gain-step clicks");
-            AmpSuiteAudioProcessor restored;
+            AmpSuiteAudioProcessor restored(false);
             set(restored, "EQ_ON", 1); set(restored, "EQ_FIZZ", -4);
             juce::MemoryBlock saved; restored.getStateInformation(saved);
             set(restored, "EQ_ON", 0); set(restored, "EQ_FIZZ", 0); restored.setStateInformation(saved.getData(), static_cast<int>(saved.getSize()));
@@ -603,7 +605,7 @@ int main(int argc, char** argv)
         }
         // The pitch tracker only runs while the tuner is open or Thicken needs it.
         {
-            AmpSuiteAudioProcessor tunerRig; set(tunerRig, "GATE_ON", 0); tunerRig.prepareToPlay(48000, 128);
+            AmpSuiteAudioProcessor tunerRig(false); set(tunerRig, "GATE_ON", 0); tunerRig.prepareToPlay(48000, 128);
             juce::AudioBuffer<float> audio(2, 128);
             auto play = [&] { for (int b = 0; b < 60; ++b) { audio.clear();
                 for (int i = 0; i < 128; ++i) audio.setSample(0, i, .2f * std::sin(juce::MathConstants<float>::twoPi * 110.0f * static_cast<float>(b * 128 + i) / 48000.0f));
@@ -617,6 +619,7 @@ int main(int argc, char** argv)
         // (the loudness checks also require its sibling lstm.nam). An optional
         // fourth path exercises the foundation with a real user amp capture.
         runLibraryChecks(juce::File(argc > 4 ? argv[4] : argv[1]));
+        runQualityChecks(juce::File(argv[1]));
         std::cout << "Processor checks passed\n";
         return 0;
     }

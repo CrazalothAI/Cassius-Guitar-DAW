@@ -87,6 +87,7 @@ export default function App() {
   const [dismissed, setDismissed] = useState('');
   const [compare, setCompare] = useState(null);
   const [compareSide, setCompareSide] = useState('A');
+  const [matchCompare, setMatchCompare] = useState(false);
   // Local failures live apart from the polled status, which would overwrite them within 100 ms.
   const [notice, setNotice] = useState(null);
   // The engine's pitch analysis runs only while the tuner is on screen.
@@ -118,7 +119,7 @@ export default function App() {
       setCompareSide('A');
       return;
     }
-    if (native) { const error = await invoke('applyRig', compare); if (error) throw new Error(error); }
+    if (native) { const error = await invoke('applyRig', ...[compare, ...(matchCompare ? [true] : [])]); if (error) throw new Error(error); }
     else restoreSnapshot(compare.parameters);
     setCompare(current);
     setCompareSide(side => side === 'A' ? 'B' : 'A');
@@ -143,7 +144,7 @@ export default function App() {
   // Recognise a preset from the parameters themselves, so the name survives reopening the editor.
   const matched = matchPreset(values), current = matched ?? (chosen || null), edited = !matched && Boolean(chosen);
   const { message } = status;
-  const busy = /^(Loading|Restoring)/.test(message);
+  const busy = /^(Loading|Restoring|Preparing|Packing|Importing)/.test(message);
   const footerMessage = !native || busy || message.startsWith('Load failed:') ? message
     : clean ? 'Clean ready' : status.model ? 'Rig ready' : message;
   const showLoad = status.overrunRecent || status.cpu >= 80;
@@ -162,7 +163,7 @@ export default function App() {
     </header>
     <main>
       <Alerts status={status} notice={notice} dismissed={dismissed} onDismiss={dismiss} onBuffer={setBuffer} />
-      <div className="library-toolbar"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><span>Amps · Pedals · Cabinets · Saved rigs</span></div>
+      <div className="library-toolbar"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><span>Amps · Pedals · Cabinets · Saved rigs</span><label className="compare-match" title="Approximate A/B level matching from recent playing. Play similar notes before storing each side."><input type="checkbox" disabled={!native} checked={matchCompare} onChange={e => setMatchCompare(e.target.checked)} /> Match A/B loudness</label></div>
       <AmpHead clean={clean} tunerOpen={tunerOpen} status={status} />
       <Stages page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} />
     </main>

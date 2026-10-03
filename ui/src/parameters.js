@@ -43,6 +43,23 @@ export const parameters = [
   ['AMP_SOURCE', 'Amp source', 0, 4, 0, '', 1],
   ['CAPTURE_KIND', 'Capture type', 0, 3, 0, '', 1],
   ['CAB_MODE', 'Cabinet mode', 0, 3, 0, '', 1],
+  ['PEDAL_INPUT', 'Input', -24, 24, 0, 'dB', 0.1],
+  ['PEDAL_OUTPUT', 'Output', -24, 12, 0, 'dB', 0.1],
+  ['COMP_THRESH', 'Threshold', -40, 0, -20, 'dB', 0.1],
+  ['COMP_RATIO', 'Ratio', 1, 10, 2.5, ':1', 0.1],
+  ['COMP_ATTACK', 'Attack', 1, 100, 15, 'ms', 1],
+  ['COMP_RELEASE', 'Release', 20, 500, 140, 'ms', 1, 150],
+  ['COMP_MAKEUP', 'Makeup', 0, 12, 3, 'dB', 0.1],
+  ['CHORUS_MIX', 'Mix', 0, 100, 0, '%', 1],
+  ['CHORUS_RATE', 'Rate', 0.1, 5, 0.8, 'Hz', 0.01],
+  ['CHORUS_DEPTH', 'Depth', 0, 100, 35, '%', 1],
+  ['DELAY_FEEDBACK', 'Feedback', 0, 85, 35, '%', 1],
+  ['DELAY_SYNC', 'Tempo sync', 0, 1, 0, '', 1],
+  ['DELAY_DIVISION', 'Division', 0, 5, 2, '', 1],
+  ['REVERB_STYLE', 'Voice', 0, 2, 0, '', 1],
+  ['REVERB_DAMP', 'Damping', 0, 100, 55, '%', 1],
+  ['REVERB_PREDELAY', 'Pre-delay', 0, 150, 0, 'ms', 1],
+  ['CAPTURE_MATCH', 'Level match', 0, 1, 1, '', 1],
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));

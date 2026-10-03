@@ -70,13 +70,13 @@ void runLibraryChecks(const juce::File& fixture)
     require(catalog.idForPath("amp", original.getFile().getFullPathName()) == descriptor["id"].toString(), "Importing a renamed duplicate must not erase the playing rig's stable reference");
 
     // Batch importing is catalog-only; rejected files don't become library entries.
-    AmpSuiteAudioProcessor batch; dry(batch);
+    AmpSuiteAudioProcessor batch(false); dry(batch);
     batch.importAssets({original.getFile(), relocated.getFile(), wrong.getFile()}, "amp");
     for (int i = 0; i < 600 && !batch.status()["message"].toString().startsWith("Load failed:"); ++i) juce::Thread::sleep(10);
     require(batch.getLibrary()["assets"].size() == 1 && batch.status()["model"].toString().isEmpty(), "Batch import must deduplicate valid assets without activating them");
 
     // NAM captures and pedals work in an explicit slot even with the old clean flag on.
-    AmpSuiteAudioProcessor capture; dry(capture); load(capture, original.getFile());
+    AmpSuiteAudioProcessor capture(false); dry(capture); load(capture, original.getFile());
     set(capture, "AMP_SOURCE", 3); set(capture, "AMP_CLEAN", 0);
     const auto metalFlag = render(capture); set(capture, "AMP_CLEAN", 1);
     require(difference(metalFlag, render(capture)) < 1e-5, "Old clean routing must not bypass an explicit NAM capture");
@@ -85,10 +85,10 @@ void runLibraryChecks(const juce::File& fixture)
     set(capture, "AMP_SOURCE", 1); set(capture, "PEDAL_ON", 0); const auto clean = render(capture);
     set(capture, "PEDAL_ON", 1);
     require(difference(clean, render(capture)) > .00001, "Lumen's explicit amp slot must accept pedals");
-    AmpSuiteAudioProcessor empty; dry(empty); set(empty, "AMP_SOURCE", 3);
+    AmpSuiteAudioProcessor empty(false); dry(empty); set(empty, "AMP_SOURCE", 3);
     require(energy(render(empty)) == 0, "A missing explicit NAM must not silently substitute a different amp");
     // A live algorithm change must ramp down rather than chop the waveform.
-    AmpSuiteAudioProcessor switching; dry(switching); set(switching, "AMP_SOURCE", 4); switching.prepareToPlay(48000, 128);
+    AmpSuiteAudioProcessor switching(false); dry(switching); set(switching, "AMP_SOURCE", 4); switching.prepareToPlay(48000, 128);
     juce::AudioBuffer<float> transition(2, 128); juce::MidiBuffer midi;
     float previous = 0, largestStep = 0;
     for (int block = 0; block < 80; ++block) {
@@ -104,7 +104,7 @@ void runLibraryChecks(const juce::File& fixture)
     require(largestStep < .0001f && transition.getMagnitude(0, 0, 128) < 1e-6f, "Amp slot changes must fade smoothly to the new algorithm");
 
     // Natural DI preserves the low end across rates; electric amp drive doesn't color it.
-    AmpSuiteAudioProcessor natural; dry(natural); set(natural, "AMP_SOURCE", 4);
+    AmpSuiteAudioProcessor natural(false); dry(natural); set(natural, "AMP_SOURCE", 4);
     for (const double rate : {44100., 48000., 96000.}) {
         set(natural, "DRIVE_GAIN", 0); const auto flat = render(natural, rate, 80);
         set(natural, "DRIVE_GAIN", 24); set(natural, "AMP_CLEAN", 1);
@@ -143,7 +143,7 @@ void runLibraryChecks(const juce::File& fixture)
     require(get(capture, "AMP_SOURCE") == 3 && get(capture, "CAPTURE_KIND") == 3 && get(capture, "CAB_MODE") == 1 && get(capture, "EQ_FIZZ") == -7 && get(capture, "DELAY_TIME") == 450 && get(capture, "PEDAL_ON") == 1, "Rig recall must restore routing and effects");
     require(get(capture, "INPUT_GAIN") == 7 && get(capture, "MASTER_VOL") == -24 && get(capture, "METRO_BPM") == 130, "Rig recall must preserve calibration, master, and tempo");
     juce::MemoryBlock session; capture.getStateInformation(session);
-    AmpSuiteAudioProcessor reopened; reopened.setStateInformation(session.getData(), static_cast<int>(session.getSize())); settle(reopened);
+    AmpSuiteAudioProcessor reopened(false); reopened.setStateInformation(session.getData(), static_cast<int>(session.getSize())); settle(reopened);
     require(reopened.getLibrary()["rigs"].size() == 1 && reopened.status()["ir"].toString() == impulse.getFile().getFileName(), "Host state must retain the catalog, saved rigs, and cabinet");
     require(reopened.saveRig("Second rig").isEmpty(), "Second rig must save");
     const auto state = unwrap(reopened.getRig());
@@ -163,7 +163,7 @@ void runLibraryChecks(const juce::File& fixture)
     auto missing = snapshot.createCopy(); missing.setProperty("modelPath", original.getFile().getSiblingFile("missing-capture.nam").getFullPathName(), nullptr);
     auto missingEntry = missing.getChildWithName("LIBRARY").getChildWithProperty("id", missing["modelId"]);
     missingEntry.setProperty("path", missing["modelPath"], nullptr);
-    AmpSuiteAudioProcessor imported; dry(imported); set(imported, "AMP_SOURCE", 4);
+    AmpSuiteAudioProcessor imported(false); dry(imported); set(imported, "AMP_SOURCE", 4);
     require(imported.importRig("Moved lead", wrap(missing)).isEmpty(), "Import must allow missing assets for later relinking");
     const auto importedRig = imported.getLibrary()["rigs"][0]["id"].toString();
     require(!imported.loadRig(importedRig).isEmpty() && get(imported, "AMP_SOURCE") == 4, "Missing assets must leave current parameters intact");

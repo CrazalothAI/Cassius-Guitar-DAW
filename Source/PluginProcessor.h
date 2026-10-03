@@ -17,13 +17,15 @@
 #include "dsp/HumCanceller.h"
 #include "dsp/Metronome.h"
 #include "dsp/PedalEq.h"
+#include "dsp/StereoChorus.h"
 #include "DeviceHooks.h"
 #include "AssetLibrary.h"
+#include "LibraryStore.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
 public:
-    AmpSuiteAudioProcessor();
+    explicit AmpSuiteAudioProcessor(bool sharedLibrary = true, juce::File libraryRoot = LibraryStore::defaultRoot());
     ~AmpSuiteAudioProcessor() override;
     void prepareToPlay(double, int) override;
     void releaseResources() override {}
@@ -48,7 +50,7 @@ public:
     juce::var getLibrary();
     void importAssets(const juce::Array<juce::File>&, const juce::String& kind);
     juce::var getRig();
-    juce::String applyRig(const juce::var&, bool preserveGlobals = true);
+    juce::String applyRig(const juce::var&, bool preserveGlobals = true, bool matchLoudness = false);
     juce::String saveRig(const juce::String& name);
     juce::String importRig(const juce::String& name, const juce::var& rig);
     juce::String loadRig(const juce::String& id);
@@ -56,6 +58,10 @@ public:
     bool editAsset(const juce::String& id, const juce::var& changes);
     bool selectAsset(const juce::String& id);
     juce::String relinkAsset(const juce::String& id, const juce::File& file);
+    juce::String exportRigPack(const juce::File& destination, const juce::var& snapshot = {});
+    juce::String importRigPack(const juce::File& source);
+    juce::String validateRigDocument(const juce::var& rig);
+    void requestRigPack(bool save, const juce::File& file);
     void reportLibraryResult(const juce::String& text) { const juce::ScopedLock lock(requestLock); message = text; }
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
@@ -65,20 +71,34 @@ private:
     void run() override;
     float value(Params::Index i) const { return parameters[static_cast<size_t>(i)]->load(); }
     void processChunk(juce::AudioBuffer<float>&);
+    void finishOutputMix(juce::AudioBuffer<float>&);
     void processUniversalAmp(juce::AudioBuffer<float>&);
     void setParameterValue(const char* id, float value);
     juce::ValueTree copyRigState(bool includeSavedRigs);
+    juce::String persistLibrary(const juce::StringArray& removed = {});
+    juce::String assetSourceName(const juce::ValueTree& asset, const juce::ValueTree& incoming = {});
+    void prepareCompleteRig(juce::ValueTree state, bool preserveGlobals, juce::uint64 generation);
     std::array<std::atomic<float>*, Params::definitions.size()> parameters {};
     juce::CriticalSection dspLock, requestLock;
     AssetLibrary library;
+    LibraryStore sharedStore;
     std::vector<std::pair<juce::File, juce::String>> pendingImports;
+    struct PackJob { juce::File file; bool save; juce::var snapshot; };
+    std::vector<PackJob> pendingPacks;
     juce::String desiredModel, desiredIr, modelPath, irPath, message = "Load an amp capture to get started";
     bool modelPending = false, irPending = false;
     juce::String desiredPedal, pedalPath;
     bool pedalPending = false;
+    juce::ValueTree pendingRig;
+    bool pendingRigPreservesGlobals = true;
+    std::atomic<juce::uint64> requestGeneration {0};
+    std::array<std::atomic<juce::uint64>, 3> stageRequestGeneration {};
+    std::atomic<bool> rigLoading {false}, rigSwapReady {false}, rigMuted {false};
+    std::atomic<double> lastAudioTick {0};
+    std::atomic<int> reportedChannels {2};
     std::unique_ptr<NamWrapper> model;
     std::unique_ptr<NamWrapper> pedal;
-    IrLoader cab;
+    std::unique_ptr<IrLoader> cab = std::make_unique<IrLoader>();
     GuitarGate gate;
     PitchTracker pitchTracker;
     DynamicResonanceFilter dynamicResonance;
@@ -93,8 +113,13 @@ private:
     PedalEq pedalEq;
     juce::dsp::Gain<float> inputGain, ampGain, masterGain;
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
+    juce::SmoothedValue<float> pedalInputGain, pedalOutputGain, delayFeedbackGain, reverbPreDelay;
+    StereoChorus chorus;
+    juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> roomDelay;
+    juce::AudioBuffer<float> roomAudio;
     juce::SmoothedValue<float> cleanBlend, tightCutoff;
     juce::SmoothedValue<float> ampSlotGain;
+    juce::SmoothedValue<float> rigSwitchGain;
     int activeAmpSource = 0;
     juce::SmoothedValue<float> compressionMix, highCutoff, stereoWidth;
     juce::dsp::Compressor<float> cleanCompressor;
@@ -102,6 +127,8 @@ private:
     juce::AudioBuffer<float> backingAudio;
     juce::SmoothedValue<float> pedalBlend;
     float cleanLow = 0, cleanHigh = 0, metalLow = 0, metalLow2 = 0;
+    float compressionMakeupGain = 1.41254f;
+    juce::SmoothedValue<float> roomDry;
     // Filter coefficients are recomputed only when their smoothed cutoff moves.
     float tightCoeffHz = -1, tightCoeff = 0, highCoeffHz = -1, highCoeff = 0, cleanDriveGain = -1, cleanDrive = 1;
     std::array<std::array<float, 2>, 2> highCutState {};
@@ -110,11 +137,14 @@ private:
     juce::dsp::Limiter<float> limiter;
     ToneStack tone;
     double rate = 48000;
-    int maxBlock = 512; // Internal fixed processing quantum.
+    int maxBlock = 256; // Internal fixed processing quantum, including before device preparation.
     int hostBlock = 512;
     std::atomic<float> inputPeak {0}, outputPeak {0};
     std::atomic<float> prePedalPeak {0}, postPedalPeak {0}, postAmpPeak {0}, postCabPeak {0};
     std::atomic<float> postEqPeak {0};
+    std::atomic<bool> reportedHum {false};
+    std::atomic<float> reportedMains {60};
+    std::atomic<float> guitarPower {0}, inputPower {0};
     std::atomic<int> swapBypasses {0};
     std::atomic<float> gateLevel {0};
     juce::AudioProcessLoadMeasurer processLoad;

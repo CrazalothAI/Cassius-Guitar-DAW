@@ -121,10 +121,10 @@ export default function Library({ revision, onClose, onPreset = applyPreset }) {
       </aside>}</div>
       <div className="library-footer">
         {tab !== 'rig' ? <button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importAssets', tab))}>Import {tab === 'cab' ? 'WAV IRs' : 'NAM files'}</button>
-          : <><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRig'))}>Import rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRig'))}>Export current rig</button></>}
+          : <><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRig'))}>Import rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRig'))}>Export current rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRigPack'))}>Import pack</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRigPack'))}>Export pack</button></>}
         <form onSubmit={save}><input aria-label="Rig name" placeholder="Name this rig" value={name} maxLength={80} onChange={e => setName(e.target.value)} /><button className="text-button" disabled={busy || !name.trim()}>Save current rig</button></form>
       </div>
-      <p className="library-note">{native ? 'User assets and rigs are saved with this session. Exports reference files; captures and IRs are not bundled.' : 'Browser preview: saved rigs contain control settings. Play and import files in the native app.'}</p>
+      <p className="library-note">{native ? 'Shared library keeps managed asset copies. Rig JSON references files; portable ZIP packs include the three stage files.' : 'Browser preview: saved rigs contain control settings. Play and import files in the native app.'}</p>
     </section>
   </div>;
 }

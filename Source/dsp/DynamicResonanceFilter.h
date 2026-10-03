@@ -18,6 +18,9 @@ public:
         attackCoeff = std::exp(-1.0f / static_cast<float>(rate * 0.0015)); // ~1.5 ms attack
         releaseCoeff = std::exp(-1.0f / static_cast<float>(rate * 0.040)); // ~40 ms release
         currentCutDb = 0.0f;
+        detectorLP = 1 - std::exp(-juce::MathConstants<float>::twoPi * 400 / static_cast<float>(rate));
+        detectorHP = 1 - std::exp(-juce::MathConstants<float>::twoPi * 180 / static_cast<float>(rate));
+        untilUpdate = 0; coefficientFreq = -1; publishedCut.store(0);
         updateCoefficients(280.0f, 0.0f);
     }
 
@@ -31,14 +34,15 @@ public:
     float processSample(float input)
     {
         if (!enabled || maxCutDb >= -0.1f)
+        {
+            publishedCut.store(0, std::memory_order_relaxed);
             return input;
+        }
 
         // 1. Sidechain Bandpass Filter (isolates 200-400 Hz resonance energy)
         // Two cascaded 1-pole filters (LP then HP) for zero-latency detection
-        const float lpCoeff = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * 400.0f / static_cast<float>(rate));
-        const float hpCoeff = 1.0f - std::exp(-juce::MathConstants<float>::twoPi * 180.0f / static_cast<float>(rate));
-        detectorLow += lpCoeff * (input - detectorLow);
-        detectorHigh += hpCoeff * (detectorLow - detectorHigh);
+        detectorLow += detectorLP * (input - detectorLow);
+        detectorHigh += detectorHP * (detectorLow - detectorHigh);
         const float bandpassed = detectorLow - detectorHigh;
 
         // 2. Envelope Follower
@@ -59,7 +63,7 @@ public:
 
         // Smooth cut transitions
         currentCutDb += 0.05f * (desiredCut - currentCutDb);
-        updateCoefficients(targetFreq, currentCutDb);
+        if (untilUpdate-- <= 0) { updateCoefficients(targetFreq, currentCutDb); untilUpdate = 15; publishedCut.store(currentCutDb, std::memory_order_relaxed); }
 
         // 4. Parametric Notch Filter (Direct Form II Transposed)
         const float y = b0 * input + z1;
@@ -68,17 +72,17 @@ public:
         return y;
     }
 
-    float getCurrentCutDb() const noexcept { return currentCutDb; }
+    float getCurrentCutDb() const noexcept { return publishedCut.load(std::memory_order_relaxed); }
 
 private:
     void updateCoefficients(float freq, float gainDb)
     {
         // Peaking/notch biquad
-        const float w0 = juce::MathConstants<float>::twoPi * freq / static_cast<float>(rate);
-        const float cosW = std::cos(w0);
-        const float sinW = std::sin(w0);
-        constexpr float Q = 1.8f;
-        const float alpha = sinW / (2.0f * Q);
+        if (coefficientFreq != freq) {
+            coefficientFreq = freq;
+            const float w0 = juce::MathConstants<float>::twoPi * freq / static_cast<float>(rate);
+            cosW = std::cos(w0); alpha = std::sin(w0) / 3.6f;
+        }
         const float A = std::pow(10.0f, gainDb / 40.0f); // sqrt(gain)
 
         const float a0 = 1.0f + alpha / A;
@@ -94,6 +98,9 @@ private:
     float maxCutDb = 0.0f;
     float targetFreq = 280.0f;
     float currentCutDb = 0.0f;
+    std::atomic<float> publishedCut {0};
+    float detectorLP = 0, detectorHP = 0, coefficientFreq = -1, cosW = 1, alpha = 0;
+    int untilUpdate = 0;
 
     float detectorLow = 0.0f;
     float detectorHigh = 0.0f;

@@ -77,6 +77,7 @@ function Pedal({ clean, native, status, load, remove }) {
       <Switch id="PEDAL_ON" name="Pedal enabled" disabled={bypassed || !status.pedal} forcedOff={bypassed} />
       {remove('pedal', status.pedal, 'pedal capture')}{load('pedal', status.pedal ? 'Change pedal' : 'Load pedal NAM')}
     </RigRow>
+    <Group title="Pedal gain"><Knob id="PEDAL_INPUT" small muted={!status.pedal || bypassed} /><Knob id="PEDAL_OUTPUT" small muted={!status.pedal || bypassed} /></Group>
   </div>;
 }
 
@@ -93,10 +94,12 @@ function Amp({ clean, status, load, remove }) {
         {remove('amp', status.model, 'amp capture')}{load('amp', status.model ? 'Change amp' : 'Load amp model')}
       </RigRow>
       {source === 3 && <Choice id="CAPTURE_KIND" label="Capture type" options={['Auto · metadata', 'Amp-only', 'Preamp-only', 'Full rig · includes cabinet']} />}
+      {source === 3 && <Switch id="CAPTURE_MATCH" name="Capture level matching" />}
       {source === 3 && <small className="slot-note">Captures hold fixed amp settings. Drive and EQ shape the signal; they do not recreate every original knob. Preamp-only captures need a suitable power-amp stage.</small>}
     </div>
     <div className="control-groups">
       <Group title="Voice"><Knob id="AMP_OUT" small /><Knob id={clean ? 'CLEAN_COMP' : 'TIGHT'} small /><Knob id="PRESENCE" small /><Knob id="HIGH_CUT" small /></Group>
+      {clean && <Group title="Compressor"><Knob id="COMP_THRESH" small /><Knob id="COMP_RATIO" small /><Knob id="COMP_ATTACK" small /><Knob id="COMP_RELEASE" small /><Knob id="COMP_MAKEUP" small /></Group>}
     </div>
   </div>;
 }
@@ -132,9 +135,13 @@ function EQ() {
 
 function Effects({ status }) {
   const resonance = useToggle('DYN_RES_ON');
+  const sync = useToggle('DELAY_SYNC');
   return <div className="control-groups">
-    <Group title="Delay"><Knob id="DELAY_TIME" small /><Knob id="DELAY_MIX" small /><Knob id="DELAY_WIDTH" small /></Group>
-    <Group title="Room"><Knob id="REVERB_SIZE" small /><Knob id="MICRO_DELAY" small /></Group>
+    <Group title="Chorus"><Knob id="CHORUS_MIX" small /><Knob id="CHORUS_RATE" small /><Knob id="CHORUS_DEPTH" small /></Group>
+    <Group title="Delay" status={<Switch id="DELAY_SYNC" name="Delay tempo sync" />}><Knob id="DELAY_TIME" small muted={sync} /><Knob id="DELAY_MIX" small /><Knob id="DELAY_WIDTH" small /><Knob id="DELAY_FEEDBACK" small />
+      {sync && <Choice id="DELAY_DIVISION" label="Delay division" options={['Quarter', 'Eighth', 'Dotted eighth', 'Sixteenth', 'Half', 'Whole']} />}
+    </Group>
+    <Group title="Reverb"><Choice id="REVERB_STYLE" label="Reverb voice" options={['Room', 'Chamber', 'Hall']} /><Knob id="REVERB_SIZE" small /><Knob id="REVERB_DAMP" small /><Knob id="REVERB_PREDELAY" small /><Knob id="MICRO_DELAY" small /></Group>
     <Group title="Character" status={resonance && status.dynResCut < -0.5 && <span className="telemetry-tag">{status.dynResCut.toFixed(1)} dB</span>}>
       <Knob id="DYN_RES_AMOUNT" enable="DYN_RES_ON" small /><Knob id="THICKEN_MIX" enable="THICKEN_ON" small /><Knob id="PIEZO_BLEND" enable="PIEZO_ON" small />
     </Group>
@@ -150,11 +157,11 @@ const stripExtension = name => name.replace(/\.(nam|wav)$/i, '');
 // Signal chain: stages in order, each with its live level, then the selected stage's controls.
 export default function Stages({ page, onPage, clean, native, status, onLoad, onRemove }) {
   const tabs = useRef([]);
-  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON', 'AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND']);
+  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'CHORUS_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON', 'AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND']);
   const View = views[page] ?? Amp;
   const pedalOn = fx.PEDAL_ON >= .5 && Boolean(status.pedal) && (!clean || fx.AMP_SOURCE > 0);
   const gate = fx.GATE_ON < .5 ? 'Gate off' : !native ? 'Gate on' : status.gate > .1 ? 'Gate open' : 'Gate closed';
-  const effects = [fx.DELAY_MIX > 0 && `Delay ${Math.round(fx.DELAY_MIX)}%`, fx.REVERB_MIX > 0 && `Space ${Math.round(fx.REVERB_MIX)}%`].filter(Boolean).join(' · ') || 'Dry';
+  const effects = [fx.CHORUS_MIX > 0 && `Chorus ${Math.round(fx.CHORUS_MIX)}%`, fx.DELAY_MIX > 0 && `Delay ${Math.round(fx.DELAY_MIX)}%`, fx.REVERB_MIX > 0 && `Space ${Math.round(fx.REVERB_MIX)}%`].filter(Boolean).join(' · ') || 'Dry';
   const fullRig = fx.AMP_SOURCE === 3 && fx.CAB_MODE === 0 && (fx.CAPTURE_KIND === 3 || (fx.CAPTURE_KIND === 0 && status.ampHasCab));
   const cabOff = fx.AMP_SOURCE > 0 && (fx.CAB_MODE === 3 || fullRig || (fx.AMP_SOURCE === 4 && fx.CAB_MODE === 0));
   const nodes = {

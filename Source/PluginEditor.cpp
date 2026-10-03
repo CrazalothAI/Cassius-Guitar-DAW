@@ -26,7 +26,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (valid) chooseImports(kind); complete(valid);
         })
         .withNativeFunction("getRig", [this](const auto&, auto complete) { complete(processor.getRig()); })
-        .withNativeFunction("applyRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.applyRig(args[0]) : "Invalid rig request."); })
+        .withNativeFunction("applyRig", [this](const auto& args, auto complete) { complete(args.size() == 1 || args.size() == 2 ? processor.applyRig(args[0], true, args.size() == 2 && static_cast<bool>(args[1])) : "Invalid rig request."); })
         .withNativeFunction("saveRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.saveRig(args[0].toString()) : "Give the rig a name."); })
         .withNativeFunction("loadRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.loadRig(args[0].toString()) : "Rig not found."); })
         .withNativeFunction("removeRig", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.removeRig(args[0].toString())); })
@@ -34,6 +34,8 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("editAsset", [this](const auto& args, auto complete) { complete(args.size() == 2 && processor.editAsset(args[0].toString(), args[1])); })
         .withNativeFunction("exportRig", [this](const auto&, auto complete) { chooseRigFile(true); complete(true); })
         .withNativeFunction("importRig", [this](const auto&, auto complete) { chooseRigFile(false); complete(true); })
+        .withNativeFunction("exportRigPack", [this](const auto&, auto complete) { chooseRigFile(true, true); complete(true); })
+        .withNativeFunction("importRigPack", [this](const auto&, auto complete) { chooseRigFile(false, true); complete(true); })
         .withNativeFunction("relinkAsset", [this](const auto& args, auto complete) { if (args.size() == 1) chooseRelink(args[0].toString()); complete(args.size() == 1); })
         .withNativeFunction("selectAmpVoice", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.selectAmpVoice(args[0].toString())); })
         .withNativeFunction("clearStage", [this](const auto& args, auto complete)
@@ -95,21 +97,22 @@ void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
             safe->chooser.reset();
         });
 }
-void AmpSuiteAudioProcessorEditor::chooseRigFile(bool save)
+void AmpSuiteAudioProcessorEditor::chooseRigFile(bool save, bool pack)
 {
     if (chooser) return;
     const auto rig = save ? processor.getRig() : juce::var();
     if (save && rig.hasProperty("error")) { processor.reportLibraryResult("Load failed: " + rig["error"].toString()); return; }
-    chooser = std::make_unique<juce::FileChooser>(save ? "Export rig references" : "Import Cassian rig",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("My rig.cassian.json"), "*.json");
+    chooser = std::make_unique<juce::FileChooser>(pack ? (save ? "Export portable rig pack" : "Import portable rig pack") : save ? "Export rig references" : "Import Cassian rig",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(pack ? "My rig.cassian.zip" : "My rig.cassian.json"), pack ? "*.zip" : "*.json");
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync((save ? juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting : juce::FileBrowserComponent::openMode)
-        | juce::FileBrowserComponent::canSelectFiles, [safe, save, rig](const juce::FileChooser& dialog)
+        | juce::FileBrowserComponent::canSelectFiles, [safe, save, rig, pack](const juce::FileChooser& dialog)
         {
             if (safe == nullptr) return;
             const auto file = dialog.getResult();
             if (file != juce::File())
             {
+                if (pack) { safe->processor.requestRigPack(save, file); safe->chooser.reset(); return; }
                 const auto error = save ? (file.replaceWithText(juce::JSON::toString(rig, false)) ? juce::String() : "Could not write the rig file.")
                     : file.getSize() > 4 * 1024 * 1024 ? juce::String("Rig file is too large.")
                     : safe->processor.importRig(file.getFileNameWithoutExtension().replace(".cassian", ""), juce::JSON::parse(file.loadFileAsString()));

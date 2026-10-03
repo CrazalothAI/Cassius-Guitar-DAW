@@ -11,7 +11,9 @@ The first pass follows the requested scope: searchable library, universal amp se
 - Neutral Natural Nylon starting point separate from the electric pickup simulation.
 - Named complete rigs and native A/B, preserving global input calibration, listening level, and metronome settings on recall.
 
-The current model remains one pre-amp neural pedal, one amp, one cabinet, and existing global effects. Asset swaps are asynchronous and sequential; effect-tail-preserving scenes and fully prepared transactional swaps remain future work. Imports reference external files and the library lives in each session. Managed pack storage and a shared library across DAW instances remain next steps. Search currently covers tags rather than separate category pickers; recommended cabinet pairings and richer variant fields remain to add.
+The audio quality update adds shared managed storage, portable three-stage rig packs, prepared complete rig activation with a short guitar fade and retained effect tails, independent pedal trims, optional measured A/B matching, adjustable Lumen compression, stereo chorus, tempo-synced delay/feedback, and three reverb voicings with damping/pre-delay. Concurrent loading and stale library writers have regression coverage. See [audio quality update](AUDIO-QUALITY-UPDATE.md).
+
+The current model remains one pre-amp neural pedal, one amp, one cabinet, and global effects. Ordered boards, effect-tail-preserving MIDI scenes, and gapless dual-engine switching remain future work. DAW session restoration keeps the older asynchronous stage-loading path. Search currently covers tags rather than separate category pickers; recommended cabinet pairings and richer variant fields remain to add.
 
 Validation on Windows (2026-10-02): 53 UI tests and all four native CTest suites pass. New native checks cover duplicates/renamed paths, catalog-only batch import, NAM and pedal operation with the old clean flag enabled, neutral DI at 44.1/48/96 kHz, cabinet inclusion/override, smooth amp selection, full rig/session recall, preserved globals, invalid documents, missing references, and content-verified relinking. The foundation checks also pass with the supplied EVH Red I capture; the processor check runs additionally with the supplied SD-1 boost and Mesa cabinet. Standalone and VST3 release builds succeed. The browser layout fits the editor's 860×620 minimum size; long stage controls scroll inside their panel. Live AudioBox listening and Linux host validation were not performed in this pass.
 
@@ -33,8 +35,8 @@ No license/readme/terms documents were found inside those archives. The detailed
 
 ## Next implementation phases
 
-1. **Serial boards and storage:** managed/shared asset catalog, pack manifests and versioning, ordered pre/post blocks, independent levels and bypass, stereo post-cab processing, replace/duplicate/reorder, keyboard alternatives, undo/redo, Play and Board views. Measure practical neural-block limits before promising a count.
-2. **Effects and cabinets:** adjustable compression, modulation/chorus, phaser/flanger/tremolo, tap/sync delay with feedback/subdivisions, room/plate/spring/hall reverbs; dual-IR level/polarity/alignment. Add actual power-amp processing for preamp-only captures. WAV ambience responses do not supply adjustable pedal controls.
+1. **Serial boards and storage:** ordered pre/post blocks, independent levels and bypass per block, stereo post-cab processing, replace/duplicate/reorder, keyboard alternatives, undo/redo, Play and Board views; library management for unused assets and future pack migrations. Managed/shared storage and schema-1 portable packs are delivered. Measure practical neural-block limits before promising a count.
+2. **Effects and cabinets:** phaser/flanger/tremolo, separate plate/spring algorithms, dual-IR level/polarity/alignment, and actual power-amp processing for preamp-only captures. Adjustable clean compression, chorus, sync delay/feedback/divisions, and Room/Chamber/Hall voicings are delivered. WAV ambience responses do not supply adjustable pedal controls.
 3. **Performance:** scenes, MIDI footswitch/expression, harmonizer/pitch, parallel paths and dual amps with latency compensation and controlled switching levels/tails.
 
 ## Core gear sourcing queue
