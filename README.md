@@ -2,7 +2,7 @@
 
 Cassian is a guitar processor with a tube-head interface, built-in clean and high-gain amps, Neural Amp Modeler (NAM) support, cabinet convolution, and stereo effects. It runs as a Windows standalone app or VST3 plugin, with a JUCE/C++20 audio engine and an embedded React editor.
 
-The current source adds safer audio loading, prepared complete rig recall, a shared managed library, portable rig packs, independent pedal trims, and expanded clean/stereo effects. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md).
+The current source adds dual-IR cabinets, an original built-in overdrive, compression for every amp source, and clean/lead starting points. It also includes safer audio loading, prepared complete rig recall, a shared managed library, portable rig packs, independent pedal trims, and expanded clean/stereo effects. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md).
 
 ## Download and launch
 
@@ -42,6 +42,10 @@ The universal amp slot separates the sound source from the older Clean/Lead chan
 | **NAM capture** | Plays the selected clean or distorted NAM through the same universal slot. The channel switch cannot bypass it. A missing capture leaves this source silent and reports the problem. |
 | **Natural DI** | Bypasses the electric amp path, tight/drive shaping, and adaptive hum removal. Optional pedal and external body IR processing remain available. |
 
+On the Cab page, load responses into A and B, then enable **Second cabinet**. B blend is a linear balance: 0% A, 100% B; identical responses retain their level at 50%. If only one enabled response exists, it plays at full blend weight. Level controls still apply. Pan balances the stereo channels without turning a stereo IR into mono. Alignment adds a manual delay to either response; polarity inversion is available for each. Responses keep the existing automatic silence trimming and energy normalization, so alignment is relative to the trimmed responses. This is not automatic phase alignment or a virtual microphone-position model.
+
+Library cabinet details offer **Use as cabinet B**. Full-rig captures in Auto bypass both responses. Cabinet Off bypasses the cabinet cuts as well. Common cuts also work with the built-in speaker; individual A/B controls apply only to external responses.
+
 For NAM, **Capture type** offers Auto, Amp-only, Preamp-only, and Full rig. Auto reads the capture's gear metadata; override it when the metadata is absent or inaccurate. Preamp-only classification does not add a power-amp simulator: that stage remains future work.
 
 | Cabinet mode | Behavior with an explicit amp source |
@@ -59,7 +63,7 @@ A capture containing a cabinet usually works best with cabinet Auto or Off. Stac
 
 Open **Library** to browse **Amps**, **Pedals**, **Cabinets**, and **Presets**. Search names, gear, creators, tags, and notes; filter by Factory, User, or Favorites. Edit friendly names, creator attribution, source URLs, tags, and notes in the details panel.
 
-Factory entries currently consist of Cassian's own built-in amps and control starting points. No third-party NAM captures or WAV responses are bundled.
+Factory entries currently consist of Cassian's own built-in amps and control starting points. No third-party NAM captures or WAV responses are bundled. **Articulate lead** uses Cassian overdrive into Ferrum; **Studio clean** uses Lumen with post-cab compression. Both work without external files.
 
 ### Import and use assets
 
@@ -80,7 +84,7 @@ Use **Import rig** and **Export current rig** for `.cassian.json` documents. Imp
 
 Native asset imports and successful stage loads create content-verified copies in the shared library. Its default location is `%APPDATA%\Cassian\Library` on Windows and `~/.config/Cassian/Library` on Linux. Standalone and plugin instances share this catalog; session state also retains its references. Edited metadata and deleted rigs survive writes from older instances. Factory favorites remain editor-profile preferences.
 
-**Export rig JSON** writes a small reference-only document. **Export pack** writes a `.cassian.zip` containing the current rig and its selected amp, pedal, and cabinet files, up to 64 MB per file. **Import pack** validates checksums and supported files, stores managed copies, and adds a saved rig without changing the active sound. Importing ordinary JSON still requires its referenced files or content-verified relinking. Packs contain your selected third-party assets; share them only within the applicable asset permissions.
+**Export rig JSON** writes a small reference-only document. **Export pack** writes a `.cassian.zip` containing the current rig and its selected amp, pedal, and both cabinet files, up to 64 MB per file. Identical A/B cabinet assets are packaged once. **Import pack** validates checksums and supported files, stores managed copies, and adds a saved rig without changing the active sound. Importing ordinary JSON still requires its referenced files or content-verified relinking. Packs contain your selected third-party assets; share them only within the applicable asset permissions.
 
 Saved complete rigs and native A/B prepare all selected models and the cabinet off the audio thread before committing. Guitar fades briefly out and back in around activation; delay and reverb tails keep running. This is not gapless dual-engine scene switching. A failed preparation leaves the previous rig active. DAW session restoration retains its existing asynchronous stage-loading behavior for compatibility.
 
@@ -95,15 +99,15 @@ The head keeps six primary controls: **Drive, Bass, Middle, Treble, Space, and M
 | Stage | Controls |
 |---|---|
 | **Input** | Input gain, Auto trim, gate threshold/release, pick-attack shaping, and hum-removal status. |
-| **Pedal** | One pre-amp NAM pedal capture with smoothed bypass, independent input/output trims, file selection, and removal. |
-| **Amp** | Source, NAM capture type and metadata level matching, output level, Tight or Lumen compression mix/threshold/ratio/attack/release/makeup, Presence, and High cut. |
-| **Cab** | Cabinet mode, WAV selection, and removal. |
+| **Pedal** | Built-in Cassian overdrive (Drive, Tone, Level, Low cut) followed by one optional NAM pedal capture. Independent smoothed bypasses and NAM input/output trims. |
+| **Amp** | Source, NAM capture type and metadata level matching, output level, Tight, compressor routing/mix/threshold/ratio/attack/release/makeup, Presence, and High cut. |
+| **Cab** | Parallel WAV responses A/B, B enable/blend, independent levels, stereo balance, polarity and 0–10 ms alignment, common low/high cuts, cabinet mode, selection/removal. |
 | **EQ** | Four post-cabinet bands: Body (120 Hz shelf), Mud (350 Hz bell), Focus (1.2 kHz bell), and Fizz (4.8 kHz shelf), each ±12 dB. Flat EQ and Smooth distortion starting settings. |
 | **Effects** | Stereo chorus mix/rate/depth; delay time/mix/width/feedback and tempo divisions; Room/Chamber/Hall reverb voicing, size, damping, and pre-delay; micro-delay, resonance reduction, sub-octave blend, and electric piezo simulation. |
 
 Delay feedback ranges from 0–85%, defaulting to the previous 35%. Width offsets right-channel repeats while keeping dry guitar centered. Tempo sync uses the standalone/metronome tempo or a playing DAW's BPM, with quarter, eighth, dotted eighth, sixteenth, half, and whole-note divisions. Turning sync off restores the retained manual time.
 
-Chorus uses independent left/right modulation to widen mono cleans and starts bypassed. Reverb offers three voicings of the same stereo feedback network, rather than separate modeled plate/spring algorithms. Pre-delay moves only the wet sound. Compressor details apply to Lumen and the compatible built-in clean path; a NAM capture retains its own modeled dynamics. Pedal Input drives the capture harder or softer; Output changes its level afterward. Metadata matching changes NAM output gain without changing its internal drive.
+Chorus uses independent left/right modulation to widen mono cleans and starts bypassed. Reverb offers three voicings of the same stereo feedback network, rather than separate modeled plate/spring algorithms. Pre-delay moves only the wet sound. Compressor routing defaults to **Lumen only · legacy**, preserving the old clean path. **Pre-amp** adds compression before overdrive/pedal/amp; **Post-cab** uses stereo-linked compression after the cabinet and before effects. Both work with Lumen, Ferrum, NAM, and Natural DI. **Off** disables compression. Compression at 0% is dry, including makeup gain. NAM captures retain their own modeled dynamics in addition to any selected external compressor. Pedal Input drives the capture harder or softer; Output changes its level afterward. Metadata matching changes NAM output gain without changing its internal drive.
 
 Turn gate, attack, sub, and piezo controls fully down to switch them off. Tight at 20 Hz and High cut at 20 kHz are bypassed. The input gate detects the dry signal and also gates the amp output before delay/reverb, preserving effect tails. Adaptive hum removal learns mains noise during quiet passages; Ferrum also uses input noise shaping when the gate is enabled.
 
@@ -122,8 +126,9 @@ The backing bus and metronome are mixed **after guitar distortion and effects**,
 Simplified guitar path:
 
 ```text
-Input gain → hum/piezo/input shaping → gate → NAM pedal → selected amp
-→ cabinet → amp output/tone shaping → high cut/post-amp gate → EQ
+Input gain → hum/piezo/input shaping → gate → optional pre-amp compressor
+→ Cassian overdrive → NAM pedal → selected amp → cabinet A/B blend
+→ optional post-cab compressor → amp output/tone shaping → high cut/post-amp gate → EQ
 → stereo chorus → stereo delay → voiced reverb → micro-delay
 → backing/metronome mix → Master → output limiter
 ```
@@ -216,9 +221,9 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 
 File reading, hashing, parsing, capture preparation, warm-up, and managed storage run outside the audio callback. The callback processes bounded internal chunks with preallocated buffers and only tries the model-swap lock; contention mutes the guitar while preserving backing, click, Master, and limiting. Cabinet publication serializes JUCE's wait-free convolution handoff with processing; retired handoff objects are reclaimed by the loader. Tone controls and capture gain changes are smoothed; resonance coefficients update at a reduced control rate. Hum and resonance telemetry use atomic snapshots.
 
-Sample-rate conversion retains streaming state between callbacks. New controls append to the previous 41 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
+Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **60 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and three-stage portable packs with tamper/path rejection. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-03**: **66 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. New checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
@@ -226,6 +231,6 @@ Automated renders do not establish live sound quality, long-run AudioBox reliabi
 
 ## Roadmap, attribution, and dependencies
 
-See the [expansion roadmap](docs/EXPANSION-ROADMAP.md) for ordered pedalboards, more effects, power-amp processing, dual cabinets, MIDI/scenes, parallel paths, and asset sourcing. The current chain has one neural pedal, one amp, one cabinet, and global effects.
+See the [expansion roadmap](docs/EXPANSION-ROADMAP.md) for ordered pedalboards, more effects, power-amp processing, MIDI/scenes, parallel amp paths, and asset sourcing. The current chain has a built-in overdrive, one neural pedal, one amp, two parallel cabinet responses, and global effects.
 
 Project ownership markers and their preservation instruction are recorded in [provenance](docs/PROVENANCE.md). Third-party attribution and licenses are listed in [THIRD_PARTY.md](THIRD_PARTY.md). JUCE uses AGPLv3 or a commercial license; NAM Core is MIT licensed. Review the applicable dependency and asset distribution terms before shipping a commercial build. User-imported captures are marked unverified for factory redistribution and are excluded from this repository. Rig JSON contains references; user-exported portable packs contain selected files.

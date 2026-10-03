@@ -17,6 +17,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             return juce::WebBrowserComponent::Resource {{bytes, bytes + BinaryData::index_htmlSize}, "text/html"};
         })
         .withNativeFunction("loadModel", [this](const auto&, auto complete) { chooseFile(0); complete(true); })
+        .withNativeFunction("loadIRB", [this](const auto&, auto complete) { chooseFile(3); complete(true); })
         .withNativeFunction("loadIR", [this](const auto&, auto complete) { chooseFile(1); complete(true); })
         .withNativeFunction("loadPedal", [this](const auto&, auto complete) { chooseFile(2); complete(true); })
         .withNativeFunction("getLibrary", [this](const auto&, auto complete) { complete(processor.getLibrary()); })
@@ -30,7 +31,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("saveRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.saveRig(args[0].toString()) : "Give the rig a name."); })
         .withNativeFunction("loadRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.loadRig(args[0].toString()) : "Rig not found."); })
         .withNativeFunction("removeRig", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.removeRig(args[0].toString())); })
-        .withNativeFunction("selectAsset", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.selectAsset(args[0].toString())); })
+        .withNativeFunction("selectAsset", [this](const auto& args, auto complete) { complete((args.size() == 1 || (args.size() == 2 && args[1].toString() == "cabB")) && processor.selectAsset(args[0].toString(), args.size() == 2)); })
         .withNativeFunction("editAsset", [this](const auto& args, auto complete) { complete(args.size() == 2 && processor.editAsset(args[0].toString(), args[1])); })
         .withNativeFunction("exportRig", [this](const auto&, auto complete) { chooseRigFile(true); complete(true); })
         .withNativeFunction("importRig", [this](const auto&, auto complete) { chooseRigFile(false); complete(true); })
@@ -43,8 +44,9 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             // An empty path unloads the stage on the loader thread.
             const auto stage = args.size() == 1 ? args[0].toString() : juce::String();
             if (stage == "pedal") processor.requestPedal(juce::File());
+            else if (stage == "cabB") processor.requestCabB(juce::File());
             else if (stage == "amp" || stage == "cab") processor.requestFile(stage == "amp", juce::File());
-            complete(stage == "amp" || stage == "pedal" || stage == "cab");
+            complete(stage == "amp" || stage == "pedal" || stage == "cab" || stage == "cabB");
         })
         .withNativeFunction("setBufferSize", [this](const auto& args, auto complete)
         {
@@ -82,7 +84,7 @@ void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
 {
     if (chooser) return;
     chooser = std::make_unique<juce::FileChooser>(stage == 2 ? "Load pedal capture" : stage == 0 ? "Load neural amp capture" : "Load cabinet impulse response",
-        juce::File(), stage == 1 ? "*.wav" : "*.nam");
+        juce::File(), (stage == 1 || stage == 3) ? "*.wav" : "*.nam");
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
         [safe, stage](const juce::FileChooser& dialog)
@@ -92,6 +94,11 @@ void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
             if (file.existsAsFile())
             {
                 if (stage == 2) safe->processor.requestPedal(file);
+                else if (stage == 3) {
+                    safe->processor.requestCabB(file);
+                    auto* on = safe->processor.apvts.getParameter("CAB_B_ON"); on->setValueNotifyingHost(1);
+                    auto* mode = safe->processor.apvts.getParameter("CAB_MODE"); mode->setValueNotifyingHost(mode->convertTo0to1(1));
+                }
                 else
                 {
                     safe->processor.requestFile(stage == 0, file);

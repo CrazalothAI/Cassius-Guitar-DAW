@@ -316,10 +316,16 @@ h1 { font-size: 14px; letter-spacing: .28em; font-weight: 500; margin: 0; color:
 .node-level i { display: block; height: 100%; background: color-mix(in srgb, var(--accent) 80%, transparent); transition: width .08s; }
 
 .stage-panel { margin-top: 10px; padding: 18px 20px; min-height: 158px; border: 1px solid #ffffff10; border-radius: 10px; background: linear-gradient(#161514, #111010); }
-.stage-split { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: start; }
+.stage-split { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 24px; align-items: start; }
 .stage-split .rig-list { min-width: 0; }
 .stage-split .rig-row { flex-wrap: wrap; gap: 8px; }
 .stage-split .slot-choice { flex-wrap: wrap; }
+.stage-split > .control-groups { min-width: 0; flex-direction: column; }
+.stage-split .control-group { padding: 0; border-left: 0; }
+.stage-split .group-knobs { flex-wrap: wrap; }
+.stage-split .group-knobs > .slot-choice { flex-basis: 100%; }
+.cab-controls { margin-top: 16px; }
+.cab-controls .group-knobs { flex-wrap: wrap; align-items: center; }
 .control-groups { display: flex; flex-wrap: wrap; gap: 16px 0; }
 .control-group { padding: 0 26px; border-left: 1px solid #ffffff10; }
 .control-group:first-child { padding-left: 0; border-left: 0; }

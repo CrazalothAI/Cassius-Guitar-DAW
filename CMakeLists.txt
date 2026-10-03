@@ -79,7 +79,7 @@ target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets juce::juce_audio_
 include(CTest)
 if(BUILD_TESTING)
     juce_add_console_app(AmpSuiteTests PRODUCT_NAME CassianTests NEEDS_WEBVIEW2 TRUE NEEDS_WEB_BROWSER TRUE)
-    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp)
+    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp tests/SoundTests.cpp)
     target_link_libraries(AmpSuiteTests PRIVATE AmpSuite nam_core juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra)
     add_test(NAME processor COMMAND AmpSuiteTests "${nam_SOURCE_DIR}/example_models/wavenet.nam")
     juce_add_console_app(CassianModelCheck PRODUCT_NAME CassianModelCheck)

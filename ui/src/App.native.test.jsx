@@ -23,6 +23,25 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('editor connected to the audio engine', () => {
+  it('loads and removes cabinet B without replacing cabinet A', async () => {
+    engine.status = {...engine.status, ir: 'Cabinet A.wav', irB: 'Cabinet B.wav'};
+    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Cab'}));
+    await screen.findByText('Cabinet B.wav');
+    fireEvent.click(screen.getByRole('button', {name: /Change cabinet B/}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['loadIRB']));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove cabinet B IR'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['clearStage', 'cabB']));
+    expect(engine.calls).not.toContainEqual(['clearStage', 'cab']);
+    expect(screen.getByText('Cabinet A.wav')).toBeTruthy();
+  });
+  it('can place a library cabinet in the second slot', async () => {
+    engine.library = {assets: [{id: 'cab:second', kind: 'cab', name: 'Ribbon cab', ownership: 'User', path: 'C:/Cab.wav'}], rigs: []};
+    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Library'}));
+    const dialog = screen.getByRole('dialog'); fireEvent.click(within(dialog).getByRole('button', {name: 'Cabinets'}));
+    fireEvent.click(await within(dialog).findByRole('button', {name: /^Ribbon cab/}));
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Use as cabinet B'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['selectAsset', 'cab:second', 'cabB']));
+  });
   it('lets a standalone user choose a physical input and open driver settings', async () => {
     engine.status = {...engine.status, deviceSettingsAvailable: true, inputChannels: ['Instrument 1', 'Instrument 2', 'Line 3'], selectedInput: 0};
     render(<App/>);

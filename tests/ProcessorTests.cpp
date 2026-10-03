@@ -7,6 +7,7 @@
 static void check(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
 void runLibraryChecks(const juce::File& fixture);
 void runQualityChecks(const juce::File& fixture);
+void runSoundChecks(const juce::File& fixture);
 static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
 {
     auto* parameter = p.apvts.getParameter(id);
@@ -643,6 +644,7 @@ int main(int argc, char** argv)
         // fourth path exercises the foundation with a real user amp capture.
         runLibraryChecks(juce::File(argc > 4 ? argv[4] : argv[1]));
         runQualityChecks(juce::File(argv[1]));
+        runSoundChecks(juce::File(argv[1]));
         std::cout << "Processor checks passed\n";
         return 0;
     }

@@ -60,13 +60,32 @@ export const parameters = [
   ['REVERB_DAMP', 'Damping', 0, 100, 55, '%', 1],
   ['REVERB_PREDELAY', 'Pre-delay', 0, 150, 0, 'ms', 1],
   ['CAPTURE_MATCH', 'Level match', 0, 1, 1, '', 1],
+  ['COMP_MODE', 'Compressor routing', 0, 3, 0, '', 1],
+  ['OD_ON', 'Overdrive enabled', 0, 1, 0, '', 1],
+  ['OD_DRIVE', 'Drive', 0, 100, 15, '%', 1],
+  ['OD_TONE', 'Tone', 0, 100, 50, '%', 1],
+  ['OD_LEVEL', 'Level', -24, 12, 0, 'dB', 0.1],
+  ['OD_TIGHT', 'Low cut', 20, 200, 80, 'Hz', 1, 80],
+  ['CAB_B_ON', 'Second cabinet enabled', 0, 1, 0, '', 1],
+  ['CAB_BLEND', 'B blend', 0, 100, 50, '%', 1],
+  ['CAB_A_LEVEL', 'A level', -24, 12, 0, 'dB', 0.1],
+  ['CAB_B_LEVEL', 'B level', -24, 12, 0, 'dB', 0.1],
+  ['CAB_A_PAN', 'A pan', -100, 100, 0, '%', 1],
+  ['CAB_B_PAN', 'B pan', -100, 100, 0, '%', 1],
+  ['CAB_A_INVERT', 'Cabinet A polarity', 0, 1, 0, '', 1],
+  ['CAB_B_INVERT', 'Cabinet B polarity', 0, 1, 0, '', 1],
+  ['CAB_A_DELAY', 'A alignment', 0, 10, 0, 'ms', 0.01],
+  ['CAB_B_DELAY', 'B alignment', 0, 10, 0, 'ms', 0.01],
+  ['CAB_LOW_CUT', 'Low cut', 20, 500, 20, 'Hz', 1, 100],
+  ['CAB_HIGH_CUT', 'High cut', 2000, 20000, 20000, 'Hz', 1, 8000],
+
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));
 
 // Range ends that mean "off": the DSP bypasses Tight at 20 Hz and High cut at 20 kHz, and
 // the gate and the character effects switch off when their knob is fully down.
-const offAt = { TIGHT: 'min', HIGH_CUT: 'max', GATE_THRESH: 'min', DYN_RES_AMOUNT: 'min', THICKEN_MIX: 'min', PIEZO_BLEND: 'min' };
+const offAt = { TIGHT: 'min', HIGH_CUT: 'max', CAB_LOW_CUT: 'min', CAB_HIGH_CUT: 'max', GATE_THRESH: 'min', DYN_RES_AMOUNT: 'min', THICKEN_MIX: 'min', PIEZO_BLEND: 'min' };
 
 export const clamp = (p, value) => Math.min(p.max, Math.max(p.min, value));
 // Knob travel (and the host's normalised value) for a value, and back.

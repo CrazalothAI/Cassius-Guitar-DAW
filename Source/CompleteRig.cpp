@@ -6,13 +6,13 @@ void AmpSuiteAudioProcessor::prepareCompleteRig(juce::ValueTree state, bool pres
         const auto preparedRate = reportedRate.load();
         const int preparedBlock = juce::jlimit(1, 256, reportedBlock.load()), channels = reportedChannels.load();
         std::unique_ptr<NamWrapper> nextAmp, nextPedal;
-        auto nextCab = std::make_unique<IrLoader>();
+        auto nextCab = std::make_unique<DualCab>();
         std::vector<juce::ValueTree> assets;
         juce::AudioFormatManager formats; formats.registerBasicFormats();
-        for (const auto* label : {"model", "ir", "pedal"}) {
+        for (const auto* label : {"model", "ir", "pedal", "irB"}) {
             const juce::String stage(label), path = state[stage + "Path"].toString();
             if (path.isEmpty()) continue;
-            const auto kind = stage == "model" ? "amp" : stage == "ir" ? "cab" : "pedal";
+            const auto kind = stage == "model" ? "amp" : (stage == "ir" || stage == "irB") ? "cab" : "pedal";
             const juce::File file(path);
             auto asset = AssetLibrary::describe(file, kind);
             const auto expected = state[stage + "Id"].toString();
@@ -22,7 +22,7 @@ void AmpSuiteAudioProcessor::prepareCompleteRig(juce::ValueTree state, bool pres
             state.setProperty(stage + "Path", asset["path"], nullptr);
             state.setProperty(stage + "Id", asset["id"], nullptr);
             const juce::File managed(asset["path"].toString());
-            if (stage != "ir") {
+            if (stage != "ir" && stage != "irB") {
                 auto next = std::make_unique<NamWrapper>(managed, assetSourceName(asset, state.getChildWithName("LIBRARY"))); next->prepare(preparedRate, preparedBlock);
                 if (stage == "model") nextAmp = std::move(next); else nextPedal = std::move(next);
             } else {
@@ -31,11 +31,14 @@ void AmpSuiteAudioProcessor::prepareCompleteRig(juce::ValueTree state, bool pres
                     throw std::runtime_error("Rig contains an unsupported cabinet response");
                 juce::AudioBuffer<float> impulse(static_cast<int>(reader->numChannels), static_cast<int>(reader->lengthInSamples));
                 if (!reader->read(&impulse, 0, impulse.getNumSamples(), 0, true, true)) throw std::runtime_error("Could not read the rig cabinet");
-                nextCab->load(std::move(impulse), reader->sampleRate);
+                nextCab->load(std::move(impulse), reader->sampleRate, stage == "irB" ? 1 : 0);
             }
         }
         // This isolated convolution is fully built before it can reach the callback.
-        nextCab->prepare({preparedRate, static_cast<juce::uint32>(preparedBlock), static_cast<juce::uint32>(channels)});
+        const auto v = [&](const char* id) { return static_cast<float>(state.getChildWithProperty("id", id)["value"]); };
+        nextCab->prepare({preparedRate, static_cast<juce::uint32>(preparedBlock), static_cast<juce::uint32>(channels)},
+            {v("CAB_B_ON") >= .5f, v("CAB_BLEND"), v("CAB_A_LEVEL"), v("CAB_B_LEVEL"), v("CAB_A_PAN"), v("CAB_B_PAN"),
+             v("CAB_A_INVERT") >= .5f, v("CAB_B_INVERT") >= .5f, v("CAB_A_DELAY"), v("CAB_B_DELAY"), v("CAB_LOW_CUT"), v("CAB_HIGH_CUT")});
         if (generation != requestGeneration.load() || threadShouldExit()) return;
         rigMuted.store(false); rigSwapReady.store(true);
         // Let the old guitar fade before committing. Effects keep running, so their
@@ -70,6 +73,7 @@ void AmpSuiteAudioProcessor::prepareCompleteRig(juce::ValueTree state, bool pres
         apvts.replaceState(state);
         {
             const juce::ScopedLock lock(requestLock);
+            desiredIrB = irBPath = state["irBPath"].toString();
             desiredModel = modelPath = state["modelPath"].toString(); desiredPedal = pedalPath = state["pedalPath"].toString(); desiredIr = irPath = state["irPath"].toString();
             library.merge(state.getChildWithName("LIBRARY")); for (const auto& asset : assets) library.upsert(asset);
             // nextAmp/nextPedal now own the retired instances, destroyed on this thread.

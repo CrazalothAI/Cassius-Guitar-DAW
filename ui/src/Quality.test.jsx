@@ -3,12 +3,47 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import App from './App.jsx';
 import { applyPreset } from './presets.js';
-import { snapshotParameters } from './parameterState.js';
+import { setParameter, snapshotParameters } from './parameterState.js';
 
 beforeEach(() => { localStorage.clear(); applyPreset('Glass clean'); });
 afterEach(cleanup);
 
 describe('expanded clean and gain controls', () => {
+  it('offers compressor routing for every amp, and includes it in A/B recall', () => {
+    applyPreset('Modern metalcore'); render(<App/>);
+    fireEvent.change(screen.getByRole('combobox', {name: 'Amp source'}), {target: {value: '3'}});
+    fireEvent.change(screen.getByRole('combobox', {name: 'Compressor routing'}), {target: {value: '2'}});
+    fireEvent.change(screen.getByRole('slider', {name: 'Compression'}), {target: {value: '70'}});
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    fireEvent.change(screen.getByRole('combobox', {name: 'Compressor routing'}), {target: {value: '3'}});
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    expect(snapshotParameters()).toMatchObject({AMP_SOURCE: 3, COMP_MODE: 2, CLEAN_COMP: 70});
+  });
+  it('enables built-in drive without a capture and leaves the captured pedal independent', () => {
+    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Pedal'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Overdrive enabled'}));
+    const group = screen.getByRole('group', {name: 'Cassian overdrive'});
+    fireEvent.change(within(group).getByRole('slider', {name: 'Drive'}), {target: {value: '45'}});
+    fireEvent.change(within(group).getByRole('slider', {name: 'Level'}), {target: {value: '-3'}});
+    expect(snapshotParameters()).toMatchObject({OD_ON: 1, OD_DRIVE: 45, OD_LEVEL: -3, PEDAL_ON: 0});
+    expect(screen.getByRole('tab', {name: 'Pedal'}).textContent).toContain('Overdrive');
+  });
+  it('saves independent cabinet alignment, polarity, and blend in A/B', () => {
+    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Cab'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Second cabinet enabled'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Invert cabinet B polarity'}));
+    fireEvent.change(screen.getByRole('slider', {name: 'B alignment'}), {target: {value: '1.25'}});
+    fireEvent.change(screen.getByRole('slider', {name: 'B blend'}), {target: {value: '67'}});
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    fireEvent.change(screen.getByRole('slider', {name: 'B blend'}), {target: {value: '20'}});
+    fireEvent.click(screen.getByRole('button', {name: 'A/B compare'}));
+    expect(snapshotParameters()).toMatchObject({CAB_B_ON: 1, CAB_B_INVERT: 1, CAB_B_DELAY: 1.25, CAB_BLEND: 67});
+  });
+  it('restores bypass defaults when changing to a clean starting point', () => {
+    setParameter('OD_ON', 1); setParameter('COMP_MODE', 2); setParameter('CAB_B_ON', 1);
+    applyPreset('Glass clean');
+    expect(snapshotParameters()).toMatchObject({OD_ON: 0, COMP_MODE: 0, CAB_B_ON: 0, CAB_A_LEVEL: 0, CAB_A_DELAY: 0});
+  });
   it('exposes compressor settings for the built-in clean amp', () => {
     render(<App/>);
     const group = screen.getByRole('group', {name: 'Compressor'});

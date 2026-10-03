@@ -131,7 +131,7 @@ export default function App() {
     catch { setNotice({ title: 'Couldn’t remove the file', text: 'Please try again.' }); }
   };
   const load = async type => {
-    try { await invoke(type === 'amp' ? 'loadModel' : type === 'pedal' ? 'loadPedal' : 'loadIR'); }
+    try { await invoke(type === 'amp' ? 'loadModel' : type === 'pedal' ? 'loadPedal' : type === 'cabB' ? 'loadIRB' : 'loadIR'); }
     catch { setNotice({ title: 'Couldn’t open the file picker', text: 'Please try again.' }); }
   };
   const setBuffer = async size => {

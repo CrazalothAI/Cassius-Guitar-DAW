@@ -30,7 +30,7 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
         const double amount = std::strtod(text.c_str(), &end);
         if (end == text.c_str() || *end != '\0' || !std::isfinite(amount) || amount < definition.min || amount > definition.max)
             return "Invalid rig parameter: " + juce::String(definition.id);
-        if ((definition.isSwitch() || juce::String(definition.id) == "AMP_SOURCE" || juce::String(definition.id) == "CAPTURE_KIND" || juce::String(definition.id) == "CAB_MODE" || juce::String(definition.id) == "DELAY_DIVISION" || juce::String(definition.id) == "REVERB_STYLE") && amount != std::floor(amount))
+        if ((definition.isSwitch() || juce::String(definition.id) == "AMP_SOURCE" || juce::String(definition.id) == "CAPTURE_KIND" || juce::String(definition.id) == "CAB_MODE" || juce::String(definition.id) == "DELAY_DIVISION" || juce::String(definition.id) == "REVERB_STYLE" || juce::String(definition.id) == "COMP_MODE") && amount != std::floor(amount))
             return "Invalid rig routing choice.";
     }
     return {};
@@ -78,7 +78,12 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     subSynth.prepare(rate);
     microDelay.prepare(rate);
     fallbackAmp.prepare(rate, maxBlock); speaker.prepare(rate); noiseShield.prepare(rate); humCanceller.prepare(rate); metronome.prepare(rate);
-    cab->prepare(spec); tone.prepare(rate, {value(Params::bass), value(Params::mid), value(Params::treble), value(Params::presence)});
+    cab->prepare(spec, cabinetSettings());
+    preCompressor.prepare(rate, compressorSettings(value(Params::compMode) == 1));
+    postCompressor.prepare(rate, compressorSettings(value(Params::compMode) == 2));
+    overdrive.prepare(rate, maxBlock, {value(Params::odOn) >= .5f, value(Params::odDrive), value(Params::odTone), value(Params::odLevel), value(Params::odTight)});
+    reportedOverdriveLatency.store(overdrive.latencySamples());
+    tone.prepare(rate, {value(Params::bass), value(Params::mid), value(Params::treble), value(Params::presence)});
     pedalEq.prepare(rate, {value(Params::eqOn) >= .5f, value(Params::eqBody), value(Params::eqMud), value(Params::eqFocus), value(Params::eqFizz)});
     backingAudio.setSize(2, maxBlock);
     cleanAudio.resize(static_cast<size_t>(maxBlock));
@@ -93,7 +98,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     cleanCompressor.prepare({rate, static_cast<juce::uint32>(maxBlock), 1}); cleanCompressor.reset();
     cleanCompressor.setThreshold(value(Params::compThreshold)); cleanCompressor.setRatio(value(Params::compRatio));
     cleanCompressor.setAttack(value(Params::compAttack)); cleanCompressor.setRelease(value(Params::compRelease));
-    compressionMix.reset(rate, 0.03); compressionMix.setCurrentAndTargetValue(value(Params::cleanComp) / 100);
+    compressionMix.reset(rate, 0.03); compressionMix.setCurrentAndTargetValue(value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
     highCutoff.reset(rate, 0.03); highCutoff.setCurrentAndTargetValue(value(Params::highCut));
     stereoWidth.reset(rate, 0.05); stereoWidth.setCurrentAndTargetValue(value(Params::delayWidth) / 100);
     cleanBlend.reset(rate, 0.03); cleanBlend.setCurrentAndTargetValue(value(Params::clean) >= 0.5f ? 1.0f : 0.0f);
@@ -262,6 +267,10 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     }
     gateLevel.store(gateEnvelope[static_cast<size_t>(buffer.getNumSamples() - 1)]);
 
+    preCompressor.configure(compressorSettings(value(Params::compMode) == 1));
+    float* guitarChannels[] {mono}; preCompressor.process(guitarChannels, 1, buffer.getNumSamples());
+    cab->configure(cabinetSettings());
+
     // 4. Dynamic 200-400 Hz Resonance Suppression Notch
     dynamicResonance.configure(value(Params::dynResOn) >= 0.5f, value(Params::dynResAmount));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
@@ -272,6 +281,8 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     for (int i = 0; i < buffer.getNumSamples(); ++i)
         subSynthAudio[static_cast<size_t>(i)] = subSynth.processSample(mono[i], trackedPitch);
 
+    overdrive.configure({value(Params::odOn) >= .5f, value(Params::odDrive), value(Params::odTone), value(Params::odLevel), value(Params::odTight)});
+    overdrive.process(mono, buffer.getNumSamples());
     if (activeAmpSource > 0) processUniversalAmp(buffer);
     else
     {
@@ -279,7 +290,7 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     driveGain.setTargetValue(juce::Decibels::decibelsToGain(value(Params::drive)));
     cleanBlend.setTargetValue(value(Params::clean) >= 0.5f ? 1.0f : 0.0f);
     tightCutoff.setTargetValue(value(Params::tight));
-    compressionMix.setTargetValue(value(Params::cleanComp) / 100);
+    compressionMix.setTargetValue(value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
     // A channel that is fully faded out is not computed: on Clean the captures
     // and cabinet rest, on Metal the clean preamp does. Crossfades run both.
     const bool cleanAudible = cleanBlend.getCurrentValue() > 0 || cleanBlend.getTargetValue() > 0;
@@ -339,11 +350,12 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     // Cabinet: the loaded IR; otherwise the built-in speaker when the amp has none
     // (no capture, or a capture whose metadata says amp-only). Raw amp output with
     // no speaker is mostly fizz.
-    const bool builtInSpeaker = !cab->isLoaded() && (!model || (model->cabinetIsKnown() && !model->hasCabinet()));
+    const bool builtInSpeaker = !cab->hasExternal() && (!model || (model->cabinetIsKnown() && !model->hasCabinet()));
     speakerActive.store(builtInSpeaker);
     if (metalAudible && builtInSpeaker) speaker.process(mono, buffer.getNumSamples());
     for (int ch = 1; ch < buffer.getNumChannels(); ++ch) buffer.copyFrom(ch, 0, mono, buffer.getNumSamples());
     if (metalAudible) cab->process(context);
+    if (metalAudible && builtInSpeaker) cab->filter(block);
     postCabPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     for (int i = 0; i < buffer.getNumSamples(); ++i)
     {
@@ -355,6 +367,10 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
         }
     }
     }
+
+    postCompressor.configure(compressorSettings(value(Params::compMode) == 2));
+    postCompressor.process(buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+    reportedCompression.store(juce::jmax(preCompressor.reductionDb(), postCompressor.reductionDb()), std::memory_order_relaxed);
 
     // Blend parallel sub-synthesis layer (bypasses pre-gain distortion)
     if (thicken)
@@ -463,7 +479,7 @@ void AmpSuiteAudioProcessor::processUniversalAmp(juce::AudioBuffer<float>& buffe
     const bool lumen = activeAmpSource == 1, ferrum = activeAmpSource == 2, natural = activeAmpSource == 4;
     driveGain.setTargetValue(juce::Decibels::decibelsToGain(value(Params::drive)));
     tightCutoff.setTargetValue(value(Params::tight));
-    compressionMix.setTargetValue(value(Params::cleanComp) / 100);
+    compressionMix.setTargetValue(value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
     for (int i = 0; i < size; ++i)
     {
         const auto gain = driveGain.getNextValue(), cutoff = tightCutoff.getNextValue();
@@ -515,7 +531,7 @@ void AmpSuiteAudioProcessor::processUniversalAmp(juce::AudioBuffer<float>& buffe
     const bool capture = !lumen && !ferrum && !natural;
     const bool fullRig = capture && (kind == 3 || (kind == 0 && model && model->hasCabinet()));
     const bool hasNoCab = ferrum || (capture && (kind == 1 || kind == 2 || (kind == 0 && model && model->cabinetIsKnown() && !model->hasCabinet())));
-    const bool external = cab->isLoaded() && (cabinetMode == 1 || (cabinetMode == 0 && !fullRig && !natural));
+    const bool external = cab->hasExternal() && (cabinetMode == 1 || (cabinetMode == 0 && !fullRig && !natural));
     const bool builtIn = cabinetMode == 2 || (cabinetMode == 0 && !external && !fullRig && hasNoCab);
     speakerActive.store(builtIn);
     if (builtIn) speaker.process(mono, size);
@@ -524,6 +540,7 @@ void AmpSuiteAudioProcessor::processUniversalAmp(juce::AudioBuffer<float>& buffe
     {
         juce::dsp::AudioBlock<float> block(buffer); juce::dsp::ProcessContextReplacing<float> context(block); cab->process(context);
     }
+    if (builtIn) { juce::dsp::AudioBlock<float> block(buffer); cab->filter(block); }
     postCabPeak.store(buffer.getMagnitude(0, 0, size));
 }
 void AmpSuiteAudioProcessor::requestFile(bool isModel, const juce::File& file)
@@ -541,11 +558,11 @@ void AmpSuiteAudioProcessor::run()
     juce::AudioFormatManager formats; formats.registerBasicFormats();
     while (!threadShouldExit())
     {
-        juce::String modelFile, irFile, pedalFile; bool doModel, doIr, doPedal;
+        juce::String modelFile, irFile, pedalFile, irBFile; bool doModel, doIr, doPedal, doIrB;
         std::vector<std::pair<juce::File, juce::String>> imports;
         std::vector<PackJob> packs;
         juce::ValueTree completeRig; bool preserveGlobals; juce::uint64 generation;
-        std::array<juce::uint64, 3> stageGenerations {};
+        std::array<juce::uint64, 4> stageGenerations {};
         {
             const juce::ScopedLock lock(requestLock);
             imports.swap(pendingImports);
@@ -553,16 +570,16 @@ void AmpSuiteAudioProcessor::run()
             completeRig = pendingRig; pendingRig = {}; preserveGlobals = pendingRigPreservesGlobals; generation = requestGeneration.load();
             for (size_t i = 0; i < stageGenerations.size(); ++i) stageGenerations[i] = stageRequestGeneration[i].load();
             doModel = modelPending; doIr = irPending;
-            modelFile = desiredModel; irFile = desiredIr;
+            modelFile = desiredModel; irFile = desiredIr; irBFile = desiredIrB; doIrB = irBPending; irBPending = false;
             doPedal = pedalPending; pedalFile = desiredPedal; pedalPending = false;
             modelPending = irPending = false;
         }
         if (completeRig.isValid()) prepareCompleteRig(completeRig, preserveGlobals, generation);
-        for (const int stage : {0, 1, 2})
+        for (const int stage : {0, 1, 2, 3})
         {
             const bool isModel = stage == 0, isPedal = stage == 2, isNam = isModel || isPedal;
-            if (!(isPedal ? doPedal : isModel ? doModel : doIr) || stageGenerations[stage] != stageRequestGeneration[stage].load()) continue;
-            const auto path = isPedal ? pedalFile : isModel ? modelFile : irFile;
+            if (!(isPedal ? doPedal : isModel ? doModel : stage == 3 ? doIrB : doIr) || stageGenerations[stage] != stageRequestGeneration[stage].load()) continue;
+            const auto path = isPedal ? pedalFile : isModel ? modelFile : stage == 3 ? irBFile : irFile;
             try
             {
                 const juce::File file(path);
@@ -603,19 +620,19 @@ void AmpSuiteAudioProcessor::run()
                 else if (path.isEmpty()) {
                     const juce::ScopedLock publishing(requestLock);
                     if (stageGenerations[stage] != stageRequestGeneration[stage].load()) continue;
-                    cab->clear();
+                    cab->clear(stage == 3 ? 1 : 0);
                 }
                 else
                 {
                     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
-                    if (!reader || reader->lengthInSamples == 0 || reader->numChannels > 2
+                    if (!reader || reader->lengthInSamples <= 0 || reader->numChannels == 0 || reader->numChannels > 2
                         || reader->lengthInSamples > reader->sampleRate * 10)
                         throw std::runtime_error("Choose a mono/stereo WAV impulse response up to 10 seconds.");
                     juce::AudioBuffer<float> impulse(static_cast<int>(reader->numChannels), static_cast<int>(reader->lengthInSamples));
-                    reader->read(&impulse, 0, impulse.getNumSamples(), 0, true, true);
+                    if (!reader->read(&impulse, 0, impulse.getNumSamples(), 0, true, true)) throw std::runtime_error("Could not read the cabinet response");
                     const juce::ScopedLock publishing(requestLock);
                     if (stageGenerations[stage] != stageRequestGeneration[stage].load()) continue;
-                    cab->load(std::move(impulse), reader->sampleRate);
+                    cab->load(std::move(impulse), reader->sampleRate, stage == 3 ? 1 : 0);
                 }
                 // `next` now holds the previous model; describe the one just installed.
                 juce::String gear; double levelDb = 0; bool levelled = false, hasCab = false, cabKnown = false;
@@ -631,7 +648,7 @@ void AmpSuiteAudioProcessor::run()
                 const juce::ScopedLock lock(requestLock);
                 if (stageGenerations[stage] != stageRequestGeneration[stage].load()) continue;
                 if (asset.isValid()) library.upsert(asset);
-                (isPedal ? pedalPath : isModel ? modelPath : irPath) = path;
+                (isPedal ? pedalPath : isModel ? modelPath : stage == 3 ? irBPath : irPath) = path;
                 if (isModel) { ampGear = gear; ampLevelDb = levelDb; ampLevelled = levelled; ampHasCab = hasCab; ampCabKnown = cabKnown; }
                 if (!message.startsWith("Load failed:")) message = path.isEmpty() ? "Stage cleared" : "Loaded " + file.getFileName();
                 if (asset.isValid()) persistLibrary();
@@ -654,7 +671,7 @@ void AmpSuiteAudioProcessor::run()
                 if (kind != "cab") { NamWrapper validation(file); }
                 else {
                     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
-                    if (!reader || reader->lengthInSamples == 0 || reader->numChannels > 2 || reader->lengthInSamples > reader->sampleRate * 10)
+                    if (!reader || reader->lengthInSamples <= 0 || reader->numChannels == 0 || reader->numChannels > 2 || reader->lengthInSamples > reader->sampleRate * 10)
                         throw std::runtime_error("Choose a mono/stereo WAV impulse response up to 10 seconds");
                 }
                 const auto asset = AssetLibrary::describe(file, kind);
@@ -687,6 +704,7 @@ juce::var AmpSuiteAudioProcessor::status()
         };
         result->setProperty("model", displayName("amp", modelPath));
         result->setProperty("pedal", displayName("pedal", pedalPath));
+        result->setProperty("irB", displayName("cab", irBPath));
         result->setProperty("ir", displayName("cab", irPath)); result->setProperty("message", message);
         result->setProperty("libraryRevision", library.revision);
         result->setProperty("modelId", library.idForPath("amp", desiredModel));
@@ -709,6 +727,8 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("postAmp", postAmpPeak.load());
     result->setProperty("postCab", postCabPeak.load());
     result->setProperty("postEq", postEqPeak.load());
+    result->setProperty("compressionDb", reportedCompression.load());
+    result->setProperty("overdriveLatencySamples", value(Params::odOn) >= .5f ? reportedOverdriveLatency.load() : 0);
     result->setProperty("swapBypasses", swapBypasses.load());
     result->setProperty("gate", gateLevel.load());
     result->setProperty("cpu", processLoad.getLoadAsPercentage());
@@ -764,11 +784,13 @@ juce::ValueTree AmpSuiteAudioProcessor::copyRigState(bool includeSavedRigs)
     // Preserve requested paths during asynchronous recall, including missing files.
     {
         const juce::ScopedLock lock(requestLock);
+        state.setProperty("irBPath", desiredIrB, nullptr);
+        state.setProperty("irBId", library.idForPath("cab", desiredIrB), nullptr);
         state.setProperty("modelPath", desiredModel, nullptr); state.setProperty("irPath", desiredIr, nullptr); state.setProperty("pedalPath", desiredPedal, nullptr);
         state.setProperty("modelId", library.idForPath("amp", desiredModel), nullptr);
         state.setProperty("irId", library.idForPath("cab", desiredIr), nullptr);
         state.setProperty("pedalId", library.idForPath("pedal", desiredPedal), nullptr);
-        for (const auto* stage : {"model", "ir", "pedal"}) {
+        for (const auto* stage : {"model", "ir", "pedal", "irB"}) {
             const auto reference = library.find(state[juce::String(stage) + "Id"].toString());
             if (reference.isValid() && static_cast<bool>(reference["managed"]) && AssetLibrary::exists(reference["path"].toString()))
                 state.setProperty(juce::String(stage) + "Path", reference["path"], nullptr);
@@ -790,7 +812,7 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
     {
         const juce::ScopedLock lock(requestLock);
         library.merge(state.getChildWithName("LIBRARY"));
-        for (const auto& stage : {"model", "ir", "pedal"})
+        for (const auto& stage : {"model", "ir", "pedal", "irB"})
         {
             const auto key = juce::String(stage) + "Path";
             const auto reference = library.find(state[juce::String(stage) + "Id"].toString());
@@ -815,8 +837,8 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
       ++requestGeneration; pendingRig = {}; rigLoading.store(false); rigSwapReady.store(false);
       for (auto& sequence : stageRequestGeneration) ++sequence;
       desiredModel = state.getProperty("modelPath").toString(); desiredIr = state.getProperty("irPath").toString();
-      desiredPedal = state.getProperty("pedalPath").toString();
-      modelPending = irPending = pedalPending = true; message = "Restoring assets..."; }
+      desiredPedal = state.getProperty("pedalPath").toString(); desiredIrB = state.getProperty("irBPath").toString();
+      modelPending = irPending = pedalPending = irBPending = true; message = "Restoring assets..."; }
     notify();
 }
 juce::AudioProcessorEditor* AmpSuiteAudioProcessor::createEditor() { return new AmpSuiteAudioProcessorEditor(*this); }
@@ -909,7 +931,7 @@ juce::var AmpSuiteAudioProcessor::getRig()
 {
     {
         const juce::ScopedLock lock(requestLock);
-        if (rigLoading.load() || desiredModel != modelPath || desiredIr != irPath || desiredPedal != pedalPath)
+        if (rigLoading.load() || desiredModel != modelPath || desiredIr != irPath || desiredIrB != irBPath || desiredPedal != pedalPath)
         {
             auto result = std::make_unique<juce::DynamicObject>(); result->setProperty("error", "Finish loading or relinking the assets before saving/comparing this rig.");
             return juce::var(result.release());
@@ -940,7 +962,7 @@ juce::String AmpSuiteAudioProcessor::applyRig(const juce::var& rig, bool preserv
     // the current rig untouched, rather than playing new settings through old files.
     {
         const juce::ScopedLock lock(requestLock);
-        for (const auto& stage : {"model", "ir", "pedal"})
+        for (const auto& stage : {"model", "ir", "pedal", "irB"})
         {
             const auto key = juce::String(stage) + "Path";
             auto path = state[key].toString();
@@ -953,9 +975,9 @@ juce::String AmpSuiteAudioProcessor::applyRig(const juce::var& rig, bool preserv
                 if (!juce::File::isAbsolutePath(path) || !juce::File(path).existsAsFile()) return "Missing " + juce::String(stage) + " asset. Relink it in the Library first.";
                 state.setProperty(key, path, nullptr);
             }
-            if (!juce::File(path).hasFileExtension(juce::String(stage) == "ir" ? "wav" : "nam")) return "Invalid asset format in rig.";
+            if (!juce::File(path).hasFileExtension((juce::String(stage) == "ir" || juce::String(stage) == "irB") ? "wav" : "nam")) return "Invalid asset format in rig.";
             const auto id = state[juce::String(stage) + "Id"].toString();
-            const auto kind = juce::String(stage) == "model" ? "amp" : juce::String(stage) == "ir" ? "cab" : "pedal";
+            const auto kind = juce::String(stage) == "model" ? "amp" : (juce::String(stage) == "ir" || juce::String(stage) == "irB") ? "cab" : "pedal";
             if (id.isNotEmpty() && id != juce::String(kind) + ":" + juce::SHA256(juce::File(path)).toHexString())
                 return "The " + juce::String(stage) + " file has changed. Relink the original asset or import the changed file as a new asset.";
         }
@@ -964,7 +986,7 @@ juce::String AmpSuiteAudioProcessor::applyRig(const juce::var& rig, bool preserv
         const juce::ScopedLock lock(requestLock);
         pendingRig = state; pendingRigPreservesGlobals = preserveGlobals; ++requestGeneration;
         for (auto& sequence : stageRequestGeneration) ++sequence;
-        modelPending = irPending = pedalPending = false; rigLoading.store(true);
+        modelPending = irPending = pedalPending = irBPending = false; rigLoading.store(true);
         message = "Preparing complete rig...";
     }
     notify(); return {};
@@ -1012,7 +1034,7 @@ bool AmpSuiteAudioProcessor::editAsset(const juce::String& id, const juce::var& 
     if (changes["favorite"].isBool()) asset.setProperty("favorite", changes["favorite"], nullptr);
     ++library.revision; return persistLibrary().isEmpty();
 }
-bool AmpSuiteAudioProcessor::selectAsset(const juce::String& id)
+bool AmpSuiteAudioProcessor::selectAsset(const juce::String& id, bool cabinetB)
 {
     juce::ValueTree asset;
     { const juce::ScopedLock lock(requestLock); asset = library.find(id).createCopy(); }
@@ -1020,7 +1042,7 @@ bool AmpSuiteAudioProcessor::selectAsset(const juce::String& id)
     const auto kind = asset["kind"].toString(); const juce::File file(asset["path"].toString());
     if (kind == "amp") { requestFile(true, file); setParameterValue("CAPTURE_KIND", static_cast<float>(asset["captureKind"])); setParameterValue("AMP_SOURCE", 3); }
     else if (kind == "pedal") { requestPedal(file); setParameterValue("PEDAL_ON", 1); }
-    else if (kind == "cab") { requestFile(false, file); setParameterValue("CAB_MODE", 1); }
+    else if (kind == "cab") { if (cabinetB) { requestCabB(file); setParameterValue("CAB_B_ON", 1); } else requestFile(false, file); setParameterValue("CAB_MODE", 1); }
     else return false;
     return true;
 }
@@ -1033,17 +1055,39 @@ juce::String AmpSuiteAudioProcessor::relinkAsset(const juce::String& id, const j
     const juce::ScopedLock lock(requestLock); auto asset = library.find(id).createCopy();
     const bool activeAmp = kind == "amp" && library.idForPath(kind, desiredModel) == id;
     const bool activeCab = kind == "cab" && library.idForPath(kind, desiredIr) == id;
+    const bool activeCabB = kind == "cab" && library.idForPath(kind, desiredIrB) == id;
     const bool activePedal = kind == "pedal" && library.idForPath(kind, desiredPedal) == id;
     AssetLibrary::rememberPath(asset, file.getFullPathName());
     try { sharedStore.manage(asset); } catch (const std::exception& e) { return e.what(); }
     library.upsert(asset);
     if (const auto error = persistLibrary(); error.isNotEmpty()) return error;
-    if (activeAmp || activeCab || activePedal) { ++requestGeneration; pendingRig = {}; rigLoading.store(false); rigSwapReady.store(false); }
+    if (activeAmp || activeCab || activeCabB || activePedal) { ++requestGeneration; pendingRig = {}; rigLoading.store(false); rigSwapReady.store(false); }
     if (activeAmp) ++stageRequestGeneration[0];
     if (activeCab) ++stageRequestGeneration[1];
+    if (activeCabB) ++stageRequestGeneration[3];
     if (activePedal) ++stageRequestGeneration[2];
     if (activeAmp) { desiredModel = file.getFullPathName(); modelPending = true; }
     if (activeCab) { desiredIr = file.getFullPathName(); irPending = true; }
+    if (activeCabB) { desiredIrB = file.getFullPathName(); irBPending = true; }
     if (activePedal) { desiredPedal = file.getFullPathName(); pedalPending = true; }
     notify(); return {};
+}
+
+void AmpSuiteAudioProcessor::requestCabB(const juce::File& file)
+{
+    const juce::ScopedLock lock(requestLock);
+    ++requestGeneration; pendingRig = {}; rigLoading.store(false); rigSwapReady.store(false);
+    ++stageRequestGeneration[3]; desiredIrB = file.getFullPathName(); irBPending = true;
+    message = file == juce::File() ? "Removing cabinet B..." : "Loading cabinet B..."; notify();
+}
+DualCab::Settings AmpSuiteAudioProcessor::cabinetSettings() const
+{
+    return {value(Params::cabBOn) >= .5f, value(Params::cabBlend), value(Params::cabALevel), value(Params::cabBLevel),
+        value(Params::cabAPan), value(Params::cabBPan), value(Params::cabAInvert) >= .5f, value(Params::cabBInvert) >= .5f,
+        value(Params::cabADelay), value(Params::cabBDelay), value(Params::cabLowCut), value(Params::cabHighCut)};
+}
+StudioCompressor::Settings AmpSuiteAudioProcessor::compressorSettings(bool enabled) const
+{
+    return {enabled ? value(Params::cleanComp) : 0, value(Params::compThreshold), value(Params::compRatio),
+        value(Params::compAttack), value(Params::compRelease), value(Params::compMakeup)};
 }

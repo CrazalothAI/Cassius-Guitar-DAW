@@ -109,6 +109,9 @@ export default function Library({ revision, onClose, onPreset = applyPreset }) {
         {detail.inputLevelDbu != null && <p>Capture input calibration: {detail.inputLevelDbu} dBu</p>}
         {detail.rights && <p>{detail.rights}</p>}
         {detail.path && <p className="library-path">{detail.path}</p>}
+        {detail.kind === 'cab' && <button className="text-button" disabled={!native || busy || detail.missing} onClick={() => action(async () => {
+          if (!await invoke('selectAsset', detail.id, 'cabB')) return 'Cabinet is missing. Relink the original file first.';
+        })}>Use as cabinet B</button>}
         {detail.kind !== 'rig' && detail.ownership === 'User' && <form onSubmit={e => { e.preventDefault(); const data = new FormData(e.currentTarget);
           action(() => invoke('editAsset', detail.id, Object.fromEntries(data))); }}>
           <label>Friendly name<input name="name" defaultValue={detail.name} key={`name-${detail.id}`} /></label>
@@ -124,7 +127,7 @@ export default function Library({ revision, onClose, onPreset = applyPreset }) {
           : <><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRig'))}>Import rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRig'))}>Export current rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRigPack'))}>Import pack</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRigPack'))}>Export pack</button></>}
         <form onSubmit={save}><input aria-label="Rig name" placeholder="Name this rig" value={name} maxLength={80} onChange={e => setName(e.target.value)} /><button className="text-button" disabled={busy || !name.trim()}>Save current rig</button></form>
       </div>
-      <p className="library-note">{native ? 'Shared library keeps managed asset copies. Rig JSON references files; portable ZIP packs include the three stage files.' : 'Browser preview: saved rigs contain control settings. Play and import files in the native app.'}</p>
+      <p className="library-note">{native ? 'Shared library keeps managed asset copies. Rig JSON references files; portable ZIP packs include the selected amp, pedal, and cabinet files.' : 'Browser preview: saved rigs contain control settings. Play and import files in the native app.'}</p>
     </section>
   </div>;
 }

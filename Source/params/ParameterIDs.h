@@ -70,26 +70,46 @@ inline constexpr std::array definitions {
     Definition { "REVERB_STYLE", "Reverb voice", 0, 2, 0, "" },
     Definition { "REVERB_DAMP", "Reverb damping", 0, 100, 55, "%" },
     Definition { "REVERB_PREDELAY", "Reverb pre-delay", 0, 150, 0, "ms" },
-    Definition { "CAPTURE_MATCH", "Capture level matching", 0, 1, 1, "" }
+    Definition { "CAPTURE_MATCH", "Capture level matching", 0, 1, 1, "" },
+    // Appended: older rigs keep their routing and bypassed additions.
+    Definition { "COMP_MODE", "Compressor routing", 0, 3, 0, "" },
+    Definition { "OD_ON", "Overdrive enabled", 0, 1, 0, "" },
+    Definition { "OD_DRIVE", "Overdrive drive", 0, 100, 15, "%" },
+    Definition { "OD_TONE", "Overdrive tone", 0, 100, 50, "%" },
+    Definition { "OD_LEVEL", "Overdrive level", -24, 12, 0, "dB" },
+    Definition { "OD_TIGHT", "Overdrive low cut", 20, 200, 80, "Hz", 80 },
+    Definition { "CAB_B_ON", "Second cabinet enabled", 0, 1, 0, "" },
+    Definition { "CAB_BLEND", "Cabinet blend", 0, 100, 50, "%" },
+    Definition { "CAB_A_LEVEL", "Cabinet A level", -24, 12, 0, "dB" },
+    Definition { "CAB_B_LEVEL", "Cabinet B level", -24, 12, 0, "dB" },
+    Definition { "CAB_A_PAN", "Cabinet A pan", -100, 100, 0, "%" },
+    Definition { "CAB_B_PAN", "Cabinet B pan", -100, 100, 0, "%" },
+    Definition { "CAB_A_INVERT", "Cabinet A polarity", 0, 1, 0, "" },
+    Definition { "CAB_B_INVERT", "Cabinet B polarity", 0, 1, 0, "" },
+    Definition { "CAB_A_DELAY", "Cabinet A alignment", 0, 10, 0, "ms" },
+    Definition { "CAB_B_DELAY", "Cabinet B alignment", 0, 10, 0, "ms" },
+    Definition { "CAB_LOW_CUT", "Cabinet low cut", 20, 500, 20, "Hz", 100 },
+    Definition { "CAB_HIGH_CUT", "Cabinet high cut", 2000, 20000, 20000, "Hz", 8000 }
 };
 enum Index { input, gate, drive, bass, mid, treble, ampOut, delayTime, delayMix, reverbMix, master, clean, tight,
              presence, cleanComp, highCut, delayWidth, reverbSize, gateOn, gateRelease, pedalOn,
              dynResOn, dynResAmount, chugAttack, thickenOn, thickenMix, piezoOn, piezoBlend, microDelay,
              metroOn, metroBpm, metroBeats, metroLevel, eqOn, eqBody, eqMud, eqFocus, eqFizz, ampSource, captureKind, cabMode,
              pedalInput, pedalOutput, compThreshold, compRatio, compAttack, compRelease, compMakeup,
-             chorusMix, chorusRate, chorusDepth, delayFeedback, delaySync, delayDivision, reverbStyle, reverbDamp, reverbPredelay, captureMatch };
+             chorusMix, chorusRate, chorusDepth, delayFeedback, delaySync, delayDivision, reverbStyle, reverbDamp, reverbPredelay, captureMatch, compMode, odOn, odDrive, odTone, odLevel, odTight, cabBOn, cabBlend, cabALevel, cabBLevel, cabAPan, cabBPan, cabAInvert, cabBInvert, cabADelay, cabBDelay, cabLowCut, cabHighCut };
 inline juce::AudioProcessorValueTreeState::ParameterLayout layout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout result;
     for (const auto& p : definitions)
     {
         const juce::String id(p.id);
-        if (id == "AMP_SOURCE" || id == "CAPTURE_KIND" || id == "CAB_MODE" || id == "DELAY_DIVISION" || id == "REVERB_STYLE")
+        if (id == "AMP_SOURCE" || id == "CAPTURE_KIND" || id == "CAB_MODE" || id == "DELAY_DIVISION" || id == "REVERB_STYLE" || id == "COMP_MODE")
         {
             const auto choices = id == "AMP_SOURCE" ? juce::StringArray {"Current rig", "Lumen", "Ferrum", "NAM capture", "Natural DI"}
                 : id == "CAPTURE_KIND" ? juce::StringArray {"Auto", "Amp-only", "Preamp-only", "Full rig"}
                 : id == "CAB_MODE" ? juce::StringArray {"Auto", "External IR", "Built-in speaker", "Off"}
                 : id == "DELAY_DIVISION" ? juce::StringArray {"Quarter", "Eighth", "Dotted eighth", "Sixteenth", "Half", "Whole"}
+                : id == "COMP_MODE" ? juce::StringArray {"Lumen only (legacy)", "Pre-amp", "Post-cab", "Off"}
                 : juce::StringArray {"Room", "Chamber", "Hall"};
             result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID {p.id, 1}, p.name, choices, static_cast<int>(p.initial)));
             continue;

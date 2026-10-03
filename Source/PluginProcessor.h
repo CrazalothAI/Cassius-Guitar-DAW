@@ -3,7 +3,9 @@
 #include <juce_dsp/juce_dsp.h>
 #include "params/ParameterIDs.h"
 #include "dsp/NamWrapper.h"
-#include "dsp/IrLoader.h"
+#include "dsp/DualCab.h"
+#include "dsp/StudioCompressor.h"
+#include "dsp/Overdrive.h"
 #include "dsp/ToneStack.h"
 #include "dsp/GuitarGate.h"
 #include "dsp/PitchTracker.h"
@@ -46,6 +48,7 @@ public:
     void setStateInformation(const void*, int) override;
     void requestFile(bool model, const juce::File&);
     void requestPedal(const juce::File&);
+    void requestCabB(const juce::File&);
     bool selectAmpVoice(const juce::String&);
     juce::var getLibrary();
     void importAssets(const juce::Array<juce::File>&, const juce::String& kind);
@@ -56,7 +59,7 @@ public:
     juce::String loadRig(const juce::String& id);
     bool removeRig(const juce::String& id);
     bool editAsset(const juce::String& id, const juce::var& changes);
-    bool selectAsset(const juce::String& id);
+    bool selectAsset(const juce::String& id, bool cabinetB = false);
     juce::String relinkAsset(const juce::String& id, const juce::File& file);
     juce::String exportRigPack(const juce::File& destination, const juce::var& snapshot = {});
     juce::String importRigPack(const juce::File& source);
@@ -73,6 +76,8 @@ private:
     void processChunk(juce::AudioBuffer<float>&);
     void finishOutputMix(juce::AudioBuffer<float>&);
     void processUniversalAmp(juce::AudioBuffer<float>&);
+    DualCab::Settings cabinetSettings() const;
+    StudioCompressor::Settings compressorSettings(bool enabled) const;
     void setParameterValue(const char* id, float value);
     juce::ValueTree copyRigState(bool includeSavedRigs);
     juce::String persistLibrary(const juce::StringArray& removed = {});
@@ -86,19 +91,23 @@ private:
     struct PackJob { juce::File file; bool save; juce::var snapshot; };
     std::vector<PackJob> pendingPacks;
     juce::String desiredModel, desiredIr, modelPath, irPath, message = "Load an amp capture to get started";
-    bool modelPending = false, irPending = false;
+    bool modelPending = false, irPending = false, irBPending = false;
+    juce::String desiredIrB, irBPath;
     juce::String desiredPedal, pedalPath;
     bool pedalPending = false;
     juce::ValueTree pendingRig;
     bool pendingRigPreservesGlobals = true;
     std::atomic<juce::uint64> requestGeneration {0};
-    std::array<std::atomic<juce::uint64>, 3> stageRequestGeneration {};
+    std::array<std::atomic<juce::uint64>, 4> stageRequestGeneration {};
     std::atomic<bool> rigLoading {false}, rigSwapReady {false}, rigMuted {false};
     std::atomic<double> lastAudioTick {0};
     std::atomic<int> reportedChannels {2};
     std::unique_ptr<NamWrapper> model;
     std::unique_ptr<NamWrapper> pedal;
-    std::unique_ptr<IrLoader> cab = std::make_unique<IrLoader>();
+    std::unique_ptr<DualCab> cab = std::make_unique<DualCab>();
+    StudioCompressor preCompressor, postCompressor;
+    Overdrive overdrive;
+    std::atomic<float> reportedCompression {0}, reportedOverdriveLatency {0};
     GuitarGate gate;
     PitchTracker pitchTracker;
     DynamicResonanceFilter dynamicResonance;
