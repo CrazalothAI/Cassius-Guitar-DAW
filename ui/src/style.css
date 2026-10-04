@@ -470,3 +470,21 @@ footer .warn { color: #efb86a; }
 }
 .practice-fade { display: flex; align-items: center; gap: 10px; color: #b7b2a7; font-size: 11px; margin-top: 8px; }
 .practice-fade select { padding: 5px 8px; }
+.midi-panel { flex: 1; min-height: 0; overflow-y: auto; margin: 8px 0; padding: 16px 20px; border: 1px solid #504536; border-radius: 8px; background: linear-gradient(135deg, #211e19, #111313); }
+.midi-heading, .midi-fields, .midi-actions, .midi-devices, .midi-monitor { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.midi-heading { justify-content: space-between; }
+.midi-heading h2 { font-size: 16px; margin: 5px 0 12px; font-weight: 500; }
+.midi-panel label { display: flex; align-items: center; gap: 8px; color: #bbb4a7; font-size: 11px; }
+.midi-panel button, .midi-panel select, .midi-panel input[type=number] { border: 1px solid #5a5144; border-radius: 4px; background: #181a19; padding: 7px 10px; font-size: 11px; max-width: 100%; }
+.midi-panel input[type=number] { width: 60px; }
+.midi-panel input { accent-color: var(--gold); }
+.midi-devices { font-size: 11px; margin-bottom: 14px; color: #aaa393; }
+.midi-layout { display: grid; grid-template-columns: minmax(150px, .8fr) minmax(0, 2fr); gap: 18px; }
+.midi-slots { max-height: 220px; overflow-y: auto; }
+.midi-slots button { display: block; width: 100%; text-align: left; margin-bottom: 5px; }
+.midi-slots small { display: block; color: #aaa393; margin-top: 3px; }
+.midi-slots .selected { border-color: var(--gold); background: #c5a96f14; }
+.midi-editor { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.midi-editor select { min-width: 0; }
+.midi-monitor { font-size: 11px; color: #aaa393; margin-top: 12px; }
+.midi-learning { color: var(--gold); font-size: 11px; }

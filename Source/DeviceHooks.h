@@ -15,4 +15,6 @@ struct StandaloneDeviceHooks
     std::function<int()> deviceSelectedInput;
     std::function<juce::String(int)> setDeviceInputChannel;
     std::function<void()> showDeviceSettings;
+    std::function<juce::var()> midiInputs;
+    std::function<juce::String(const juce::String&, bool)> setMidiInput;
 };

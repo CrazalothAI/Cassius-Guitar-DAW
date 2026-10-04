@@ -25,6 +25,7 @@
 #include "LibraryStore.h"
 #include "PracticeEngine.h"
 #include "TakeLibrary.h"
+#include "MidiControl.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
@@ -38,7 +39,7 @@ public:
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override { return true; }
     const juce::String getName() const override { return "Cassian"; }
-    bool acceptsMidi() const override { return false; }
+    bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     double getTailLengthSeconds() const override { return 12; }
     int getNumPrograms() override { return 1; }
@@ -71,6 +72,7 @@ public:
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
+    MidiControl midiControl;
     // The take store stays alive while the recorder finishes during destruction.
     PracticeEngine takeReview;
     TakeLibrary takes;
@@ -86,6 +88,7 @@ private:
     DualCab::Settings cabinetSettings() const;
     StudioCompressor::Settings compressorSettings(bool enabled) const;
     void setParameterValue(const char* id, float value);
+    juce::String handleMidiAction(const MidiControl::Mapping&, int value);
     juce::ValueTree copyRigState(bool includeSavedRigs);
     juce::String persistLibrary(const juce::StringArray& removed = {});
     juce::String assetSourceName(const juce::ValueTree& asset, const juce::ValueTree& incoming = {});

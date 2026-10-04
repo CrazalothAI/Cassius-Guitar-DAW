@@ -96,6 +96,12 @@ Header presets are **control starting points**, distinct from saved complete rig
 
 ## Controls and effects
 
+### MIDI foot control
+
+Open **Foot control** above the amp for eight CC/program-change assignments and **Learn controller**. Recall saved complete rigs, toggle overdrive/NAM pedal/EQ/gate/metronome, or use CC expression for Master, Drive, reverb and delay mix. In standalone, enable the controller's input checkbox; in VST3, route MIDI through your DAW. Mapping starts disabled and stays with the native app/DAW session when rigs change. CC switches need a release below 64 before their next press; PC numbers use 0–127. See [MIDI foot control](docs/MIDI-FOOT-CONTROL.md) for setup, ranges, persistence and timing limits.
+
+### Tone controls
+
 The head keeps six primary controls: **Drive, Bass, Middle, Treble, Space, and Master**. Space adjusts reverb mix. The stage row opens detailed controls in signal order without hiding the amp.
 
 | Stage | Controls |
@@ -220,6 +226,7 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 | `Source/RigPack.cpp` | Portable ZIP export/import, entry limits, content verification, and managed storage. |
 | `Source/PracticeEngine.*` | Worker-prepared backing/review playback and paired guitar recording through a bounded audio FIFO. |
 | `Source/TakeLibrary.*` | Take catalog, review selection, rig snapshots, and isolated offline reamp exports. |
+| `Source/MidiControl.*` | Bounded MIDI queue, control worker, Learn, assignments and session configuration. |
 | `Source/PluginEditor.*` | Embedded WebView editor, native bridge, and asynchronous file pickers. |
 | `Source/Standalone.cpp` | Standalone entry point, device setup, and tray integration. |
 | `Source/dsp/` | NAM/IR processing, resampling, amp/speaker voicing, filters, gates, and effects. |
@@ -233,11 +240,13 @@ File reading, hashing, parsing, capture preparation, warm-up, and managed storag
 
 Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **77 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-03**: **83 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
-Automated renders do not establish live sound quality, long-run AudioBox reliability, or compatibility across DAW hosts. The latest foundation pass did not perform Linux host validation or live AudioBox listening. The production UI build reports an existing `eval` warning from the official JUCE native interop shim.
+MIDI checks cover Learn/cancel, switch edges, channels, expression ranges/inversion, invalid state and overlapping bindings, bounded queue overflow, stale-command rejection, worker recovery, rig recall and preserved globals. See [MIDI foot control](docs/MIDI-FOOT-CONTROL.md).
+
+Automated renders do not establish live sound quality, long-run AudioBox reliability, or compatibility across DAW hosts. This update did not perform physical MIDI controller, DAW MIDI routing, Linux host or live AudioBox listening validation. The production UI build reports an existing `eval` warning from the official JUCE native interop shim.
 
 ## Roadmap, attribution, and dependencies
 

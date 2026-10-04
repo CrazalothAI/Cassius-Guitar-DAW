@@ -47,9 +47,10 @@ AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File li
         parameters[i] = apvts.getRawParameterValue(Params::definitions[i].id);
     try { library.merge(sharedStore.load()); } catch (const std::exception& e) { message = "Load failed: " + juce::String(e.what()); }
     practice.onTakeFinished = [&store = takes](const juce::File& folder) { store.importFolder(folder); };
+    midiControl.start([this](const auto& mapping, int amount) { return handleMidiAction(mapping, amount); });
     startThread();
 }
-AmpSuiteAudioProcessor::~AmpSuiteAudioProcessor() { signalThreadShouldExit(); notify(); stopThread(-1); }
+AmpSuiteAudioProcessor::~AmpSuiteAudioProcessor() { midiControl.shutdown(); signalThreadShouldExit(); notify(); stopThread(-1); }
 
 bool AmpSuiteAudioProcessor::isBusesLayoutSupported(const BusesLayout& b) const
 {
@@ -140,7 +141,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
 void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
-    midi.clear(); lastAudioTick.store(juce::Time::getMillisecondCounterHiRes(), std::memory_order_relaxed);
+    midiControl.receive(midi); midi.clear(); lastAudioTick.store(juce::Time::getMillisecondCounterHiRes(), std::memory_order_relaxed);
     auto mainBuffer = getBusBuffer(buffer, false, 0);
     auto backingBuffer = getBusBuffer(buffer, true, 1);
     // Asset replacement never makes the audio thread wait or destroy a model.
@@ -733,6 +734,7 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("practice", practice.status());
     result->setProperty("takes", takes.status());
     result->setProperty("review", takeReview.status());
+    result->setProperty("midi", midiControl.status());
     {
         const juce::ScopedLock lock(requestLock);
         const auto displayName = [&](const juce::String& kind, const juce::String& path) {
@@ -814,11 +816,14 @@ juce::var AmpSuiteAudioProcessor::status()
 }
 void AmpSuiteAudioProcessor::getStateInformation(juce::MemoryBlock& destination)
 {
-    if (auto xml = copyRigState(true).createXml()) copyXmlToBinary(*xml, destination);
+    auto state = copyRigState(true); juce::ValueTree midi("MIDICONTROL");
+    midi.setProperty("json", juce::JSON::toString(midiControl.configuration()), nullptr); state.addChild(midi, -1, nullptr);
+    if (auto xml = state.createXml()) copyXmlToBinary(*xml, destination);
 }
 juce::ValueTree AmpSuiteAudioProcessor::copyRigState(bool includeSavedRigs)
 {
     auto state = apvts.copyState();
+    if (const auto oldMidi = state.getChildWithName("MIDICONTROL"); oldMidi.isValid()) state.removeChild(oldMidi, nullptr);
     // Preserve requested paths during asynchronous recall, including missing files.
     {
         const juce::ScopedLock lock(requestLock);
@@ -847,6 +852,12 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
     const auto xml = getXmlFromBinary(data, size);
     if (!xml || !xml->hasTagName(apvts.state.getType())) return;
     auto state = juce::ValueTree::fromXml(*xml);
+    const auto midi = state.getChildWithName("MIDICONTROL");
+    const auto midiJson = midi["json"].toString();
+    const auto parsedMidi = midiJson.length() <= 32768 ? juce::JSON::parse(midiJson) : juce::var();
+    const auto midiFailure = midiControl.restore(midi.isValid() ? (parsedMidi.isObject() ? parsedMidi : juce::var("invalid")) : juce::var());
+    juce::ignoreUnused(midiFailure);
+    if (midi.isValid()) state.removeChild(midi, nullptr);
     {
         const juce::ScopedLock lock(requestLock);
         library.merge(state.getChildWithName("LIBRARY"));
@@ -880,6 +891,25 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
     notify();
 }
 juce::AudioProcessorEditor* AmpSuiteAudioProcessor::createEditor() { return new AmpSuiteAudioProcessorEditor(*this); }
+juce::String AmpSuiteAudioProcessor::handleMidiAction(const MidiControl::Mapping& mapping, int amount)
+{
+    if (mapping.action == "rig") return loadRig(mapping.rig);
+    if (rigLoading.load()) return "Rig is preparing; try the control again when it is ready.";
+    const char* id = nullptr; float target = 0;
+    const auto& action = mapping.action;
+    if (action == "master" || action == "drive" || action == "reverb" || action == "delay") {
+        const float fraction = (mapping.inverted ? 127 - amount : amount) / 127.f;
+        if (action == "master") { id = "MASTER_VOL"; target = -60 + fraction * 60; }
+        else if (action == "drive") { id = "DRIVE_GAIN"; target = fraction * 24; }
+        else { id = action == "reverb" ? "REVERB_MIX" : "DELAY_MIX"; target = fraction * 100; }
+    } else {
+        id = action == "overdrive" ? "OD_ON" : action == "pedal" ? "PEDAL_ON" : action == "eq" ? "EQ_ON" : action == "gate" ? "GATE_ON" : action == "metronome" ? "METRO_ON" : nullptr;
+        if (id != nullptr) target = apvts.getRawParameterValue(id)->load() >= .5f ? 0.f : 1.f;
+    }
+    if (id == nullptr) return "Unknown MIDI action.";
+    auto* parameter = apvts.getParameter(id);
+    parameter->beginChangeGesture(); parameter->setValueNotifyingHost(parameter->convertTo0to1(target)); parameter->endChangeGesture(); return {};
+}
 
 void AmpSuiteAudioProcessor::requestPedal(const juce::File& file)
 {

@@ -130,6 +130,20 @@ public:
                 return devices.setAudioDeviceSetup(setup, true);
             };
             cassian->showDeviceSettings = [this] { if (window) window->getPluginHolder()->showAudioSettingsDialog(); };
+            cassian->midiInputs = [&devices] {
+                juce::Array<juce::var> rows;
+                for (const auto& info : juce::MidiInput::getAvailableDevices()) {
+                    auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("id", info.identifier); row->setProperty("name", info.name);
+                    row->setProperty("enabled", devices.isMidiInputDeviceEnabled(info.identifier)); rows.add(juce::var(row.release()));
+                }
+                return juce::var(rows);
+            };
+            cassian->setMidiInput = [&devices](const juce::String& id, bool enabled) {
+                const auto available = juce::MidiInput::getAvailableDevices();
+                if (std::none_of(available.begin(), available.end(), [&](const auto& info) { return info.identifier == id; })) return juce::String("MIDI input is no longer available.");
+                devices.setMidiInputDeviceEnabled(id, enabled);
+                return devices.isMidiInputDeviceEnabled(id) == enabled ? juce::String() : juce::String("Could not open this MIDI input.");
+            };
         }
         // Honor saved monitoring for any confirmed interface. A missing device
         // must not accidentally start monitoring a fallback built-in microphone.

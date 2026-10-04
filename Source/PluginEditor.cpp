@@ -112,7 +112,22 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         })
         .withNativeFunction("cancelReamp", [this](const auto&, auto complete) { processor.takes.cancelExport(); complete(juce::String()); })
         .withNativeFunction("revealTake", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isString() ? processor.takes.reveal(args[0].toString()) : juce::String("Take not found.")); })
-        .withNativeFunction("getStatus", [this](const auto&, auto complete) { complete(processor.status()); });
+        .withNativeFunction("setMidiEnabled", [this](const auto& args, auto complete) {
+            if (args.size() != 1 || !args[0].isBool()) { complete(juce::String("Invalid MIDI enable request.")); return; }
+            processor.midiControl.enable(static_cast<bool>(args[0])); complete(juce::String());
+        })
+        .withNativeFunction("setMidiMapping", [this](const auto& args, auto complete) {
+            complete(args.size() == 2 && args[0].isInt() ? processor.midiControl.setMapping(static_cast<int>(args[0]), args[1]) : juce::String("Invalid MIDI assignment."));
+        })
+        .withNativeFunction("learnMidi", [this](const auto& args, auto complete) {
+            complete(args.size() == 1 && args[0].isInt() ? processor.midiControl.learn(static_cast<int>(args[0])) : juce::String("Invalid MIDI learn request."));
+        })
+        .withNativeFunction("setMidiInput", [this](const auto& args, auto complete) {
+            complete(args.size() == 2 && args[0].isString() && args[1].isBool() && processor.setMidiInput ? processor.setMidiInput(args[0].toString(), static_cast<bool>(args[1])) : juce::String("Route MIDI through your DAW."));
+        })
+        .withNativeFunction("getStatus", [this](const auto&, auto complete) {
+            auto status = processor.status(); if (processor.midiInputs) status.getDynamicObject()->setProperty("midiInputs", processor.midiInputs()); complete(status);
+        });
     for (const auto& parameter : Params::definitions)
     {
         relays.push_back(std::make_unique<juce::WebSliderRelay>(parameter.id));
@@ -127,7 +142,12 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
     setResizable(true, true); setResizeLimits(860, 620, 1800, 1200); setSize(1100, 760);
 }
 // A closed editor cannot show the tuner, so stop its analysis.
-AmpSuiteAudioProcessorEditor::~AmpSuiteAudioProcessorEditor() { processor.setTunerActive(false); }
+AmpSuiteAudioProcessorEditor::~AmpSuiteAudioProcessorEditor()
+{
+    processor.setTunerActive(false);
+    if (static_cast<int>(processor.midiControl.status()["learning"]) >= 0)
+        processor.midiControl.learn(-1);
+}
 void AmpSuiteAudioProcessorEditor::resized() { webView->setBounds(getLocalBounds()); }
 void AmpSuiteAudioProcessorEditor::choosePractice(bool recording)
 {

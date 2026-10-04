@@ -41,7 +41,7 @@ The standalone practice update adds backing-track import, separate gain, seeking
 
 1. **Serial boards and storage:** ordered pre/post blocks, independent levels and bypass per block, stereo post-cab processing, replace/duplicate/reorder, keyboard alternatives, undo/redo, Play and Board views; library management for unused assets and future pack migrations. Managed/shared storage and schema-1 portable packs are delivered. Measure practical neural-block limits before promising a count.
 2. **Effects and cabinets:** phaser/flanger/tremolo, separate plate/spring algorithms, actual power-amp processing for preamp-only captures. Universal compressor routing, an original built-in overdrive, dual-IR level/pan/polarity/manual alignment and cuts, adjustable clean compression, chorus, sync delay/feedback/divisions, and Room/Chamber/Hall voicings are delivered. Automatic cabinet alignment and virtual mic movement remain future work. WAV ambience responses do not supply adjustable pedal controls.
-3. **Performance:** scenes, MIDI footswitch/expression, harmonizer/pitch, parallel paths and dual amps with latency compensation and controlled switching levels/tails.
+3. **Performance:** MIDI Learn, eight footswitch/expression assignments and saved-rig recall are delivered; see [MIDI foot control](MIDI-FOOT-CONTROL.md). Scenes, harmonizer/pitch, parallel paths and dual amps with latency compensation and controlled switching levels/tails remain future work.
 
 ## Core gear sourcing queue
 
