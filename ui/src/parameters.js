@@ -78,6 +78,15 @@ export const parameters = [
   ['CAB_B_DELAY', 'B alignment', 0, 10, 0, 'ms', 0.01],
   ['CAB_LOW_CUT', 'Low cut', 20, 500, 20, 'Hz', 1, 100],
   ['CAB_HIGH_CUT', 'High cut', 2000, 20000, 20000, 'Hz', 1, 8000],
+  ['MOD_ON', 'Modulation enabled', 0, 1, 0, '', 1],
+  ['MOD_TYPE', 'Modulation voice', 0, 2, 0, '', 1],
+  ['MOD_RATE', 'Speed', 0.05, 10, 0.8, 'Hz', 0.01],
+  ['MOD_DEPTH', 'Motion', 0, 100, 50, '%', 1],
+  ['MOD_MIX', 'Blend', 0, 100, 50, '%', 1],
+  ['MOD_FEEDBACK', 'Regeneration', 0, 70, 20, '%', 1],
+  ['MOD_STEREO', 'Spread', 0, 100, 0, '%', 1],
+  ['MOD_SYNC', 'Modulation sync', 0, 1, 0, '', 1],
+  ['MOD_DIVISION', 'Modulation division', 0, 4, 2, '', 1],
 
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));

@@ -18,8 +18,8 @@ export function Meter({ label, value }) {
   </div>;
 }
 
-function Group({ title, status, children }) {
-  return <div className="control-group" role="group" aria-label={title}>
+function Group({ title, status, children, className = '' }) {
+  return <div className={`control-group ${className}`} role="group" aria-label={title}>
     <div className="group-head"><h3>{title}</h3>{status}</div>
     <div className="group-knobs">{children}</div>
   </div>;
@@ -159,7 +159,16 @@ function EQ() {
 function Effects({ status }) {
   const resonance = useToggle('DYN_RES_ON');
   const sync = useToggle('DELAY_SYNC');
+  const mod = useParameters(['MOD_ON', 'MOD_TYPE', 'MOD_SYNC']);
+  const modulationOn = mod.MOD_ON >= .5;
   return <div className="control-groups">
+    <Group title="Modulation" className="modulation-controls" status={<><Switch id="MOD_ON" name="Modulation enabled" /><span className="modulation-sync">Tempo <Switch id="MOD_SYNC" name="Modulation tempo sync" /></span></>}>
+      <Choice id="MOD_TYPE" label="Modulation voice" options={['Phaser', 'Flanger', 'Tremolo']} />
+      {mod.MOD_SYNC >= .5 && <Choice id="MOD_DIVISION" label="Modulation cycle" options={['Whole note', 'Half note', 'Quarter note', 'Eighth note', 'Dotted eighth']} />}
+      <Knob id="MOD_RATE" small muted={!modulationOn || mod.MOD_SYNC >= .5} /><Knob id="MOD_DEPTH" small muted={!modulationOn} /><Knob id="MOD_MIX" small muted={!modulationOn} />
+      {mod.MOD_TYPE < 2 && <Knob id="MOD_FEEDBACK" small muted={!modulationOn} />}<Knob id="MOD_STEREO" small muted={!modulationOn} />
+      <small className="slot-note">After EQ, before chorus and space. Motion sets sweep depth; Spread offsets the stereo movement. Tempo sync follows the click or playing host.</small>
+    </Group>
     <Group title="Chorus"><Knob id="CHORUS_MIX" small /><Knob id="CHORUS_RATE" small /><Knob id="CHORUS_DEPTH" small /></Group>
     <Group title="Delay" status={<Switch id="DELAY_SYNC" name="Delay tempo sync" />}><Knob id="DELAY_TIME" small muted={sync} /><Knob id="DELAY_MIX" small /><Knob id="DELAY_WIDTH" small /><Knob id="DELAY_FEEDBACK" small />
       {sync && <Choice id="DELAY_DIVISION" label="Delay division" options={['Quarter', 'Eighth', 'Dotted eighth', 'Sixteenth', 'Half', 'Whole']} />}
@@ -180,11 +189,11 @@ const stripExtension = name => name.replace(/\.(nam|wav)$/i, '');
 // Signal chain: stages in order, each with its live level, then the selected stage's controls.
 export default function Stages({ page, onPage, clean, native, status, onLoad, onRemove }) {
   const tabs = useRef([]);
-  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'CHORUS_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON', 'AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND', 'OD_ON', 'CAB_B_ON']);
+  const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'CHORUS_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON', 'AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND', 'OD_ON', 'CAB_B_ON', 'MOD_ON', 'MOD_TYPE', 'MOD_MIX']);
   const View = views[page] ?? Amp;
   const pedalOn = fx.PEDAL_ON >= .5 && Boolean(status.pedal) && (!clean || fx.AMP_SOURCE > 0);
   const gate = fx.GATE_ON < .5 ? 'Gate off' : !native ? 'Gate on' : status.gate > .1 ? 'Gate open' : 'Gate closed';
-  const effects = [fx.CHORUS_MIX > 0 && `Chorus ${Math.round(fx.CHORUS_MIX)}%`, fx.DELAY_MIX > 0 && `Delay ${Math.round(fx.DELAY_MIX)}%`, fx.REVERB_MIX > 0 && `Space ${Math.round(fx.REVERB_MIX)}%`].filter(Boolean).join(' · ') || 'Dry';
+  const effects = [fx.MOD_ON >= .5 && fx.MOD_MIX > 0 && `${['Phaser', 'Flanger', 'Tremolo'][Math.round(fx.MOD_TYPE)]} ${Math.round(fx.MOD_MIX)}%`, fx.CHORUS_MIX > 0 && `Chorus ${Math.round(fx.CHORUS_MIX)}%`, fx.DELAY_MIX > 0 && `Delay ${Math.round(fx.DELAY_MIX)}%`, fx.REVERB_MIX > 0 && `Space ${Math.round(fx.REVERB_MIX)}%`].filter(Boolean).join(' · ') || 'Dry';
   const fullRig = fx.AMP_SOURCE === 3 && fx.CAB_MODE === 0 && (fx.CAPTURE_KIND === 3 || (fx.CAPTURE_KIND === 0 && status.ampHasCab));
   const cabOff = fx.AMP_SOURCE > 0 && (fx.CAB_MODE === 3 || fullRig || (fx.AMP_SOURCE === 4 && fx.CAB_MODE === 0));
   const nodes = {

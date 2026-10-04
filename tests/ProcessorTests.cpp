@@ -11,6 +11,7 @@ void runSoundChecks(const juce::File& fixture);
 void runPracticeChecks();
 void runTakeChecks();
 void runMidiChecks();
+void runModulationChecks();
 static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
 {
     auto* parameter = p.apvts.getParameter(id);
@@ -651,6 +652,7 @@ int main(int argc, char** argv)
         runPracticeChecks();
         runTakeChecks();
         runMidiChecks();
+        runModulationChecks();
         std::cout << "Processor checks passed\n";
         return 0;
     }

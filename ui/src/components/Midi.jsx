@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
 
 const defaults = Array.from({length: 8}, (_, i) => ({type: 'cc', channel: 0, number: 16 + i, action: 'none', rig: '', inverted: false}));
-const actions = [['none', 'Unassigned'], ['rig', 'Recall saved rig'], ['overdrive', 'Toggle overdrive'], ['pedal', 'Toggle NAM pedal'], ['eq', 'Toggle EQ'], ['gate', 'Toggle gate'], ['metronome', 'Toggle metronome'], ['master', 'Master expression'], ['drive', 'Drive expression'], ['reverb', 'Reverb expression'], ['delay', 'Delay expression']];
+const actions = [['none', 'Unassigned'], ['rig', 'Recall saved rig'], ['overdrive', 'Toggle overdrive'], ['pedal', 'Toggle NAM pedal'], ['eq', 'Toggle EQ'], ['gate', 'Toggle gate'], ['metronome', 'Toggle metronome'], ['modulation', 'Toggle modulation'], ['master', 'Master expression'], ['drive', 'Drive expression'], ['reverb', 'Reverb expression'], ['delay', 'Delay expression']];
 const expression = name => ['master', 'drive', 'reverb', 'delay'].includes(name);
 
 export default function Midi({status, onError}) {

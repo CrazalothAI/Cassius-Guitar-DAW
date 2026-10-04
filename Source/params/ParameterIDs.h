@@ -89,27 +89,39 @@ inline constexpr std::array definitions {
     Definition { "CAB_A_DELAY", "Cabinet A alignment", 0, 10, 0, "ms" },
     Definition { "CAB_B_DELAY", "Cabinet B alignment", 0, 10, 0, "ms" },
     Definition { "CAB_LOW_CUT", "Cabinet low cut", 20, 500, 20, "Hz", 100 },
-    Definition { "CAB_HIGH_CUT", "Cabinet high cut", 2000, 20000, 20000, "Hz", 8000 }
+    Definition { "CAB_HIGH_CUT", "Cabinet high cut", 2000, 20000, 20000, "Hz", 8000 },
+    // Appended modulation controls preserve the first 76 automation indices.
+    Definition { "MOD_ON", "Modulation enabled", 0, 1, 0, "" },
+    Definition { "MOD_TYPE", "Modulation voice", 0, 2, 0, "" },
+    Definition { "MOD_RATE", "Modulation rate", 0.05f, 10, 0.8f, "Hz" },
+    Definition { "MOD_DEPTH", "Modulation depth", 0, 100, 50, "%" },
+    Definition { "MOD_MIX", "Modulation mix", 0, 100, 50, "%" },
+    Definition { "MOD_FEEDBACK", "Modulation feedback", 0, 70, 20, "%" },
+    Definition { "MOD_STEREO", "Modulation stereo", 0, 100, 0, "%" },
+    Definition { "MOD_SYNC", "Modulation sync", 0, 1, 0, "" },
+    Definition { "MOD_DIVISION", "Modulation division", 0, 4, 2, "" }
 };
 enum Index { input, gate, drive, bass, mid, treble, ampOut, delayTime, delayMix, reverbMix, master, clean, tight,
              presence, cleanComp, highCut, delayWidth, reverbSize, gateOn, gateRelease, pedalOn,
              dynResOn, dynResAmount, chugAttack, thickenOn, thickenMix, piezoOn, piezoBlend, microDelay,
              metroOn, metroBpm, metroBeats, metroLevel, eqOn, eqBody, eqMud, eqFocus, eqFizz, ampSource, captureKind, cabMode,
              pedalInput, pedalOutput, compThreshold, compRatio, compAttack, compRelease, compMakeup,
-             chorusMix, chorusRate, chorusDepth, delayFeedback, delaySync, delayDivision, reverbStyle, reverbDamp, reverbPredelay, captureMatch, compMode, odOn, odDrive, odTone, odLevel, odTight, cabBOn, cabBlend, cabALevel, cabBLevel, cabAPan, cabBPan, cabAInvert, cabBInvert, cabADelay, cabBDelay, cabLowCut, cabHighCut };
+             chorusMix, chorusRate, chorusDepth, delayFeedback, delaySync, delayDivision, reverbStyle, reverbDamp, reverbPredelay, captureMatch, compMode, odOn, odDrive, odTone, odLevel, odTight, cabBOn, cabBlend, cabALevel, cabBLevel, cabAPan, cabBPan, cabAInvert, cabBInvert, cabADelay, cabBDelay, cabLowCut, cabHighCut, modOn, modType, modRate, modDepth, modMix, modFeedback, modStereo, modSync, modDivision };
 inline juce::AudioProcessorValueTreeState::ParameterLayout layout()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout result;
     for (const auto& p : definitions)
     {
         const juce::String id(p.id);
-        if (id == "AMP_SOURCE" || id == "CAPTURE_KIND" || id == "CAB_MODE" || id == "DELAY_DIVISION" || id == "REVERB_STYLE" || id == "COMP_MODE")
+        if (id == "AMP_SOURCE" || id == "CAPTURE_KIND" || id == "CAB_MODE" || id == "DELAY_DIVISION" || id == "REVERB_STYLE" || id == "COMP_MODE" || id == "MOD_TYPE" || id == "MOD_DIVISION")
         {
             const auto choices = id == "AMP_SOURCE" ? juce::StringArray {"Current rig", "Lumen", "Ferrum", "NAM capture", "Natural DI"}
                 : id == "CAPTURE_KIND" ? juce::StringArray {"Auto", "Amp-only", "Preamp-only", "Full rig"}
                 : id == "CAB_MODE" ? juce::StringArray {"Auto", "External IR", "Built-in speaker", "Off"}
                 : id == "DELAY_DIVISION" ? juce::StringArray {"Quarter", "Eighth", "Dotted eighth", "Sixteenth", "Half", "Whole"}
                 : id == "COMP_MODE" ? juce::StringArray {"Lumen only (legacy)", "Pre-amp", "Post-cab", "Off"}
+                : id == "MOD_TYPE" ? juce::StringArray {"Phaser", "Flanger", "Tremolo"}
+                : id == "MOD_DIVISION" ? juce::StringArray {"Whole", "Half", "Quarter", "Eighth", "Dotted eighth"}
                 : juce::StringArray {"Room", "Chamber", "Hall"};
             result.add(std::make_unique<juce::AudioParameterChoice>(juce::ParameterID {p.id, 1}, p.name, choices, static_cast<int>(p.initial)));
             continue;

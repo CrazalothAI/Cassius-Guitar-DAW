@@ -8,7 +8,7 @@ describe('parameter table', () => {
     const header = readFileSync(new URL('../../Source/params/ParameterIDs.h', import.meta.url), 'utf8');
     const native = [...header.matchAll(/Definition \{ "(\w+)", "[^"]*", (-?[\d.]+)f?, (-?[\d.]+)f?, (-?[\d.]+)f?, "([^"]*)"(?:, (-?[\d.]+)f?)? \}/g)]
       .map(([, id, min, max, initial, unit, centre]) => ({ id, min: Number(min), max: Number(max), initial: Number(initial), unit, centre: Number(centre ?? 0) }));
-    expect(native).toHaveLength(76);
+    expect(native).toHaveLength(85);
     expect(parameters.map(({ id, min, max, initial, unit, centre }) => ({ id, min, max, initial, unit, centre }))).toEqual(native);
   });
   it('formats values the way the DSP treats them', () => {

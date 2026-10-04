@@ -20,6 +20,7 @@
 #include "dsp/Metronome.h"
 #include "dsp/PedalEq.h"
 #include "dsp/StereoChorus.h"
+#include "dsp/ModulationPedal.h"
 #include "DeviceHooks.h"
 #include "AssetLibrary.h"
 #include "LibraryStore.h"
@@ -87,6 +88,7 @@ private:
     void processUniversalAmp(juce::AudioBuffer<float>&);
     DualCab::Settings cabinetSettings() const;
     StudioCompressor::Settings compressorSettings(bool enabled) const;
+    ModulationPedal::Settings modulationSettings() const;
     void setParameterValue(const char* id, float value);
     juce::String handleMidiAction(const MidiControl::Mapping&, int value);
     juce::ValueTree copyRigState(bool includeSavedRigs);
@@ -134,6 +136,7 @@ private:
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
     juce::SmoothedValue<float> pedalInputGain, pedalOutputGain, delayFeedbackGain, reverbPreDelay;
     StereoChorus chorus;
+    ModulationPedal modulation;
     juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> roomDelay;
     juce::AudioBuffer<float> roomAudio;
     juce::SmoothedValue<float> cleanBlend, tightCutoff;

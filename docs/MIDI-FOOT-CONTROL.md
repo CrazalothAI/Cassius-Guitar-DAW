@@ -19,7 +19,7 @@ Apply edits before Learn. Selecting another row discards unapplied edits. Confli
 | Action | Behavior |
 |---|---|
 | Recall saved rig | Existing off-thread complete rig preparation and short guitar fade; preserves global input calibration, Master and metronome settings. |
-| Toggle overdrive / NAM pedal / EQ / gate / metronome | Changes that enable parameter. An empty NAM pedal slot remains empty. |
+| Toggle overdrive / NAM pedal / EQ / gate / metronome / modulation | Changes that enable parameter. An empty NAM pedal slot remains empty. |
 | Master expression | Absolute listening level, −60 to 0 dB, affecting guitar, backing and click together. |
 | Drive expression | Main amp Drive, 0 to 24 dB; separate from the overdrive pedal's Drive dial. |
 | Reverb / Delay expression | Absolute wet mix, 0 to 100%. |

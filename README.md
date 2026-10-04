@@ -102,6 +102,8 @@ Open **Foot control** above the amp for eight CC/program-change assignments and 
 
 ### Tone controls
 
+The Effects page includes an original **Modulation** pedal with phaser, flanger and tremolo, smoothed switching, stereo Spread and tempo sync. Try **Velvet tremolo**, **Phase lead** or **Jet rock**. It runs after EQ and before chorus/delay/reverb, with a MIDI bypass assignment. Older rigs and ordinary starting presets keep it bypassed. See [modulation pedal](docs/MODULATION-PEDAL.md) for controls, routing and validation.
+
 The head keeps six primary controls: **Drive, Bass, Middle, Treble, Space, and Master**. Space adjusts reverb mix. The stage row opens detailed controls in signal order without hiding the amp.
 
 | Stage | Controls |
@@ -143,7 +145,7 @@ Simplified guitar path:
 Input gain → hum/piezo/input shaping → gate → optional pre-amp compressor
 → Cassian overdrive → NAM pedal → selected amp → cabinet A/B blend
 → optional post-cab compressor → amp output/tone shaping → high cut/post-amp gate → EQ
-→ stereo chorus → stereo delay → voiced reverb → micro-delay
+→ phaser/flanger/tremolo → stereo chorus → stereo delay → voiced reverb → micro-delay
 → backing/metronome mix → Master → output limiter
 ```
 
@@ -227,6 +229,7 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 | `Source/PracticeEngine.*` | Worker-prepared backing/review playback and paired guitar recording through a bounded audio FIFO. |
 | `Source/TakeLibrary.*` | Take catalog, review selection, rig snapshots, and isolated offline reamp exports. |
 | `Source/MidiControl.*` | Bounded MIDI queue, control worker, Learn, assignments and session configuration. |
+| `Source/dsp/ModulationPedal.h` | Stereo phaser/flanger/tremolo, smoothed bypass/voice transitions and tempo subdivisions. |
 | `Source/PluginEditor.*` | Embedded WebView editor, native bridge, and asynchronous file pickers. |
 | `Source/Standalone.cpp` | Standalone entry point, device setup, and tray integration. |
 | `Source/dsp/` | NAM/IR processing, resampling, amp/speaker voicing, filters, gates, and effects. |
@@ -240,11 +243,11 @@ File reading, hashing, parsing, capture preparation, warm-up, and managed storag
 
 Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **83 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-03**: **86 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
-MIDI checks cover Learn/cancel, switch edges, channels, expression ranges/inversion, invalid state and overlapping bindings, bounded queue overflow, stale-command rejection, worker recovery, rig recall and preserved globals. See [MIDI foot control](docs/MIDI-FOOT-CONTROL.md).
+MIDI checks cover Learn/cancel, switch edges, channels, expression ranges/inversion, invalid state and overlapping bindings, bounded queue overflow, stale-command rejection, worker recovery, rig recall and preserved globals. See [MIDI foot control](docs/MIDI-FOOT-CONTROL.md). Modulation checks measure phaser/flanger cancellation, tremolo rate/depth, stereo movement, click-free transitions, bounded feedback, legacy defaults, MIDI bypass and saved-tempo offline renders; see [modulation pedal](docs/MODULATION-PEDAL.md).
 
 Automated renders do not establish live sound quality, long-run AudioBox reliability, or compatibility across DAW hosts. This update did not perform physical MIDI controller, DAW MIDI routing, Linux host or live AudioBox listening validation. The production UI build reports an existing `eval` warning from the official JUCE native interop shim.
 

@@ -38,7 +38,13 @@ presets['Articulate lead'] = {...presets['Neoclassical lead'], AMP_SOURCE: 2, CA
   COMP_MODE: 1, CLEAN_COMP: 20, COMP_THRESH: -24, COMP_RATIO: 2, COMP_MAKEUP: 0};
 presets['Studio clean'] = {...presets['Glass clean'], COMP_MODE: 2, CLEAN_COMP: 55,
   COMP_THRESH: -24, COMP_RATIO: 3, COMP_MAKEUP: 2, COMP_RELEASE: 180};
+presets['Velvet tremolo'] = {...presets['Studio clean'], MOD_ON: 1, MOD_TYPE: 2, MOD_DEPTH: 65, MOD_MIX: 80, MOD_RATE: 2.5, MOD_STEREO: 35, DELAY_MIX: 0, REVERB_MIX: 16};
+presets['Phase lead'] = {...presets['Articulate lead'], MOD_ON: 1, MOD_TYPE: 0, MOD_DEPTH: 70, MOD_MIX: 60, MOD_RATE: .45, MOD_FEEDBACK: 30, MOD_STEREO: 25};
+presets['Jet rock'] = {...presets['80s rock'], AMP_SOURCE: 2, CAB_MODE: 2, MOD_ON: 1, MOD_TYPE: 1, MOD_DEPTH: 75, MOD_MIX: 65, MOD_RATE: .3, MOD_FEEDBACK: 45, MOD_STEREO: 40};
 export const notes = {
+  'Velvet tremolo': 'Lumen clean with soft amplitude movement and a little room.',
+  'Phase lead': 'Ferrum lead with a slow six-stage phase sweep before the repeats.',
+  'Jet rock': 'Ferrum rock with a slow flanger sweep and stereo movement.',
   'Articulate lead': 'Built-in overdrive into Ferrum, with light pre-amp compression and short repeats.',
   'Studio clean': 'Lumen with gentle post-cab compression; clear attack and consistent arpeggio levels.',
   'Natural Nylon': 'Neutral DI for a real nylon/piezo input. Optional body IR and gentle room; no electric pickup simulation.',
@@ -59,11 +65,11 @@ export const notes = {
 // Main-panel tone families. Each button applies its first preset; the others belong to the same family.
 export const voices = [
   {label: 'Acoustic', presets: ['Natural Nylon']},
-  {label: 'Clean', presets: ['Glass clean', 'Warm clean', 'Progressive clean', 'Studio clean']},
+  {label: 'Clean', presets: ['Glass clean', 'Warm clean', 'Progressive clean', 'Studio clean', 'Velvet tremolo']},
   {label: 'Ambient', presets: ['Ambient clean']},
   {label: 'Piezo', presets: ['Piezo shimmer']},
-  {label: 'Rock', presets: ['80s rock']},
-  {label: 'Lead', presets: ['Singing lead', 'Neoclassical lead', 'Articulate lead']},
+  {label: 'Rock', presets: ['80s rock', 'Jet rock']},
+  {label: 'Lead', presets: ['Singing lead', 'Neoclassical lead', 'Articulate lead', 'Phase lead']},
   {label: 'Metal', presets: ['Modern metalcore', 'Tight metal']},
   {label: 'Extended range', presets: ['Low-tuned chug', 'Drop-Z djent', 'Wide low-tuned metal']},
 ];

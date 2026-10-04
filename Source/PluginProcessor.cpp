@@ -120,6 +120,8 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     delayFeedbackGain.setCurrentAndTargetValue(value(Params::delayFeedback) / 100);
     reverbPreDelay.setCurrentAndTargetValue(value(Params::reverbPredelay) * static_cast<float>(rate) / 1000);
     chorus.prepare(spec, {value(Params::chorusMix), value(Params::chorusRate), value(Params::chorusDepth)});
+    metronomeBpm.store(static_cast<double>(value(Params::metroBpm)));
+    modulation.prepare(spec, modulationSettings());
     roomDelay.setMaximumDelayInSamples(static_cast<int>(rate * .2)); roomDelay.prepare(spec); roomDelay.reset(); roomAudio.setSize(2, maxBlock);
     driveGain.reset(rate, 0.02); driveGain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(value(Params::drive)));
     delayTime.reset(rate, 0.05); delayTime.setCurrentAndTargetValue(value(Params::delayTime) * static_cast<float>(rate) / 1000);
@@ -210,6 +212,9 @@ void AmpSuiteAudioProcessor::renderGuitarOffline(juce::AudioBuffer<float>& buffe
     jassert(isNonRealtime());
     const juce::ScopedLock lock(dspLock);
     juce::ScopedNoDenormals noDenormals;
+    // Offline reamping has no playing host clock; use the snapshot's tempo for
+    // both delay and modulation rather than the live instance's last host BPM.
+    metronomeBpm.store(static_cast<double>(value(Params::metroBpm)));
     for (int offset = 0; offset < frames; offset += maxBlock) {
         const int n = juce::jmin(maxBlock, frames - offset);
         float* channels[] {buffer.getWritePointer(0, offset), buffer.getWritePointer(1, offset)};
@@ -450,6 +455,7 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     pedalEq.configure({value(Params::eqOn) >= .5f, value(Params::eqBody), value(Params::eqMud), value(Params::eqFocus), value(Params::eqFizz)});
     pedalEq.process(buffer);
     postEqPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
+    modulation.configure(modulationSettings()); modulation.process(buffer);
     chorus.configure({value(Params::chorusMix), value(Params::chorusRate), value(Params::chorusDepth)});
     chorus.process(context);
     constexpr float divisions[] {1, .5f, .75f, .25f, 2, 4};
@@ -903,7 +909,7 @@ juce::String AmpSuiteAudioProcessor::handleMidiAction(const MidiControl::Mapping
         else if (action == "drive") { id = "DRIVE_GAIN"; target = fraction * 24; }
         else { id = action == "reverb" ? "REVERB_MIX" : "DELAY_MIX"; target = fraction * 100; }
     } else {
-        id = action == "overdrive" ? "OD_ON" : action == "pedal" ? "PEDAL_ON" : action == "eq" ? "EQ_ON" : action == "gate" ? "GATE_ON" : action == "metronome" ? "METRO_ON" : nullptr;
+        id = action == "overdrive" ? "OD_ON" : action == "pedal" ? "PEDAL_ON" : action == "eq" ? "EQ_ON" : action == "gate" ? "GATE_ON" : action == "metronome" ? "METRO_ON" : action == "modulation" ? "MOD_ON" : nullptr;
         if (id != nullptr) target = apvts.getRawParameterValue(id)->load() >= .5f ? 0.f : 1.f;
     }
     if (id == nullptr) return "Unknown MIDI action.";
@@ -1153,6 +1159,14 @@ DualCab::Settings AmpSuiteAudioProcessor::cabinetSettings() const
     return {value(Params::cabBOn) >= .5f, value(Params::cabBlend), value(Params::cabALevel), value(Params::cabBLevel),
         value(Params::cabAPan), value(Params::cabBPan), value(Params::cabAInvert) >= .5f, value(Params::cabBInvert) >= .5f,
         value(Params::cabADelay), value(Params::cabBDelay), value(Params::cabLowCut), value(Params::cabHighCut)};
+}
+ModulationPedal::Settings AmpSuiteAudioProcessor::modulationSettings() const
+{
+    const float hz = value(Params::modSync) >= .5f
+        ? ModulationPedal::syncedRate(static_cast<float>(metronomeBpm.load()), juce::roundToInt(value(Params::modDivision)))
+        : value(Params::modRate);
+    return {value(Params::modOn) >= .5f, juce::roundToInt(value(Params::modType)), hz,
+        value(Params::modDepth), value(Params::modMix), value(Params::modFeedback), value(Params::modStereo)};
 }
 StudioCompressor::Settings AmpSuiteAudioProcessor::compressorSettings(bool enabled) const
 {
