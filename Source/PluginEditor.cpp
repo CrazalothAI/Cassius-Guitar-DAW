@@ -77,6 +77,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (!processor.showDeviceSettings) { complete(juce::String("Use your DAW's transport and recording.")); return; }
             if (args.size() != 2 || (args[0].toString() != "play" && args[0].toString() != "record") || !(args[1].isInt() || args[1].isInt64() || args[1].isDouble()) || !std::isfinite(static_cast<double>(args[1])) || static_cast<double>(args[1]) < 0 || static_cast<double>(args[1]) > 2 || static_cast<double>(args[1]) != std::floor(static_cast<double>(args[1]))) { complete(juce::String("Invalid count-in request.")); return; }
             processor.practice.setCountIn(static_cast<int>(args[1]), processor.apvts.getRawParameterValue("METRO_BPM")->load(), juce::roundToInt(processor.apvts.getRawParameterValue("METRO_BEATS")->load()));
+            processor.takes.stopReview();
             if (args[0].toString() == "record") { choosePractice(true); complete(juce::String()); }
             else complete(processor.practice.command("play"));
         })
@@ -84,6 +85,33 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             const juce::File folder(processor.practice.status()["takePath"].toString());
             if (folder.isDirectory()) folder.revealToUser(); complete(folder.isDirectory());
         })
+        .withNativeFunction("getTakes", [this](const auto&, auto complete) { complete(processor.takes.list()); })
+        .withNativeFunction("importTake", [this](const auto&, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Take review is available in the standalone app.")); return; }
+            chooseTakeFolder(); complete(juce::String());
+        })
+        .withNativeFunction("editTake", [this](const auto& args, auto complete) {
+            complete(args.size() == 3 && args[0].isString() && args[1].isString() && args[2].isBool() ? processor.takes.edit(args[0].toString(), args[1].toString(), static_cast<bool>(args[2])) : juce::String("Invalid take edit."));
+        })
+        .withNativeFunction("previewTake", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish the take before reviewing audio in standalone.")); return; }
+            if (args.size() != 2 || !args[0].isString() || !args[1].isString()) { complete(juce::String("Invalid take preview.")); return; }
+            processor.practice.command("pause"); complete(processor.takes.preview(args[0].toString(), args[1].toString()));
+        })
+        .withNativeFunction("reviewControl", [this](const auto& args, auto complete) {
+            if (args.size() != 2 || !args[0].isString() || !(args[1].isInt() || args[1].isInt64() || args[1].isDouble())) { complete(juce::String("Invalid review control.")); return; }
+            const auto name = args[0].toString();
+            if (name == "stop") { processor.takes.stopReview(); complete(juce::String()); }
+            else if (name == "level" || name == "seek") complete(processor.takeReview.command(name, static_cast<double>(args[1])));
+            else complete(juce::String("Unknown review control."));
+        })
+        .withNativeFunction("reampTake", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Reamping is available in the standalone app.")); return; }
+            if (static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish the recording before starting an export.")); return; }
+            complete(args.size() == 1 && args[0].isString() ? processor.takes.reamp(args[0].toString(), processor.getRig()) : juce::String("Choose a take to reamp."));
+        })
+        .withNativeFunction("cancelReamp", [this](const auto&, auto complete) { processor.takes.cancelExport(); complete(juce::String()); })
+        .withNativeFunction("revealTake", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isString() ? processor.takes.reveal(args[0].toString()) : juce::String("Take not found.")); })
         .withNativeFunction("getStatus", [this](const auto&, auto complete) { complete(processor.status()); });
     for (const auto& parameter : Params::definitions)
     {
@@ -113,9 +141,22 @@ void AmpSuiteAudioProcessorEditor::choosePractice(bool recording)
             if (safe == nullptr) return;
             const auto file = dialog.getResult();
             if (recording && file.isDirectory()) {
-                const auto failure = safe->processor.practice.record(file);
+                const auto rig = safe->processor.getRig();
+                const auto failure = rig.hasProperty("error") ? rig["error"].toString() : safe->processor.practice.record(file, rig);
                 if (failure.isNotEmpty()) safe->processor.reportLibraryResult("Load failed: " + failure);
             } else if (!recording && file.existsAsFile()) safe->processor.practice.load(file);
+            safe->chooser.reset();
+        });
+}
+void AmpSuiteAudioProcessorEditor::chooseTakeFolder()
+{
+    if (chooser) return;
+    chooser = std::make_unique<juce::FileChooser>("Import a Cassian take folder", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory));
+    const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
+    chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
+        [safe](const juce::FileChooser& dialog) {
+            if (safe == nullptr) return;
+            const auto folder = dialog.getResult(); if (folder.isDirectory()) safe->processor.takes.importFolder(folder);
             safe->chooser.reset();
         });
 }

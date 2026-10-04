@@ -64,7 +64,7 @@ juce_add_plugin(AmpSuite COMPANY_NAME MyAudioLab BUNDLE_ID com.myaudiolab.ampsui
     IS_SYNTH FALSE NEEDS_MIDI_INPUT FALSE NEEDS_MIDI_OUTPUT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE COPY_PLUGIN_AFTER_BUILD FALSE
     NEEDS_WEB_BROWSER TRUE NEEDS_WEBVIEW2 TRUE)
-target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/PracticeEngine.cpp)
+target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/PracticeEngine.cpp Source/TakeLibrary.cpp)
 target_sources(AmpSuite_Standalone PRIVATE Source/Standalone.cpp)
 target_link_libraries(AmpSuite_Standalone PRIVATE CassianBrandAssets)
 target_compile_definitions(AmpSuite_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
@@ -79,7 +79,7 @@ target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets juce::juce_audio_
 include(CTest)
 if(BUILD_TESTING)
     juce_add_console_app(AmpSuiteTests PRODUCT_NAME CassianTests NEEDS_WEBVIEW2 TRUE NEEDS_WEB_BROWSER TRUE)
-    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp tests/SoundTests.cpp tests/PracticeTests.cpp)
+    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp tests/SoundTests.cpp tests/PracticeTests.cpp tests/TakeTests.cpp)
     target_link_libraries(AmpSuiteTests PRIVATE AmpSuite nam_core juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra)
     add_test(NAME processor COMMAND AmpSuiteTests "${nam_SOURCE_DIR}/example_models/wavenet.nam")
     juce_add_console_app(CassianModelCheck PRODUCT_NAME CassianModelCheck)

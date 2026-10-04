@@ -13,7 +13,10 @@ public:
     void prepare(double sampleRate);
     void load(const juce::File&);
     juce::String command(const juce::String&, double amount = 0);
-    juce::String record(const juce::File& parent);
+    juce::String record(const juce::File& parent, const juce::var& rig = {});
+    std::function<void(const juce::File&)> onTakeFinished;
+    bool isPlaying() const { return playing.load(); }
+    bool transportActive() const { return playing.load() || countActive.load() || startRequested.load(); }
     void setCountIn(int bars, double bpm, int beats);
     bool process(juce::AudioBuffer<float>& guitarAndOutput, const float* dry, bool guitarAvailable = true);
     juce::var status();
@@ -25,10 +28,13 @@ private:
     void readTrack(const juce::File&, unsigned generation);
     void beginRecording(const juce::File&);
     void drainRecording();
+    void finishTake();
     void reclaimTracks();
     void startCount();
     juce::CriticalSection control;
     juce::File pendingTrack, pendingRecording, loadedFile;
+    juce::File activeTake;
+    juce::String pendingRigJson, activeRigJson;
     bool trackPending = false, recordPending = false;
     std::atomic<bool> loadingTrack {false};
     unsigned loadGeneration = 0;

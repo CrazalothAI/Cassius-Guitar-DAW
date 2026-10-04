@@ -65,7 +65,7 @@ juce::String PracticeEngine::command(const juce::String& name, double x)
     else return "Unknown practice control.";
     return {};
 }
-juce::String PracticeEngine::record(const juce::File& parent)
+juce::String PracticeEngine::record(const juce::File& parent, const juce::var& rig)
 {
     const juce::ScopedLock lock(control);
     if (loadingTrack.load()) return "Wait for the backing track to load.";
@@ -73,7 +73,8 @@ juce::String PracticeEngine::record(const juce::File& parent)
     if (!recordMode.compare_exchange_strong(idle, 1)) return "Finish the current take first.";
     recordingFault.store(0);
     playing.store(false); countActive.store(false);
-    pendingRecording = parent; recordPending = true; error.clear(); notify(); return {};
+    pendingRecording = parent; pendingRigJson = rig.isObject() ? juce::JSON::toString(rig) : juce::String();
+    recordPending = true; error.clear(); notify(); return {};
 }
 void PracticeEngine::readTrack(const juce::File& file, unsigned generation)
 {
@@ -132,8 +133,11 @@ void PracticeEngine::beginRecording(const juce::File& parent)
     const auto folder = parent.getNonexistentChildFile("Cassian take " + juce::Time::getCurrentTime().formatted("%Y-%m-%d %H-%M-%S"), "", true);
     juce::WavAudioFormat wav;
     recordingRate.store(rate.load());
+    { const juce::ScopedLock lock(control); activeRigJson = pendingRigJson; }
     if (!parent.isDirectory() || folder.createDirectory().failed()) failure = "Could not create the take folder.";
     else {
+        if (activeRigJson.isNotEmpty() && !folder.getChildFile("Original rig.json").replaceWithText(activeRigJson))
+            failure = "Could not save the take's original rig settings.";
         const auto make = [&](const juce::File& file, unsigned channels) {
             auto stream = file.createOutputStream();
             if (!stream) return std::unique_ptr<juce::AudioFormatWriter>();
@@ -141,12 +145,15 @@ void PracticeEngine::beginRecording(const juce::File& parent)
             if (writer) stream.release();
             return writer;
         };
-        dryWriter = make(folder.getChildFile("Guitar dry.wav"), 1);
-        wetWriter = make(folder.getChildFile("Guitar processed.wav"), 2);
-        if (!dryWriter || !wetWriter) failure = "Could not open both recording files.";
+        if (failure.isEmpty()) {
+            dryWriter = make(folder.getChildFile("Guitar dry.wav"), 1);
+            wetWriter = make(folder.getChildFile("Guitar processed.wav"), 2);
+            if (!dryWriter || !wetWriter) failure = "Could not open both recording files.";
+        }
     }
     { const juce::ScopedLock lock(control); takePath = folder.getFullPathName(); error = failure; }
     if (failure.isNotEmpty()) { dryWriter.reset(); wetWriter.reset(); recordMode.store(0); return; }
+    activeTake = folder;
     fifo.reset(); recordedFrames.store(0); recordingFault.store(0);
     // Only publish the writers after both files and the FIFO are ready.
     const juce::ScopedLock lock(control);
@@ -168,6 +175,20 @@ void PracticeEngine::drainRecording()
     const bool first = write(a, na), second = write(b, nb); fifo.finishedRead(na + nb);
     if (!first || !second) { recordingFault.store(1); recordMode.store(4); }
 }
+void PracticeEngine::finishTake()
+{
+    drainRecording(); dryWriter.reset(); wetWriter.reset();
+    if (activeTake == juce::File()) return;
+    auto metadata = std::make_unique<juce::DynamicObject>();
+    metadata->setProperty("schema", 1); metadata->setProperty("name", activeTake.getFileName());
+    metadata->setProperty("created", juce::Time::getCurrentTime().toISO8601(true));
+    metadata->setProperty("frames", recordedFrames.load()); metadata->setProperty("sampleRate", recordingRate.load());
+    metadata->setProperty("incomplete", recordingFault.load() == 1 || recordingFault.load() == 2);
+    const bool saved = activeTake.getChildFile("Cassian take.json").replaceWithText(juce::JSON::toString(juce::var(metadata.release())));
+    if (!saved) { const juce::ScopedLock lock(control); error = "Audio saved, but take metadata could not be saved."; }
+    if (onTakeFinished) onTakeFinished(activeTake);
+    activeTake = {};
+}
 void PracticeEngine::run()
 {
     while (!threadShouldExit()) {
@@ -185,7 +206,7 @@ void PracticeEngine::run()
         }
         drainRecording(); reclaimTracks();
         if (recordMode.load() == 4 && callbacks.load() == 0) {
-            drainRecording(); dryWriter.reset(); wetWriter.reset();
+            finishTake();
             if (recordingFault.load() != 0) {
                 const juce::ScopedLock lock(control);
                 error = recordingFault.load() == 3 ? "Recording stopped at the take duration/size limit. The take has been saved."
@@ -197,7 +218,7 @@ void PracticeEngine::run()
         wait(recordMode.load() != 0 || !retired.empty() ? 10 : 250);
     }
     // Destruction is off the audio thread and flushes the remaining FIFO/header.
-    drainRecording(); dryWriter.reset(); wetWriter.reset();
+    finishTake();
 }
 bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry, bool guitarAvailable)
 {

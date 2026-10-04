@@ -20,12 +20,14 @@ Choose Off, one bar or two bars. BPM and beats per bar are latched from the metr
 |---|---|---|
 | Guitar dry.wav | Physical mono guitar input, before software Input gain and all guitar processing | 32-bit float mono WAV at the interface rate |
 | Guitar processed.wav | Guitar after the amp, cabinets and effects, before backing/click addition and Master/limiter | 32-bit float stereo WAV at the interface rate |
+| Original rig.json | Settings and asset references captured when recording is requested | Complete rig JSON; external assets are referenced rather than bundled |
+| Cassian take.json | Name, creation time, frame count, rate and incomplete flag | Written after WAV finalization |
 
 Files have the same start boundary and frame count. Effect and model latency is retained in the processed signal; this is not latency-compensated reamping. Processed samples above 0 dBFS are retained in float format rather than clipped. Import at a suitable playback gain. NaNs/infinities are written as silence. Backing tracks and metronome/count-in clicks are excluded from both files.
 
 A preallocated 262,144-frame, three-channel single-producer/single-consumer FIFO sends audio to the disk worker. Both writers consume the same frame slices. **Finish take** pauses playback, stops capture, drains queued frames, and closes the writers to finalize WAV headers. **Stop** additionally rewinds. Finishing does not require another audio callback. The last take folder stays available after closing the panel.
 
-Disk write failures, FIFO overflow and interruption of the guitar processing path stop recording and display an incomplete-take error; partial files remain available for inspection. Takes are limited to one hour or the standard WAV byte limit, whichever comes first. Rate/buffer changes stop transport and finalize active recording. Closing the app flushes remaining queued audio once host callbacks have stopped. Recovery from an OS/process crash, take editing, punch-in, reference-mix export and automatic reamping remain future work.
+Disk write failures, FIFO overflow and interruption of the guitar processing path stop recording and display an incomplete-take error; partial files remain available for inspection. Takes are limited to one hour or the standard WAV byte limit, whichever comes first. Rate/buffer changes stop transport and finalize active recording. Closing the app flushes remaining queued audio once host callbacks have stopped. Finished takes enter the [take library](TAKE-LIBRARY.md) automatically for naming, favorites, review and manual offline reamping. Recovery from an OS/process crash, waveform editing, punch-in, reference-mix export and automatic reamping remain future work.
 
 ## Verification
 
@@ -33,4 +35,4 @@ Native regression checks exercise 44.1/48/96 kHz playback, filtered sample-rate 
 
 Live guitar/interface listening and Linux native execution still require validation. Passing synthetic tests does not establish final listening quality or commercial release readiness.
 
-Windows validation (2026-10-03): 71 UI tests and all four CTest suites pass; Release VST3 and the side-by-side standalone build succeed. The browser panel fits the editor's 860 × 620 minimum width with vertical scrolling inside the practice panel and no horizontal overflow.
+Windows validation (2026-10-03): 76 UI tests and all four CTest suites pass; Release VST3 and the side-by-side standalone build succeed. The browser panel fits the editor's 860 × 620 minimum width with vertical scrolling inside the practice panel and no horizontal overflow.

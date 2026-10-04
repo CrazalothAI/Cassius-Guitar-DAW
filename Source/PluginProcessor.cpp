@@ -40,11 +40,13 @@ AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File li
     : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::mono(), true)
                                      .withInput("Backing track", juce::AudioChannelSet::stereo(), false)
                                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      Thread("AmpSuite asset loader"), apvts(*this, nullptr, "AmpSuiteState", Params::layout()), sharedStore(sharedLibrary ? libraryRoot : juce::File())
+      Thread("AmpSuite asset loader"), takes(sharedLibrary ? libraryRoot.getChildFile("takes.xml") : juce::File(), takeReview),
+      apvts(*this, nullptr, "AmpSuiteState", Params::layout()), sharedStore(sharedLibrary ? libraryRoot : juce::File())
 {
     for (size_t i = 0; i < parameters.size(); ++i)
         parameters[i] = apvts.getRawParameterValue(Params::definitions[i].id);
     try { library.merge(sharedStore.load()); } catch (const std::exception& e) { message = "Load failed: " + juce::String(e.what()); }
+    practice.onTakeFinished = [&store = takes](const juce::File& folder) { store.importFolder(folder); };
     startThread();
 }
 AmpSuiteAudioProcessor::~AmpSuiteAudioProcessor() { signalThreadShouldExit(); notify(); stopThread(-1); }
@@ -88,6 +90,8 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     backingAudio.setSize(2, maxBlock);
     recordingDry.resize(static_cast<size_t>(maxBlock));
     practice.prepare(rate);
+    takes.stopReview();
+    takeReview.prepare(rate);
     cleanAudio.resize(static_cast<size_t>(maxBlock));
     gateEnvelope.resize(static_cast<size_t>(maxBlock));
     pedalAudio.resize(static_cast<size_t>(maxBlock));
@@ -158,7 +162,10 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         swapBypasses.fetch_add(1);
         if (mainBuffer.getNumChannels() > 0 && mainBuffer.getNumSamples() > 0) {
             const bool counted = practice.process(mainBuffer, mainBuffer.getReadPointer(0), false);
-            finishOutputMix(mainBuffer, counted);
+            const bool reviewing = takeReview.transportActive();
+            if (reviewing) mainBuffer.clear();
+            takeReview.process(mainBuffer, mainBuffer.getReadPointer(0));
+            finishOutputMix(mainBuffer, counted || reviewing);
         }
         return;
     }
@@ -190,8 +197,25 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         if (backingChannels > 0)
             for (int ch = 0; ch < chunk.getNumChannels(); ++ch)
                 chunk.addFrom(ch, 0, backingAudio, ch, 0, size);
+        const bool reviewing = takeReview.transportActive();
+        if (reviewing) chunk.clear();
+        takeReview.process(chunk, recordingDry.data());
+        counted = counted || reviewing;
     }
     finishOutputMix(mainBuffer, counted);
+}
+void AmpSuiteAudioProcessor::renderGuitarOffline(juce::AudioBuffer<float>& buffer, int frames)
+{
+    jassert(isNonRealtime());
+    const juce::ScopedLock lock(dspLock);
+    juce::ScopedNoDenormals noDenormals;
+    for (int offset = 0; offset < frames; offset += maxBlock) {
+        const int n = juce::jmin(maxBlock, frames - offset);
+        float* channels[] {buffer.getWritePointer(0, offset), buffer.getWritePointer(1, offset)};
+        juce::AudioBuffer<float> chunk(channels, 2, n); processChunk(chunk);
+        for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < n; ++i)
+            if (!std::isfinite(chunk.getSample(ch, i))) chunk.setSample(ch, i, 0);
+    }
 }
 void AmpSuiteAudioProcessor::finishOutputMix(juce::AudioBuffer<float>& mainBuffer, bool suppressClick)
 {
@@ -707,6 +731,8 @@ juce::var AmpSuiteAudioProcessor::status()
 {
     auto result = std::make_unique<juce::DynamicObject>();
     result->setProperty("practice", practice.status());
+    result->setProperty("takes", takes.status());
+    result->setProperty("review", takeReview.status());
     {
         const juce::ScopedLock lock(requestLock);
         const auto displayName = [&](const juce::String& kind, const juce::String& path) {

@@ -24,6 +24,7 @@
 #include "AssetLibrary.h"
 #include "LibraryStore.h"
 #include "PracticeEngine.h"
+#include "TakeLibrary.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
@@ -31,7 +32,7 @@ public:
     explicit AmpSuiteAudioProcessor(bool sharedLibrary = true, juce::File libraryRoot = LibraryStore::defaultRoot());
     ~AmpSuiteAudioProcessor() override;
     void prepareToPlay(double, int) override;
-    void releaseResources() override { practice.command("pause"); }
+    void releaseResources() override { practice.command("pause"); takes.stopReview(); }
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     bool isBusesLayoutSupported(const BusesLayout&) const override;
     juce::AudioProcessorEditor* createEditor() override;
@@ -70,7 +71,11 @@ public:
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
+    // The take store stays alive while the recorder finishes during destruction.
+    PracticeEngine takeReview;
+    TakeLibrary takes;
     PracticeEngine practice;
+    void renderGuitarOffline(juce::AudioBuffer<float>&, int frames);
     juce::AudioProcessorValueTreeState apvts;
 private:
     void run() override;

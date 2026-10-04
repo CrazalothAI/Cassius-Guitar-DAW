@@ -27,6 +27,21 @@
 .practice-take { margin-top: 10px; justify-content: space-between; font-size: 10px; color: #aaa393; }
 .practice-take span { min-width: 0; overflow-wrap: anywhere; }
 .practice-take button { flex-shrink: 0; }
+.practice-heading-actions, .take-filters, .take-name, .take-review, .take-export { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.take-filters { margin-bottom: 12px; }
+.take-browser input[type=text], .take-browser input:not([type]), .take-browser select { min-width: 0; background: #101211; border: 1px solid #504739; color: #e4dfd4; border-radius: 4px; padding: 7px 9px; font-size: 11px; }
+.take-filters > input { flex: 1; }
+.take-columns { display: grid; grid-template-columns: minmax(160px, .75fr) minmax(280px, 1.5fr); gap: 18px; }
+.take-list { max-height: 210px; overflow-y: auto; }
+.practice-panel .take-row { display: block; width: 100%; text-align: left; margin-bottom: 6px; border-color: #36332c; }
+.practice-panel .take-row.selected { border-color: var(--gold); background: #c5a96f14; }
+.take-row strong { display: block; font-size: 11px; font-weight: 500; overflow-wrap: anywhere; }
+.take-row small { display: block; color: #aaa393; margin-top: 5px; font-size: 10px; }
+.take-name > input { flex: 1; }
+.take-review, .take-export { margin-top: 10px; }
+.take-review select { flex: 1; }
+.take-export progress { flex: 1; min-width: 60px; height: 6px; accent-color: var(--gold); }
+@media (max-width: 900px) { .take-columns { gap: 12px; } .practice-heading-actions { justify-content: flex-end; } }
 
 .library-toolbar { display: flex; align-items: center; gap: 12px; height: 30px; color: #8e8a82; font-size: 10px; }
 .compare-match { margin-left: auto; display: flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }

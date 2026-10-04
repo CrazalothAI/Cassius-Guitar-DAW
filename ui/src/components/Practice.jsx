@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
+import Takes from './Takes.jsx';
 
 export const time = seconds => {
   const n = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -8,6 +9,7 @@ export const time = seconds => {
 
 export default function Practice({ status, onError }) {
   const p = status.practice ?? {}, [bars, setBars] = useState(1);
+  const [takesOpen, setTakesOpen] = useState(false);
   const available = native && status.deviceSettingsAvailable;
   const recording = (p.recordMode ?? 0) > 0, counting = p.counting || p.recordMode === 2;
   const busy = recording || counting, duration = p.duration || 0;
@@ -22,9 +24,10 @@ export default function Practice({ status, onError }) {
   const mode = ['Ready', 'Preparing take…', 'Count-in', 'Recording', 'Saving take…'][p.recordMode ?? 0];
   return <section className="practice-panel" aria-label="Practice and recording">
     <div className="practice-heading">
-      <div><span className="practice-kicker">PLAY · PRACTICE · CAPTURE</span><h2>{p.track || 'Your next take'}</h2></div>
-      <button className="text-button" disabled={!available || busy || p.loading} onClick={() => action('loadBackingTrack')}>{p.loading ? 'Loading track…' : 'Load backing track'}</button>
+      <div><span className="practice-kicker">PLAY · PRACTICE · CAPTURE</span><h2>{takesOpen ? 'Your take library' : p.track || 'Your next take'}</h2></div>
+      <div className="practice-heading-actions"><button className="text-button" aria-expanded={takesOpen} onClick={() => setTakesOpen(!takesOpen)}>{takesOpen ? 'Practice transport' : 'Take library'}</button>{!takesOpen && <button className="text-button" disabled={!available || busy || p.loading} onClick={() => action('loadBackingTrack')}>{p.loading ? 'Loading track…' : 'Load backing track'}</button>}</div>
     </div>
+    {takesOpen ? <Takes status={status} onError={onError}/> : <>
     <div className="practice-transport">
       <button disabled={!available || !duration || busy || p.loading} onClick={() => p.playing ? control('pause') : action('practiceStart', 'play', bars)}>{p.playing ? 'Pause' : 'Play'}</button>
       <button disabled={!available} onClick={() => control('stop')}>Stop</button>
@@ -40,5 +43,6 @@ export default function Practice({ status, onError }) {
     <p className="practice-note">{available ? '32-bit float WAV: dry mono + processed stereo before Master. Backing and clicks stay out of guitar recordings. Count-in uses the metronome tempo.' : native ? 'Use your DAW’s backing tracks and recording. This practice transport is available in the standalone app.' : 'Open the standalone app to load a backing track and record your guitar.'}</p>
     {p.error && <p className="practice-error" role="alert">{p.error}</p>}
     {p.takePath && !recording && <div className="practice-take"><span title={p.takePath}>Last take: {p.takePath}</span><button className="text-button" onClick={() => action('openTakeFolder')}>Open take folder</button></div>}
+    </>}
   </section>;
 }

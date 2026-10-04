@@ -1,0 +1,44 @@
+import { beforeEach, afterEach, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+const bridge = vi.hoisted(() => ({ invoke: vi.fn(), entries: [] }));
+vi.mock('./juce/bridge.js', () => ({ native: true, invoke: bridge.invoke }));
+import Takes from './components/Takes.jsx';
+const status = {deviceSettingsAvailable: true, takes: {revision: 1, exporting: false}, practice: {recordMode: 0}, review: {duration: 60, position: 12, level: -12}};
+beforeEach(() => {
+  bridge.entries = [{id: 'one', name: 'Lead take', frames: 480000, sampleRate: 48000, originalRig: true, favorite: false, versions: [{id: 'v1', name: 'New clean tone'}]}, {id: 'two', name: 'Favorite clean', frames: 960000, sampleRate: 48000, favorite: true}];
+  bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
+});
+afterEach(cleanup);
+it('lists and filters takes by name and favorite', async () => {
+  render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Search takes'), {target: {value: 'clean'}});
+  expect(screen.queryByText('Lead take')).toBeNull(); expect(screen.getByText('★ Favorite clean')).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Search takes'), {target: {value: ''}}); fireEvent.click(screen.getByLabelText('Favorites'));
+  expect(screen.queryByText('Lead take')).toBeNull();
+});
+it('edits labels without renaming audio and sends a chosen version for review', async () => {
+  render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Take name'), {target: {value: 'Neoclassical lead'}}); fireEvent.click(screen.getByLabelText('Favorite take'));
+  fireEvent.click(screen.getByRole('button', {name: 'Save'}));
+  fireEvent.change(screen.getByLabelText('Take version'), {target: {value: 'v1'}}); fireEvent.click(screen.getByRole('button', {name: 'Listen'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('editTake', 'one', 'Neoclassical lead', true));
+  expect(bridge.invoke).toHaveBeenCalledWith('previewTake', 'one', 'v1');
+});
+it('exports with the current rig and exposes cancel/progress while busy', async () => {
+  const {rerender} = render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.click(screen.getByRole('button', {name: 'Reamp with current rig'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('reampTake', 'one'));
+  rerender(<Takes status={{...status, takes: {...status.takes, exporting: true, progress: .4}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('button', {name: 'Reamp with current rig'}).disabled).toBe(true); expect(screen.getByLabelText('Reamp progress').value).toBe(.4);
+  fireEvent.click(screen.getByRole('button', {name: 'Cancel export'})); await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('cancelReamp'));
+});
+it('blocks review/export during recording and surfaces worker errors', async () => {
+  render(<Takes status={{...status, practice: {recordMode: 3}, takes: {...status.takes, error: 'Dry file is missing'}}} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByRole('button', {name: 'Listen'}).disabled).toBe(true); expect(screen.getByRole('button', {name: 'Reamp with current rig'}).disabled).toBe(true);
+  expect(screen.getByRole('alert').textContent).toBe('Dry file is missing');
+});
+it('leaves standalone-only actions unavailable in a DAW', () => {
+  render(<Takes status={{...status, deviceSettingsAvailable: false}} onError={vi.fn()}/>);
+  expect(screen.getByRole('button', {name: 'Import take folder'}).disabled).toBe(true);
+  expect(screen.getByText(/Open standalone/)).toBeTruthy(); expect(bridge.invoke).not.toHaveBeenCalled();
+});

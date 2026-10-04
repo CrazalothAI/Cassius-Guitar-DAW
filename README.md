@@ -2,7 +2,7 @@
 
 Cassian is a guitar processor with a tube-head interface, built-in clean and high-gain amps, Neural Amp Modeler (NAM) support, cabinet convolution, and stereo effects. It runs as a Windows standalone app or VST3 plugin, with a JUCE/C++20 audio engine and an embedded React editor.
 
-The current source adds dual-IR cabinets, an original built-in overdrive, compression for every amp source, and clean/lead starting points. It also includes safer audio loading, prepared complete rig recall, a shared managed library, portable rig packs, independent pedal trims, and expanded clean/stereo effects. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md).
+The current source adds dual-IR cabinets, an original built-in overdrive, compression for every amp source, and clean/lead starting points. Standalone practice includes backing-track playback, paired guitar recording, a searchable take library, and offline reamping. It also includes safer audio loading, prepared complete rig recall, a shared managed library, portable rig packs, independent pedal trims, and expanded clean/stereo effects. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md).
 
 ## Download and launch
 
@@ -125,6 +125,8 @@ Choose an Off/1-bar/2-bar count-in using the metronome tempo and beats per bar, 
 
 The practice transport is standalone-only; a DAW owns playback and recording in the VST3. In a supporting DAW, enable the optional stereo backing bus to route accompaniment through the plugin. Changing rigs and presets does not change practice controls. Tracks, cursor and active takes are not saved in rigs or restored into an autoplaying session. Rate/buffer changes stop practice transport and finalize an active take; loaded tracks are rebuilt for the new rate. See [practice and recording](docs/PRACTICE-RECORDING.md) for limits and validation.
 
+Open **Take library** within Practice & record to search, name and favorite recordings. New takes enter automatically with an original rig snapshot; **Import take folder** adds older Cassian dry/processed pairs. **Listen** reviews the selected original, dry DI or reamp version with a separate volume, pausing backing playback and muting live guitar and the click. **Reamp with current rig** renders the dry file through an isolated copy of your current guitar chain and saves a new stereo float WAV plus its rig snapshot. Originals stay unchanged. Exports retain the original rate and frame count, omit Master/backing/clicks, and can be cancelled. See [take library and reamping](docs/TAKE-LIBRARY.md) for storage and limits.
+
 The backing bus, standalone player and metronome are mixed **after guitar distortion and effects**, then share Master and the output limiter. The metronome offers tempo, tap tempo, beats per bar, and click level. Standalone uses its own clock; while a DAW is playing, it follows host tempo and bar position. Presets and A/B preserve click settings. Delay can follow that tempo or use its manual time.
 
 Simplified guitar path:
@@ -214,6 +216,8 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 | `Source/LibraryStore.h` | Shared manifest merging, atomic persistence, managed asset copies, and deleted-rig tracking. |
 | `Source/CompleteRig.cpp` | Off-thread complete rig preparation and short fade around activation. |
 | `Source/RigPack.cpp` | Portable ZIP export/import, entry limits, content verification, and managed storage. |
+| `Source/PracticeEngine.*` | Worker-prepared backing/review playback and paired guitar recording through a bounded audio FIFO. |
+| `Source/TakeLibrary.*` | Take catalog, review selection, rig snapshots, and isolated offline reamp exports. |
 | `Source/PluginEditor.*` | Embedded WebView editor, native bridge, and asynchronous file pickers. |
 | `Source/Standalone.cpp` | Standalone entry point, device setup, and tray integration. |
 | `Source/dsp/` | NAM/IR processing, resampling, amp/speaker voicing, filters, gates, and effects. |
@@ -227,7 +231,7 @@ File reading, hashing, parsing, capture preparation, warm-up, and managed storag
 
 Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **66 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. New checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-03**: **76 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, and offline reamp length/rate/gain/snapshot consistency with byte-identical originals. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
