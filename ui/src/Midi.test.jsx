@@ -64,3 +64,13 @@ it('cancels learning when the panel closes', () => {
   const view = render(<Midi status={{...status, midi: {...status.midi, learning: 2}}} onError={vi.fn()}/>);
   view.unmount(); expect(bridge.invoke).toHaveBeenCalledWith('learnMidi', -1);
 });
+it('assigns one of the current rig scenes including an empty future slot', async () => {
+  render(<Midi status={{...status, scenes: {slots: [{stored: true, name: 'Rhythm'}, {stored: true, name: 'Singing lead'}]}}} onError={vi.fn()}/>);
+  fireEvent.change(screen.getByLabelText('MIDI action'), {target: {value: 'scene'}});
+  expect(screen.getByRole('option', {name: '2 · Singing lead'})).toBeTruthy();
+  expect(screen.getByRole('option', {name: '4 · Empty'})).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('MIDI scene'), {target: {value: '1'}});
+  fireEvent.change(screen.getByLabelText('MIDI message type'), {target: {value: 'pc'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Apply assignment'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('setMidiMapping', 0, {...rows[0], action: 'scene', type: 'pc', scene: 1}));
+});

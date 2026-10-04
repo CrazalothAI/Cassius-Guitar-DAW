@@ -12,6 +12,7 @@ void runPracticeChecks();
 void runTakeChecks();
 void runMidiChecks();
 void runModulationChecks();
+void runSceneChecks();
 static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
 {
     auto* parameter = p.apvts.getParameter(id);
@@ -653,6 +654,7 @@ int main(int argc, char** argv)
         runTakeChecks();
         runMidiChecks();
         runModulationChecks();
+        runSceneChecks();
         std::cout << "Processor checks passed\n";
         return 0;
     }

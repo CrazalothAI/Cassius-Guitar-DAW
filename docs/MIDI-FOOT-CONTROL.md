@@ -19,6 +19,7 @@ Apply edits before Learn. Selecting another row discards unapplied edits. Confli
 | Action | Behavior |
 |---|---|
 | Recall saved rig | Existing off-thread complete rig preparation and short guitar fade; preserves global input calibration, Master and metronome settings. |
+| Recall scene | One of four guitar-parameter snapshots sharing the current files. Preserves Input, Master and click settings; an empty slot reports an error. See [performance scenes](PERFORMANCE-SCENES.md). |
 | Toggle overdrive / NAM pedal / EQ / gate / metronome / modulation | Changes that enable parameter. An empty NAM pedal slot remains empty. |
 | Master expression | Absolute listening level, −60 to 0 dB, affecting guitar, backing and click together. |
 | Drive expression | Main amp Drive, 0 to 24 dB; separate from the overdrive pedal's Drive dial. |
@@ -31,6 +32,8 @@ Expression requires CC and supports reversed direction. It follows absolute peda
 ## Persistence and timing
 
 Assignments and enable state belong to the native app/DAW session. They survive session restore and rig recall, but are excluded from complete rigs, JSON exports and portable packs. They reference shared-library rig IDs. Removing an assigned rig leaves a missing binding; recall reports an error and preserves the current sound. Legacy sessions start disabled. Invalid saved MIDI configuration resets assignments and disables mapping with an error.
+
+Scene assignments reference slot numbers in the currently loaded rig. The scene bank itself is part of the complete rig/session/pack; changing rigs replaces its bank while retaining MIDI assignments. Older MIDI configurations without a scene field remain supported.
 
 The audio callback scans at most 512 messages per block and passes commands through a preallocated queue with 127 usable entries. Mapping locks, rig preparation, host notifications and file work run outside the callback. A dedicated worker polls every 10 ms, including with no editor open. Commands are asynchronous and ignore within-block sample offsets. Rig preparation adds time and a short activation fade; this is not gapless scene switching. Non-rig controls during rig preparation are rejected with a retry message.
 

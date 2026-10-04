@@ -9,7 +9,11 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
     auto xml = juce::XmlDocument::parse(rig["state"].toString());
     if (!xml || !xml->hasTagName("AmpSuiteState")) return "Invalid rig state.";
     state = juce::ValueTree::fromXml(*xml);
+    if (const auto failure = PerformanceScenes::validate(state.getChildWithName("SCENES")); failure.isNotEmpty()) return failure;
     juce::StringArray ids;
+    int sceneBanks = 0;
+    for (const auto& child : state)
+        if (child.hasType("SCENES") && ++sceneBanks > 1) return "Duplicate scene bank.";
     for (const auto& child : state)
         if (child.hasType("PARAM")) {
             const auto id = child["id"].toString();
@@ -28,7 +32,10 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
         if (!parameter.hasType("PARAM")) return "Incomplete rig: " + juce::String(definition.id);
         const auto text = parameter["value"].toString().toStdString(); char* end = nullptr;
         const double amount = std::strtod(text.c_str(), &end);
-        if (end == text.c_str() || *end != '\0' || !std::isfinite(amount) || amount < definition.min || amount > definition.max)
+        // XML also shortens float endpoints. Use native parameter precision for
+        // bounds, as with scene JSON, so a saved minimum can be recalled.
+        const auto nativeAmount = static_cast<float>(amount);
+        if (end == text.c_str() || *end != '\0' || !std::isfinite(amount) || nativeAmount < definition.min || nativeAmount > definition.max)
             return "Invalid rig parameter: " + juce::String(definition.id);
         if ((definition.isSwitch() || juce::String(definition.id) == "AMP_SOURCE" || juce::String(definition.id) == "CAPTURE_KIND" || juce::String(definition.id) == "CAB_MODE" || juce::String(definition.id) == "DELAY_DIVISION" || juce::String(definition.id) == "REVERB_STYLE" || juce::String(definition.id) == "COMP_MODE") && amount != std::floor(amount))
             return "Invalid rig routing choice.";
@@ -741,6 +748,7 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("takes", takes.status());
     result->setProperty("review", takeReview.status());
     result->setProperty("midi", midiControl.status());
+    result->setProperty("scenes", scenes.status(apvts));
     {
         const juce::ScopedLock lock(requestLock);
         const auto displayName = [&](const juce::String& kind, const juce::String& path) {
@@ -754,6 +762,7 @@ juce::var AmpSuiteAudioProcessor::status()
         result->setProperty("ir", displayName("cab", irPath)); result->setProperty("message", message);
         result->setProperty("libraryRevision", library.revision);
         result->setProperty("modelId", library.idForPath("amp", desiredModel));
+        result->setProperty("rigLoading", sceneAssetsLoading());
     }
     {
         // UI polling must never hold the DSP lock: the callback would emit silence.
@@ -828,8 +837,11 @@ void AmpSuiteAudioProcessor::getStateInformation(juce::MemoryBlock& destination)
 }
 juce::ValueTree AmpSuiteAudioProcessor::copyRigState(bool includeSavedRigs)
 {
+    const juce::ScopedLock snapshotGuard(requestLock);
     auto state = apvts.copyState();
     if (const auto oldMidi = state.getChildWithName("MIDICONTROL"); oldMidi.isValid()) state.removeChild(oldMidi, nullptr);
+    if (const auto oldScenes = state.getChildWithName("SCENES"); oldScenes.isValid()) state.removeChild(oldScenes, nullptr);
+    state.addChild(scenes.save(), -1, nullptr);
     // Preserve requested paths during asynchronous recall, including missing files.
     {
         const juce::ScopedLock lock(requestLock);
@@ -857,7 +869,9 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
 {
     const auto xml = getXmlFromBinary(data, size);
     if (!xml || !xml->hasTagName(apvts.state.getType())) return;
+    const juce::ScopedLock stateGuard(requestLock);
     auto state = juce::ValueTree::fromXml(*xml);
+    scenes.restore(state.getChildWithName("SCENES"));
     const auto midi = state.getChildWithName("MIDICONTROL");
     const auto midiJson = midi["json"].toString();
     const auto parsedMidi = midiJson.length() <= 32768 ? juce::JSON::parse(midiJson) : juce::var();
@@ -900,6 +914,7 @@ juce::AudioProcessorEditor* AmpSuiteAudioProcessor::createEditor() { return new 
 juce::String AmpSuiteAudioProcessor::handleMidiAction(const MidiControl::Mapping& mapping, int amount)
 {
     if (mapping.action == "rig") return loadRig(mapping.rig);
+    if (mapping.action == "scene") return recallScene(mapping.scene);
     if (rigLoading.load()) return "Rig is preparing; try the control again when it is ready.";
     const char* id = nullptr; float target = 0;
     const auto& action = mapping.action;
@@ -917,6 +932,29 @@ juce::String AmpSuiteAudioProcessor::handleMidiAction(const MidiControl::Mapping
     parameter->beginChangeGesture(); parameter->setValueNotifyingHost(parameter->convertTo0to1(target)); parameter->endChangeGesture(); return {};
 }
 
+bool AmpSuiteAudioProcessor::sceneAssetsLoading() const
+{
+    return rigLoading.load() || modelPending || pedalPending || irPending || irBPending
+        || desiredModel != modelPath || desiredPedal != pedalPath || desiredIr != irPath || desiredIrB != irBPath;
+}
+juce::String AmpSuiteAudioProcessor::storeScene(int slot, const juce::String& name)
+{
+    const juce::ScopedLock guard(requestLock);
+    if (sceneAssetsLoading()) return "Finish loading the rig before storing a scene.";
+    return scenes.store(slot, name, apvts);
+}
+juce::String AmpSuiteAudioProcessor::recallScene(int slot)
+{
+    const juce::ScopedLock guard(requestLock);
+    if (sceneAssetsLoading()) return "Finish loading the rig before recalling a scene.";
+    return scenes.recall(slot, apvts);
+}
+juce::String AmpSuiteAudioProcessor::clearScene(int slot)
+{
+    const juce::ScopedLock guard(requestLock);
+    if (sceneAssetsLoading()) return "Finish loading the rig before clearing a scene.";
+    return scenes.clear(slot);
+}
 void AmpSuiteAudioProcessor::requestPedal(const juce::File& file)
 {
     const juce::ScopedLock lock(requestLock);

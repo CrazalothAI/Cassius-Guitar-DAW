@@ -9,7 +9,7 @@ juce::var MidiControl::describe(const Mapping& m)
 {
     auto o = std::make_unique<juce::DynamicObject>();
     o->setProperty("type", m.type); o->setProperty("channel", m.channel); o->setProperty("number", m.number);
-    o->setProperty("action", m.action); o->setProperty("rig", m.rig); o->setProperty("inverted", m.inverted); return juce::var(o.release());
+    o->setProperty("action", m.action); o->setProperty("rig", m.rig); o->setProperty("scene", m.scene); o->setProperty("inverted", m.inverted); return juce::var(o.release());
 }
 juce::String MidiControl::parse(const juce::var& v, Mapping& m)
 {
@@ -17,9 +17,10 @@ juce::String MidiControl::parse(const juce::var& v, Mapping& m)
         const auto x = v[key]; return (x.isInt() || x.isInt64()) && static_cast<juce::int64>(x) >= lo && static_cast<juce::int64>(x) <= hi;
     };
     if (!v.isObject() || !v["type"].isString() || !v["action"].isString() || !integer("channel", 0, 16) || !integer("number", 0, 127)
-        || (v.hasProperty("inverted") && !v["inverted"].isBool()) || (v.hasProperty("rig") && !v["rig"].isString())) return "Invalid MIDI assignment.";
+        || (v.hasProperty("inverted") && !v["inverted"].isBool()) || (v.hasProperty("rig") && !v["rig"].isString()) || (v.hasProperty("scene") && !integer("scene", 0, 3))) return "Invalid MIDI assignment.";
+    m.scene = v.hasProperty("scene") ? static_cast<int>(v["scene"]) : 0;
     m.type = v["type"].toString(); m.action = v["action"].toString(); m.channel = v["channel"]; m.number = v["number"]; m.rig = v["rig"].toString(); m.inverted = v["inverted"];
-    if ((m.type != "cc" && m.type != "pc") || (!juce::StringArray {"none", "rig", "overdrive", "pedal", "eq", "gate", "metronome", "modulation"}.contains(m.action) && !expression(m.action))) return "Unsupported MIDI assignment.";
+    if ((m.type != "cc" && m.type != "pc") || (!juce::StringArray {"none", "rig", "overdrive", "pedal", "eq", "gate", "metronome", "modulation", "scene"}.contains(m.action) && !expression(m.action))) return "Unsupported MIDI assignment.";
     if (m.type == "pc" && expression(m.action)) return "Expression control needs a CC message.";
     if (m.rig.length() > 128 || (m.action == "rig" && m.rig.isEmpty())) return "Choose a saved rig for this assignment.";
     return {};

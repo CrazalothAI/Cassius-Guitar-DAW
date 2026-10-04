@@ -27,6 +27,7 @@
 #include "PracticeEngine.h"
 #include "TakeLibrary.h"
 #include "MidiControl.h"
+#include "PerformanceScenes.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
@@ -73,6 +74,10 @@ public:
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
+    juce::String storeScene(int slot, const juce::String& name);
+    juce::String recallScene(int slot);
+    juce::String clearScene(int slot);
+    PerformanceScenes scenes;
     MidiControl midiControl;
     // The take store stays alive while the recorder finishes during destruction.
     PracticeEngine takeReview;
@@ -111,6 +116,7 @@ private:
     bool pendingRigPreservesGlobals = true;
     std::atomic<juce::uint64> requestGeneration {0};
     std::array<std::atomic<juce::uint64>, 4> stageRequestGeneration {};
+    bool sceneAssetsLoading() const; // Caller holds requestLock.
     std::atomic<bool> rigLoading {false}, rigSwapReady {false}, rigMuted {false};
     std::atomic<double> lastAudioTick {0};
     std::atomic<int> reportedChannels {2};

@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import Knob from './Knob.jsx';
 import Switch from './Switch.jsx';
+import Scenes from './Scenes.jsx';
 import { setParameter, useParameters, useToggle } from '../parameterState.js';
 
 // The rig in signal order. Each stage is a tab; its controls open in the panel below.
@@ -187,7 +188,7 @@ const shortAmp = (clean, status) => clean ? 'Lumen clean'
 const stripExtension = name => name.replace(/\.(nam|wav)$/i, '');
 
 // Signal chain: stages in order, each with its live level, then the selected stage's controls.
-export default function Stages({ page, onPage, clean, native, status, onLoad, onRemove }) {
+export default function Stages({ page, onPage, clean, native, status, onLoad, onRemove, onError }) {
   const tabs = useRef([]);
   const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'CHORUS_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON', 'AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND', 'OD_ON', 'CAB_B_ON', 'MOD_ON', 'MOD_TYPE', 'MOD_MIX']);
   const View = views[page] ?? Amp;
@@ -232,6 +233,7 @@ export default function Stages({ page, onPage, clean, native, status, onLoad, on
       <span className="chain-end" aria-hidden="true">OUT</span>
     </div>
     <div className="stage-panel" role="tabpanel" id="stage-panel" aria-labelledby={`tab-${page}`}>
+      <Scenes status={status} onError={onError} />
       <View clean={clean} native={native} status={status} load={load} remove={remove} />
     </div>
   </section>;

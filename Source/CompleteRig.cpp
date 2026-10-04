@@ -71,6 +71,7 @@ void AmpSuiteAudioProcessor::prepareCompleteRig(juce::ValueTree state, bool pres
         }
         // The guitar stays faded while host parameters are replaced outside dspLock.
         apvts.replaceState(state);
+        scenes.restore(state.getChildWithName("SCENES"));
         {
             const juce::ScopedLock lock(requestLock);
             desiredIrB = irBPath = state["irBPath"].toString();

@@ -28,6 +28,9 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (valid) chooseImports(kind); complete(valid);
         })
         .withNativeFunction("getRig", [this](const auto&, auto complete) { complete(processor.getRig()); })
+        .withNativeFunction("storeScene", [this](const auto& args, auto complete) { complete(args.size() == 2 && args[0].isInt() && args[1].isString() ? processor.storeScene(static_cast<int>(args[0]), args[1].toString()) : juce::String("Invalid scene request.")); })
+        .withNativeFunction("recallScene", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isInt() ? processor.recallScene(static_cast<int>(args[0])) : juce::String("Invalid scene request.")); })
+        .withNativeFunction("clearScene", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isInt() ? processor.clearScene(static_cast<int>(args[0])) : juce::String("Invalid scene request.")); })
         .withNativeFunction("applyRig", [this](const auto& args, auto complete) { complete(args.size() == 1 || args.size() == 2 ? processor.applyRig(args[0], true, args.size() == 2 && static_cast<bool>(args[1])) : "Invalid rig request."); })
         .withNativeFunction("saveRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.saveRig(args[0].toString()) : "Give the rig a name."); })
         .withNativeFunction("loadRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.loadRig(args[0].toString()) : "Rig not found."); })

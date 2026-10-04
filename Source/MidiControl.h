@@ -6,7 +6,7 @@
 class MidiControl final : private juce::Thread
 {
 public:
-    struct Mapping { juce::String type = "cc", action = "none", rig; int channel = 0, number = 16; bool inverted = false; };
+    struct Mapping { juce::String type = "cc", action = "none", rig; int channel = 0, number = 16, scene = 0; bool inverted = false; };
     using Action = std::function<juce::String(const Mapping&, int)>;
     MidiControl();
     ~MidiControl() override { shutdown(); }

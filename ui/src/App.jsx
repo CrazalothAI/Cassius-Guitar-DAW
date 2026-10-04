@@ -173,7 +173,7 @@ export default function App() {
       <Alerts status={status} notice={notice} dismissed={dismissed} onDismiss={dismiss} onBuffer={setBuffer} />
       <div className="library-toolbar"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><span>Amps · Pedals · Cabinets · Saved rigs</span><button className="text-button practice-toggle" aria-expanded={practiceOpen && !midiOpen} onClick={() => { setPracticeOpen(midiOpen || !practiceOpen); setMidiOpen(false); }}>{practiceOpen && !midiOpen ? 'Tone controls' : 'Practice & record'}</button><button className="text-button" aria-expanded={midiOpen} onClick={() => setMidiOpen(!midiOpen)}>{midiOpen ? 'Close MIDI' : 'Foot control'}</button><label className="compare-match" title="Approximate A/B level matching from recent playing. Play similar notes before storing each side."><input type="checkbox" disabled={!native} checked={matchCompare} onChange={e => setMatchCompare(e.target.checked)} /> Match A/B loudness</label></div>
       <AmpHead clean={clean} tunerOpen={tunerOpen} status={status} />
-      {midiOpen ? <Midi status={status} onError={setNotice} /> : practiceOpen ? <Practice status={status} onError={setNotice} /> : <Stages page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} />}
+      {midiOpen ? <Midi status={status} onError={setNotice} /> : practiceOpen ? <Practice status={status} onError={setNotice} /> : <Stages page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice} />}
     </main>
     {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} />}
     <footer>
