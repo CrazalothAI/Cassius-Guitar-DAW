@@ -5,10 +5,16 @@ The standalone app's **Practice & record** button switches the lower controls to
 ## Playback
 
 - Import a local mono/stereo track using the audio formats registered in the native picker. WAV, AIFF, FLAC and Ogg are enabled in the current JUCE configuration; optional platform formats depend on build settings.
-- Play/Pause/Stop, seek, independent backing level (−60 to +6 dB), and A/B section looping. Loop points must be at least 50 ms apart. Looping wraps inside callbacks rather than waiting for a UI timer. Hard loop cuts can click when the endpoints differ; crossfaded musical loop editing is future work.
+- Play/Pause/Stop, seek, independent backing level (−60 to +6 dB), and A/B section looping. Loop points must be at least 50 ms apart. Looping wraps inside callbacks rather than waiting for a UI timer. Loop edge fade offers Off/2/5/10/20 ms (default 5): raised-cosine fades at the end and start reduce abrupt seams without changing cycle length. The maximum fade is one quarter of the cycle. This creates a brief level dip rather than overlapping musical material. Off retains hard cuts; waveform-aware crossfade editing is future work.
 - A worker decodes and uses JUCE's filtered resampler to prepare immutable stereo audio at the interface rate. The callback performs no file reading, decoding, allocation, ownership destruction, or mutex acquisition. Retired tracks are reclaimed on the worker using an audio-thread hazard pointer.
-- Decoded audio is bounded to 256 MiB per track (about 11.7 minutes at 48 kHz, 5.8 at 96 kHz). Replacing a track can temporarily retain both old and new buffers. Tracks of greater length, streaming and time stretching are future work.
+- Decoded audio is bounded to 256 MiB per track (about 11.7 minutes at 48 kHz, 5.8 at 96 kHz at 100%). Both decoded input and prepared output must fit this limit. At 50%, maximum source length halves. Stretch preparation can temporarily hold the old track, decoded input and stretched output (up to about 768 MiB plus processor scratch), with review retaining a separate buffer. Streaming longer tracks remains future work.
 - Failed loads preserve the current track. Tracks are rebuilt following device preparation and never automatically resume. Transport state is not part of complete rigs or DAW project serialization.
+
+## Pitch-preserving speed
+
+Speed offers 50/65/75/85/100/115/125/150%. Signalsmith Stretch prepares stereo audio on the disk worker after sample-rate conversion; 100% bypasses stretching. Changing speed pauses playback, preserves the cursor and A/B points, and reports preparation progress. Press Play to resume. **Cancel preparation** invalidates unfinished work and keeps the prior audio and speed. Replacing the track, changing device timing or closing the app also invalidates stale preparations.
+
+The cursor and loop points remain in original-track seconds. At 50%, one second of playback advances the cursor by half a second. Count-in and metronome tempo retain the chosen BPM; set BPM for the accompaniment yourself. Speed and loop fades cannot change during count-in or recording. Guitar monitoring and recording remain at the interface's normal rate, with no additional guitar latency. Takes store backing speed in metadata, but exclude backing audio as before. Very short tracks that cannot supply the stretcher's analysis window are rejected for speed changes while previous audio remains available. Slowing complex mixes can soften transients or add spectral artifacts; synthetic pitch checks do not establish final listening quality.
 
 ## Count-in and recording
 
@@ -33,6 +39,8 @@ Disk write failures, FIFO overflow and interruption of the guitar processing pat
 
 Native regression checks exercise 44.1/48/96 kHz playback, filtered sample-rate conversion, mono duplication, stereo level, pause/cursor, seek, EOF, loop wrapping inside variable callbacks, failed-load retention, count-in cancellation, unique take directories, float headroom, reopened dry/processed WAV frame equality, click/backing exclusion, deterministic FIFO overflow, and integration after high-gain processing but before Master. UI checks cover commands/count-in, record-time control locking, DAW ownership, error propagation and folder access.
 
+Speed checks measure unchanged 440/660 Hz stereo tones at 50/75/150% on 44.1/48/96 kHz interfaces, original-time seek/loop/EOF behavior, cursor/loop retention, cancellation, stale-publication rejection, invalid/short-track errors and real-time recording boundaries. Fade tests measure seam-jump reduction with unchanged loop length. UI tests cover speed/fade commands, progress, preparation cancellation and recording locks.
+
 Live guitar/interface listening and Linux native execution still require validation. Passing synthetic tests does not establish final listening quality or commercial release readiness.
 
-Windows validation (2026-10-03): 76 UI tests and all four CTest suites pass; Release VST3 and the side-by-side standalone build succeed. The browser panel fits the editor's 860 × 620 minimum width with vertical scrolling inside the practice panel and no horizontal overflow.
+Windows validation (2026-10-03): 77 UI tests and all four CTest suites pass; Release VST3 and the side-by-side standalone build succeed. The browser panel fits the editor's 860 × 620 minimum width with vertical scrolling inside the practice panel and no horizontal overflow.

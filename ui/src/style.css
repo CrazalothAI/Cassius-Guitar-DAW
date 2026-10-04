@@ -468,3 +468,5 @@ footer .warn { color: #efb86a; }
   .preset-actions .chip:first-child:not(:last-child) { display: none; }
   .metro-panel { width: auto; left: 0; }
 }
+.practice-fade { display: flex; align-items: center; gap: 10px; color: #b7b2a7; font-size: 11px; margin-top: 8px; }
+.practice-fade select { padding: 5px 8px; }

@@ -30,6 +30,19 @@ juce::AudioBuffer<float> read(const juce::File& path, int channels, int frames) 
     juce::AudioBuffer<float> audio(channels, frames); require(reader->read(&audio, 0, frames, 0, true, true), "Take WAV must read"); return audio;
 }
 void set(AmpSuiteAudioProcessor& p, const char* id, float x) { auto* param = p.apvts.getParameter(id); param->setValueNotifyingHost(param->convertTo0to1(x)); }
+void toneWav(const juce::File& file, double sampleRate) {
+    const int frames = static_cast<int>(sampleRate * 2); juce::AudioBuffer<float> audio(2, frames);
+    for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < frames; ++i)
+        audio.setSample(ch, i, .3f * std::sin(static_cast<float>(juce::MathConstants<double>::twoPi * (ch == 0 ? 440 : 660) * i / sampleRate)));
+    juce::WavAudioFormat format; auto stream = file.createOutputStream();
+    std::unique_ptr<juce::AudioFormatWriter> writer(format.createWriterFor(stream.release(), sampleRate, 2, 32, {}, 0));
+    require(writer && writer->writeFromAudioSampleBuffer(audio, 0, frames), "Practice tone fixture must write");
+}
+double frequency(const juce::AudioBuffer<float>& audio, int ch, double sampleRate) {
+    int crossings = 0; const int start = static_cast<int>(sampleRate * .2), end = audio.getNumSamples();
+    for (int i = start + 1; i < end; ++i) if (audio.getSample(ch, i - 1) <= 0 && audio.getSample(ch, i) > 0) ++crossings;
+    return crossings * sampleRate / (end - start);
+}
 }
 
 void runPracticeChecks()
@@ -40,6 +53,75 @@ void runPracticeChecks()
     struct Cleanup { juce::File folder, base; ~Cleanup() { if (folder.isAChildOf(base)) folder.deleteRecursively(); } } cleanup {folder, base};
     const auto stereo = folder.getChildFile("stereo.wav"), mono = folder.getChildFile("mono.wav");
     wav(stereo, 2, 96000, 48000); wav(mono, 1, 44100, 44100);
+    // Pitch-preserving speed preparation keeps stereo pitch, source-time seeks
+    // and loops, and real-time guitar recording boundaries at all host rates.
+    for (double hostRate : {44100., 48000., 96000.}) {
+        const auto tones = folder.getChildFile("tones.wav"); toneWav(tones, 48000);
+        PracticeEngine e; e.prepare(hostRate); e.setCountIn(0, 120, 4); e.command("level", 0); loaded(e, tones);
+        render(e, static_cast<int>(hostRate * .025));
+        for (double speed : {.5, .75, 1.5, 1.}) {
+            require(e.command("speed", speed).isEmpty(), "Valid practice speed must prepare");
+            waitFor([&] { return !static_cast<bool>(e.status()["loading"]); });
+            require(e.status()["error"].toString().isEmpty() && static_cast<double>(e.status()["speed"]) == speed, "Speed preparation must succeed");
+            require(std::abs(static_cast<double>(e.status()["duration"]) - 2) < .0001, "Timeline must stay in original-track seconds");
+            e.command("seek", .2); e.command("play");
+            const auto audio = render(e, static_cast<int>(hostRate * .7));
+            require(std::abs(frequency(audio, 0, hostRate) - 440) < 3 && std::abs(frequency(audio, 1, hostRate) - 660) < 3, "Speed must preserve both stereo pitches instead of varispeed detuning");
+            require(audio.getMagnitude(0, 0, audio.getNumSamples()) > .15f, "Stretched audio must remain audible");
+            require(std::abs(static_cast<double>(e.status()["position"]) - (.2 + speed * .7)) < .0001, "Speed must advance source-time position correctly");
+            e.command("pause");
+        }
+        e.command("a", .4); e.command("b", .8); e.command("loop", 1); e.command("seek", .79); render(e, 1);
+        e.command("speed", .5); waitFor([&] { return !static_cast<bool>(e.status()["loading"]); }); render(e, 1);
+        require(std::abs(static_cast<double>(e.status()["position"]) - .79) < .00001 && static_cast<bool>(e.status()["loop"]), "Speed changes must preserve cursor and loop selection while paused");
+        e.command("play"); render(e, static_cast<int>(hostRate * .04));
+        require(std::abs(static_cast<double>(e.status()["position"]) - .41) < .0001, "Slow playback must wrap the original-time loop at its true duration");
+        e.command("pause"); e.command("seek", 1.999); e.command("loop", 0); e.command("play"); render(e, 512);
+        require(!static_cast<bool>(e.status()["playing"]), "Stretched EOF must stop within a variable callback");
+        require(!e.command("speed", .49).isEmpty() && !e.command("speed", 1.51).isEmpty() && !e.command("speed", std::numeric_limits<double>::quiet_NaN()).isEmpty(), "Invalid speed controls must be rejected");
+    }
+    // A fade suppresses the seam discontinuity while preserving exact cycle
+    // duration; Off retains the original hard-boundary behavior.
+    {
+        const auto seam = folder.getChildFile("seam.wav");
+        juce::AudioBuffer<float> signal(2, 48000);
+        for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < 48000; ++i) signal.setSample(ch, i, i < 24000 ? -.4f : .4f);
+        juce::WavAudioFormat format; auto stream = seam.createOutputStream();
+        { std::unique_ptr<juce::AudioFormatWriter> writer(format.createWriterFor(stream.release(), 48000, 2, 32, {}, 0)); require(writer && writer->writeFromAudioSampleBuffer(signal, 0, 48000), "Seam fixture must write"); }
+        PracticeEngine e; e.prepare(48000); e.setCountIn(0, 120, 4); e.command("level", 0); loaded(e, seam); render(e, 1024);
+        e.command("a", .1); e.command("b", .9); e.command("loop", 1);
+        const auto boundaryJump = [&](double fade) {
+            e.command("pause"); e.command("fade", fade); e.command("seek", .899); e.command("play");
+            const auto audio = render(e, 128); float jump = 0;
+            for (int i = 1; i < 128; ++i) jump = juce::jmax(jump, std::abs(audio.getSample(0, i) - audio.getSample(0, i - 1)));
+            require(std::abs(static_cast<double>(e.status()["position"]) - (.1 + 128 / 48000. - .001)) < .00001, "Boundary smoothing must not shorten the loop"); return jump;
+        };
+        require(boundaryJump(0) > .7f && boundaryJump(5) < .01f, "Loop fades must materially reduce seam jumps");
+        e.command("pause"); const double priorSpeed = e.status()["speed"];
+        // Failed preparation preserves old audio, speed and selection.
+        const auto tiny = folder.getChildFile("tiny.wav"); wav(tiny, 1, 20, 48000); loaded(e, tiny);
+        e.command("speed", .5); waitFor([&] { return !static_cast<bool>(e.status()["loading"]); });
+        require(e.status()["error"].toString().contains("too short") && static_cast<double>(e.status()["speed"]) == priorSpeed && static_cast<double>(e.status()["requestedSpeed"]) == priorSpeed, "Unsupported short stretch must preserve prior audio and reset requested speed");
+    }
+    // Cancellation/replacement must invalidate the worker's pending publication.
+    // Recording frame count remains real time when accompaniment is slowed.
+    {
+        PracticeEngine e; e.prepare(48000); e.setCountIn(0, 120, 4); loaded(e, stereo);
+        e.command("speed", .5); e.command("cancelLoad"); const auto retainedSpeed = e.status()["speed"];
+        juce::Thread::sleep(50);
+        require(!static_cast<bool>(e.status()["loading"]) && static_cast<double>(e.status()["speed"]) == static_cast<double>(retainedSpeed), "Cancelled preparation must not publish later");
+        e.command("speed", .75); loaded(e, mono);
+        require(e.status()["track"].toString() == "mono.wav", "Replacement must win over stale stretch publication");
+        e.command("speed", .5); waitFor([&] { return !static_cast<bool>(e.status()["loading"]); });
+        require(e.record(folder).isEmpty(), "Slow backing must allow recording");
+        waitFor([&] { return static_cast<int>(e.status()["recordMode"]) == 2; });
+        require(!e.command("speed", 1).isEmpty() && !e.command("fade", 10).isEmpty(), "Preparation controls must lock during an armed take");
+        render(e, 384, .2f); e.command("pause"); waitFor([&] { return static_cast<int>(e.status()["recordMode"]) == 0; });
+        const juce::File take(e.status()["takePath"].toString()); const auto dry = read(take.getChildFile("Guitar dry.wav"), 1, 384), wet = read(take.getChildFile("Guitar processed.wav"), 2, 384);
+        require(dry.getSample(0, 200) == .125f && wet.getSample(0, 200) == .2f, "Slow accompaniment must stay excluded and leave recording samples unscaled in time");
+        const auto metadata = juce::JSON::parse(take.getChildFile("Cassian take.json").loadFileAsString());
+        require(static_cast<double>(metadata["backingSpeed"]) == .5, "Take metadata must remember accompaniment speed");
+    }
     // Track level, sample-rate conversion, channel duplication, pause, seek, EOF,
     // and a loop boundary inside a variable-sized callback.
     for (double rate : {44100., 48000., 96000.}) {

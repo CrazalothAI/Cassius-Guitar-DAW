@@ -15,6 +15,8 @@ try {
     $configureArgs = @('--preset', 'windows')
     if (Test-Path '.deps/JUCE/CMakeLists.txt') { $configureArgs += "-DFETCHCONTENT_SOURCE_DIR_JUCE=$projectRoot/.deps/JUCE" }
     if (Test-Path '.deps/nam/NAM/dsp.h') { $configureArgs += "-DFETCHCONTENT_SOURCE_DIR_NAM=$projectRoot/.deps/nam" }
+    if (Test-Path '.deps/signalsmith-stretch/CMakeLists.txt') { $configureArgs += "-DFETCHCONTENT_SOURCE_DIR_SIGNALSMITH-STRETCH=$projectRoot/.deps/signalsmith-stretch" }
+    if (Test-Path '.deps/signalsmith-linear/CMakeLists.txt') { $configureArgs += "-DFETCHCONTENT_SOURCE_DIR_SIGNALSMITH-LINEAR=$projectRoot/.deps/signalsmith-linear" }
     & $cmake @configureArgs
     if ($LASTEXITCODE -ne 0) { throw 'CMake configuration failed.' }
     & $cmake --build --preset release --parallel 4

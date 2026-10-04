@@ -1,9 +1,16 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 3.24)
 project(Cassian VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 include(FetchContent)
+# Header-only time stretching and FFT support, pinned independently.
+FetchContent_Declare(signalsmith-linear GIT_REPOSITORY https://github.com/Signalsmith-Audio/linear.git
+    GIT_TAG de55e6a50ffcf6f8f43f649692d94691c7025151)
+FetchContent_MakeAvailable(signalsmith-linear)
+FetchContent_Declare(signalsmith-stretch GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
+    GIT_TAG a670068d9aeb64913331d5cc29337b19a457a7df GIT_SUBMODULES "")
+FetchContent_MakeAvailable(signalsmith-stretch)
 FetchContent_Declare(JUCE GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG 51a8a6d7aeae7326956d747737ccf1575e61e209)
 FetchContent_MakeAvailable(JUCE)
@@ -74,7 +81,7 @@ if(WIN32)
     target_compile_definitions(AmpSuite PUBLIC JUCE_ASIO=1)
     target_include_directories(AmpSuite PUBLIC "${CASSIAN_ASIO_SDK}/common")
 endif()
-target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra juce::juce_cryptography
+target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets signalsmith-stretch juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra juce::juce_cryptography
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 include(CTest)
 if(BUILD_TESTING)

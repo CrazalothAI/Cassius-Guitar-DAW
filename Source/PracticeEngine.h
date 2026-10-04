@@ -23,9 +23,10 @@ public:
     bool counting() const { return countActive.load(); }
     void interrupted() { if (recordMode.load() >= 2 && recordMode.load() <= 3) { startRequested.store(false); countActive.store(false); recordingFault.store(2); recordMode.store(4); } }
 private:
-    struct Track { juce::AudioBuffer<float> audio; double rate = 48000; juce::String name; };
+    struct Track { juce::AudioBuffer<float> audio; double rate = 48000, speed = 1, duration = 0; juce::String name; };
     void run() override;
-    void readTrack(const juce::File&, unsigned generation);
+    void readTrack(const juce::File&, unsigned generation, double speed, bool preservePosition);
+    bool cancelled(unsigned generation);
     void beginRecording(const juce::File&);
     void drainRecording();
     void finishTake();
@@ -36,6 +37,7 @@ private:
     juce::File activeTake;
     juce::String pendingRigJson, activeRigJson;
     bool trackPending = false, recordPending = false;
+    bool preserveTrackPosition = false;
     std::atomic<bool> loadingTrack {false};
     unsigned loadGeneration = 0;
     juce::String trackName, error, takePath;
@@ -45,6 +47,8 @@ private:
     std::atomic<bool> playing {false}, countActive {false}, startRequested {false};
     std::atomic<double> rate {48000}, duration {0}, reportedPosition {0}, seek {-1};
     std::atomic<float> levelDb {-12};
+    std::atomic<double> requestedSpeed {1}, playbackSpeed {1}, loadProgress {0};
+    std::atomic<double> loopFadeMs {5};
     std::atomic<bool> loop {false};
     std::atomic<double> loopA {0}, loopB {0};
     std::atomic<int> bars {0}, beats {4}, countBeat {0};

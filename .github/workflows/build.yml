@@ -30,6 +30,8 @@ jobs:
           path: |
             build/AmpSuite_artefacts/Release/Standalone/*.exe
             build/AmpSuite_artefacts/Release/VST3/**
+            THIRD_PARTY.md
+            licenses/**
       # Every push to main replaces the "latest" pre-release, so the newest
       # Cassian.exe and VST3 are always one click away on the Releases page.
       - name: Publish latest build
@@ -39,7 +41,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $release = "build/AmpSuite_artefacts/Release"
-          Compress-Archive -Path "$release/Standalone/Cassian.exe", "$release/VST3/Cassian.vst3" -DestinationPath Cassian-Windows.zip
+          Compress-Archive -Path "$release/Standalone/Cassian.exe", "$release/VST3/Cassian.vst3", "THIRD_PARTY.md", "licenses" -DestinationPath Cassian-Windows.zip
           gh release view latest *> $null
           if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
           $notes = "Built from ${{ github.sha }}.`n`nUnzip, then run Cassian.exe, or copy Cassian.vst3 into your VST3 folder (usually C:\Program Files\Common Files\VST3)."

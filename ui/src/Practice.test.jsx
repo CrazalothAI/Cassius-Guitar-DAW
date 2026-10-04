@@ -21,10 +21,27 @@ it('uses separate transport, backing gain, loop and count-in commands', async ()
 it('locks seeking and loading during recording while Finish take remains usable', async () => {
   render(<Practice status={{...status, practice: {...status.practice, recordMode: 3, recordSeconds: 71}}} onError={vi.fn()}/>);
   expect(screen.getByLabelText('Backing track position').disabled).toBe(true);
+  expect(screen.getByLabelText('Practice speed').disabled).toBe(true);
+  expect(screen.getByLabelText('Loop edge fade').disabled).toBe(true);
   expect(screen.getByRole('button', {name: 'Load backing track'}).disabled).toBe(true);
   expect(screen.getByText('Recording · 1:11')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', {name: 'Finish take'}));
   await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('practiceControl', 'pause', 0));
+});
+it('sends pitch-preserving speed and loop fade controls with preparation feedback', async () => {
+  const view = render(<Practice status={status} onError={vi.fn()}/>);
+  fireEvent.change(screen.getByLabelText('Practice speed'), {target: {value: '0.75'}});
+  fireEvent.change(screen.getByLabelText('Loop edge fade'), {target: {value: '10'}});
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('practiceControl', 'speed', .75));
+  expect(bridge.invoke).toHaveBeenCalledWith('practiceControl', 'fade', 10);
+  view.rerender(<Practice status={{...status, practice: {...status.practice, loading: true, requestedSpeed: .75, loadProgress: .4}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('button', {name: 'Preparing track · 40%'}).disabled).toBe(true);
+  expect(screen.getByLabelText('Practice speed').disabled).toBe(true);
+  expect(screen.getByLabelText('Practice speed').value).toBe('0.75');
+  expect(screen.getByRole('button', {name: 'Play'}).disabled).toBe(true);
+  expect(screen.getByLabelText('Backing track position').disabled).toBe(true);
+  fireEvent.click(screen.getByRole('button', {name: 'Cancel preparation'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('practiceControl', 'cancelLoad', 0));
 });
 it('explains DAW ownership and disables standalone actions inside a plugin', () => {
   render(<Practice status={{...status, deviceSettingsAvailable: false}} onError={vi.fn()}/>);

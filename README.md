@@ -20,6 +20,8 @@ The native window, executable, and supported system tray use the Cassian wolf lo
 4. Select **Amp** below the head to choose Lumen, Ferrum, a NAM capture, or Natural DI. The built-in amps work without downloading captures.
 5. Raise Master gradually from its default −12 dB. Use the IN/OUT and stage meters to check levels, then save the result in **Library → Presets → Save current rig**.
 
+For difficult passages, open **Practice & record**, load a backing track and choose **Speed** from 50–150%. Pitch stays unchanged. Preparation pauses the track and preserves its cursor and loop points; press Play when ready. The timeline uses the original track's seconds. **Loop edge fade** applies short fades around the seam (5 ms by default) to reduce clicks without shortening the loop. Metronome/count-in BPM remains independently set. See [practice and recording](docs/PRACTICE-RECORDING.md) for preparation, memory and sound-quality limits.
+
 ### Audio interfaces
 
 Cassian has no manufacturer whitelist. Standalone supports interfaces exposed through its JUCE audio backends, including ASIO and Windows Audio on Windows. A VST3 host manages the interface itself. Compatibility depends on the installed driver and its supported channels, rates, and buffers; each hardware model has not been independently tested.
@@ -161,7 +163,7 @@ For an independent Windows interface check, close apps holding the driver and ru
 ### Windows requirements
 
 - Visual Studio 2022 Build Tools with Desktop development with C++, MSVC v143, and a Windows 10/11 SDK.
-- CMake 3.22+, Git, and Node.js/npm. CI uses Node 22.
+- CMake 3.24+, Git, and Node.js/npm. CI uses Node 22.
 - WebView2 Evergreen Runtime for running the native editor; the SDK is downloaded separately by the setup script.
 
 From the repository root in PowerShell:
@@ -180,7 +182,7 @@ cmake --build --preset release --parallel 4
 ctest --preset release --output-on-failure
 ```
 
-CMake fetches pinned JUCE 8.0.6 and NAM Core 0.5.4 revisions, installs locked frontend dependencies, builds the UI, and embeds its single HTML resource. The native app does not need a development server. The build helper also supports existing `.deps/JUCE` and `.deps/nam` source checkouts.
+CMake fetches pinned JUCE 8.0.6, NAM Core 0.5.4, Signalsmith Stretch 1.3.2 and Signalsmith Linear 0.6.4 revisions, installs locked frontend dependencies, builds the UI, and embeds its single HTML resource. Stretch prepares accompaniment on the worker; it adds no stretching work or latency to live guitar processing. The native app does not need a development server. The build helper also supports existing `.deps/JUCE`, `.deps/nam`, `.deps/signalsmith-stretch` and `.deps/signalsmith-linear` source checkouts.
 
 Outputs:
 
@@ -231,7 +233,7 @@ File reading, hashing, parsing, capture preparation, warm-up, and managed storag
 
 Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **76 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, and offline reamp length/rate/gain/snapshot consistency with byte-identical originals. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-03**: **77 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
