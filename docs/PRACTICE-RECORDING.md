@@ -10,6 +10,16 @@ The standalone app's **Practice & record** button switches the lower controls to
 - Decoded audio is bounded to 256 MiB per track (about 11.7 minutes at 48 kHz, 5.8 at 96 kHz at 100%). Both decoded input and prepared output must fit this limit. At 50%, maximum source length halves. Stretch preparation can temporarily hold the old track, decoded input and stretched output (up to about 768 MiB plus processor scratch), with review retaining a separate buffer. Streaming longer tracks remains future work.
 - Failed loads preserve the current track. Tracks are rebuilt following device preparation and never automatically resume. Transport state is not part of complete rigs or DAW project serialization.
 
+## Waveform and named sections
+
+The waveform uses up to 512 stereo min/max bins prepared on the track worker before stretching. Opposite-polarity stereo channels do not cancel in the display. It shows original-track seconds, the playhead and A/B region. Click to seek, or focus it and use Left/Right for one-second steps, Shift plus arrows for ten seconds, and Home/End. Seeking is disabled during loading, count-in and recording. The editor fetches envelope data once per successful track revision; normal status polling only moves the cursor.
+
+Open **Sections** to save the current A/B loop with a name, replace a selected section, recall it or delete it. Recall pauses at A and enables the loop without starting playback. Deleting a section does not change the active loop. Up to 32 sections per track are supported, with names up to 48 characters and a minimum 50 ms loop. Loading, count-in and recording block section edits/recall.
+
+Sections are keyed by the SHA-256 of the original file bytes and saved under the shared managed library's `practice` folder, separately from tone rigs and takes. Renamed identical copies share sections; a re-encoded or otherwise changed file has a separate bank. Speed and sample-rate preparation keep source-time points. Each disk mutation rereads the bank under an interprocess lock and atomically replaces it, preserving changes from other app instances. Invalid metadata reports an error, preserves its bytes, and does not prevent audio playback. When shared storage is unavailable, sections use a bounded session-only cache.
+
+Failed or cancelled track imports preserve the previous waveform and bank. Waveform and section preparation add no audio-thread disk access or allocation. Playback still uses the existing bounded track buffer; this display does not add streaming support.
+
 ## Pitch-preserving speed
 
 Speed offers 50/65/75/85/100/115/125/150%. Signalsmith Stretch prepares stereo audio on the disk worker after sample-rate conversion; 100% bypasses stretching. Changing speed pauses playback, preserves the cursor and A/B points, and reports preparation progress. Press Play to resume. **Cancel preparation** invalidates unfinished work and keeps the prior audio and speed. Replacing the track, changing device timing or closing the app also invalidates stale preparations.
@@ -41,6 +51,8 @@ Native regression checks exercise 44.1/48/96 kHz playback, filtered sample-rate 
 
 Speed checks measure unchanged 440/660 Hz stereo tones at 50/75/150% on 44.1/48/96 kHz interfaces, original-time seek/loop/EOF behavior, cursor/loop retention, cancellation, stale-publication rejection, invalid/short-track errors and real-time recording boundaries. Fade tests measure seam-jump reduction with unchanged loop length. UI tests cover speed/fade commands, progress, preparation cancellation and recording locks.
 
+Waveform/section checks cover stereo extrema without cancellation, bounded envelopes and revision-only fetching, pointer/keyboard seeks, failed/cancelled publication, source-content identity, renamed copies, speed/rate retention, paused recall, CRUD/limits, corrupted metadata preservation, stale writers and deleted targets, and loading/count-in/recording locks. No waveform peaks are repeated in ordinary status payloads.
+
 Live guitar/interface listening and Linux native execution still require validation. Passing synthetic tests does not establish final listening quality or commercial release readiness.
 
-Windows validation (2026-10-03): 77 UI tests and all four CTest suites pass; Release VST3 and the side-by-side standalone build succeed. The browser panel fits the editor's 860 × 620 minimum width with vertical scrolling inside the practice panel and no horizontal overflow.
+Windows validation (2026-10-03): 103 UI tests and all four CTest suites pass; Release VST3 and the side-by-side standalone build succeed. The browser panel fits the editor's 860 × 620 minimum width with vertical scrolling inside the practice panel and no document overflow.

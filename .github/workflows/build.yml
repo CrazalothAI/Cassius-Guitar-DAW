@@ -23,15 +23,19 @@ jobs:
       - run: cmake --preset windows
       - run: cmake --build --preset release --parallel 2
       - run: ctest --preset release
+      - name: Build Windows installer and portable download
+        shell: pwsh
+        run: ./scripts/package-windows.ps1
+      - name: Test installation, upgrade and uninstall
+        shell: pwsh
+        run: ./scripts/test-windows-installer.ps1
       - uses: actions/upload-artifact@v5
         with:
           name: Cassian-Windows
           if-no-files-found: error
           path: |
-            build/AmpSuite_artefacts/Release/Standalone/*.exe
-            build/AmpSuite_artefacts/Release/VST3/**
-            THIRD_PARTY.md
-            licenses/**
+            Cassian-Setup.exe
+            Cassian-Windows.zip
       # Every push to main replaces the "latest" pre-release, so the newest
       # Cassian.exe and VST3 are always one click away on the Releases page.
       - name: Publish latest build
@@ -40,9 +44,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $release = "build/AmpSuite_artefacts/Release"
-          Compress-Archive -Path "$release/Standalone/Cassian.exe", "$release/VST3/Cassian.vst3", "THIRD_PARTY.md", "licenses" -DestinationPath Cassian-Windows.zip
           gh release view latest *> $null
           if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
-          $notes = "Built from ${{ github.sha }}.`n`nUnzip, then run Cassian.exe, or copy Cassian.vst3 into your VST3 folder (usually C:\Program Files\Common Files\VST3)."
-          gh release create latest Cassian-Windows.zip --prerelease --title "Latest build" --target ${{ github.sha }} --notes $notes
+          $notes = "Built from ${{ github.sha }}.`n`nDownload Cassian-Setup.exe and run it to install Cassian, shortcuts and the optional VST3 plugin. Setup installs Microsoft WebView2 if needed (internet required for that step).`n`nFor portable use, extract Cassian-Windows.zip and run Cassian.exe at the top of the folder. The GitHub source ZIP is for developers."
+          gh release create latest Cassian-Setup.exe Cassian-Windows.zip --prerelease --title "Latest Windows download" --target ${{ github.sha }} --notes $notes

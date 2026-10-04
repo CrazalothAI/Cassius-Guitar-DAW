@@ -1,0 +1,32 @@
+CASSIAN
+
+Open Cassian from the Windows Start menu, your desktop shortcut, or Cassian.exe.
+The installer places the app in your user profile; administrator access is not required.
+
+FIRST SOUND
+1. Connect your guitar and headphones/speakers to your audio interface.
+2. Open Audio settings in Cassian. Choose your interface, guitar input and outputs.
+3. Select Glass clean or Tight metal from the preset menu. The built-in amps need no additional files.
+4. Raise Master gradually. Keep the interface input gain below clipping.
+5. Use your interface's Playback monitoring to avoid doubling the dry guitar.
+
+PRACTICE
+Open Practice & record to load a backing track, change speed without changing pitch,
+see its waveform, save named loop sections, and record dry/processed guitar takes.
+
+OPTIONAL DAW PLUGIN
+The installer can also install the VST3 plugin for the current user at:
+%LOCALAPPDATA%\Programs\Common\VST3\Cassian.vst3
+Rescan plugins in your DAW. If needed, add that VST3 location to its scan paths.
+
+UPDATES AND UNINSTALLING
+Close Cassian and any DAW using its plugin, then run the newer setup EXE to update.
+Uninstall from Windows Settings > Apps > Cassian.
+Your saved settings, imported captures, rigs, practice sections and recordings are retained.
+
+PORTABLE DOWNLOAD
+If using Cassian-Windows.zip, extract all files first, then open Cassian.exe at the top
+of the extracted folder. The editor needs Microsoft's WebView2 Evergreen Runtime.
+
+Help and source: https://github.com/CrazalothAI/Cassius
+Third-party notices are installed alongside the app.

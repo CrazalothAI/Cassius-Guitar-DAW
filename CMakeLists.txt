@@ -3,6 +3,11 @@ project(Cassian VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# Ship the C/C++ runtime inside the binaries so a fresh PC does not need a
+# separate Visual C++ Redistributable. Set before all fetched targets are made.
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 include(FetchContent)
 # Header-only time stretching and FFT support, pinned independently.
 FetchContent_Declare(signalsmith-linear GIT_REPOSITORY https://github.com/Signalsmith-Audio/linear.git
@@ -71,7 +76,7 @@ juce_add_plugin(AmpSuite COMPANY_NAME MyAudioLab BUNDLE_ID com.myaudiolab.ampsui
     IS_SYNTH FALSE NEEDS_MIDI_INPUT TRUE NEEDS_MIDI_OUTPUT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE COPY_PLUGIN_AFTER_BUILD FALSE
     NEEDS_WEB_BROWSER TRUE NEEDS_WEBVIEW2 TRUE)
-target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/PracticeEngine.cpp Source/TakeLibrary.cpp Source/MidiControl.cpp)
+target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/PracticeEngine.cpp Source/PracticeSections.cpp Source/TakeLibrary.cpp Source/MidiControl.cpp)
 target_sources(AmpSuite_Standalone PRIVATE Source/Standalone.cpp)
 target_link_libraries(AmpSuite_Standalone PRIVATE CassianBrandAssets)
 target_compile_definitions(AmpSuite_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
@@ -80,13 +85,18 @@ target_compile_definitions(AmpSuite PUBLIC JUCE_WEB_BROWSER=1 JUCE_USE_WIN_WEBVI
 if(WIN32)
     target_compile_definitions(AmpSuite PUBLIC JUCE_ASIO=1)
     target_include_directories(AmpSuite PUBLIC "${CASSIAN_ASIO_SDK}/common")
+    if(MSVC)
+        # Microsoft's prebuilt WebView2 static loader requests MSVCRT; all
+        # Cassian targets use /MT instead, so resolve through that one runtime.
+        target_link_options(AmpSuite PUBLIC /NODEFAULTLIB:MSVCRT)
+    endif()
 endif()
 target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets signalsmith-stretch juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra juce::juce_cryptography
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 include(CTest)
 if(BUILD_TESTING)
     juce_add_console_app(AmpSuiteTests PRODUCT_NAME CassianTests NEEDS_WEBVIEW2 TRUE NEEDS_WEB_BROWSER TRUE)
-    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp tests/SoundTests.cpp tests/PracticeTests.cpp tests/TakeTests.cpp tests/MidiTests.cpp tests/ModulationTests.cpp tests/SceneTests.cpp)
+    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp tests/SoundTests.cpp tests/PracticeTests.cpp tests/TakeTests.cpp tests/MidiTests.cpp tests/ModulationTests.cpp tests/SceneTests.cpp tests/PracticeSectionTests.cpp)
     target_link_libraries(AmpSuiteTests PRIVATE AmpSuite nam_core juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra)
     add_test(NAME processor COMMAND AmpSuiteTests "${nam_SOURCE_DIR}/example_models/wavenet.nam")
     juce_add_console_app(CassianModelCheck PRODUCT_NAME CassianModelCheck)

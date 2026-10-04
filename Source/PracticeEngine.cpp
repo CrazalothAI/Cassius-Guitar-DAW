@@ -22,7 +22,7 @@ private:
 };
 }
 
-PracticeEngine::PracticeEngine(int frames) : Thread("Cassian practice disk IO"), fifo(juce::jmax(32, frames)), recordingAudio(3, juce::jmax(32, frames))
+PracticeEngine::PracticeEngine(int frames, juce::File sectionsDirectory) : Thread("Cassian practice disk IO"), sections(std::move(sectionsDirectory)), fifo(juce::jmax(32, frames)), recordingAudio(3, juce::jmax(32, frames))
 { gain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(-12.0f)); startThread(); }
 PracticeEngine::~PracticeEngine()
 {
@@ -95,10 +95,12 @@ bool PracticeEngine::cancelled(unsigned generation)
 { const juce::ScopedLock lock(control); return threadShouldExit() || generation != loadGeneration; }
 void PracticeEngine::readTrack(const juce::File& file, unsigned generation, double speed, bool preservePosition)
 {
+    const auto fileSize = file.getSize(); const auto modified = file.getLastModificationTime();
     juce::AudioFormatManager formats; formats.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
     juce::String failure;
     std::unique_ptr<Track> next;
+    juce::var nextPeaks, nextSections {juce::Array<juce::var>()}; juce::String nextKey, nextSectionError;
     // Bound decoded memory, not compressed file size. Stereo float audio <= 256 MiB.
     constexpr juce::int64 maximumFrames = 256 * 1024 * 1024 / (2 * sizeof(float));
     const double targetRate = rate.load();
@@ -127,6 +129,17 @@ void PracticeEngine::readTrack(const juce::File& file, unsigned generation, doub
             if (mono) next->audio.copyFrom(1, 0, next->audio, 0, 0, next->audio.getNumSamples());
             for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < next->audio.getNumSamples(); ++i)
                 if (!std::isfinite(next->audio.getSample(ch, i))) next->audio.setSample(ch, i, 0);
+            // A bounded stereo min/max envelope in original-track time. Calculate
+            // before stretching; status polls never scan or resend this audio.
+            juce::Array<juce::var> peaks; const int samples = next->audio.getNumSamples(), bins = juce::jmin(512, samples);
+            for (int bin = 0; bin < bins; ++bin) {
+                if (cancelled(generation)) return;
+                const int begin = static_cast<int>(static_cast<juce::int64>(bin) * samples / bins), end = static_cast<int>(static_cast<juce::int64>(bin + 1) * samples / bins);
+                float low = 0, high = 0;
+                for (int ch = 0; ch < 2; ++ch) for (int i = begin; i < end; ++i) { const auto x = next->audio.getSample(ch, i); low = juce::jmin(low, x); high = juce::jmax(high, x); }
+                peaks.add(juce::var(juce::Array<juce::var> {low, high}));
+            }
+            nextPeaks = juce::var(peaks);
             if (speed != 1) {
                 signalsmith::stretch::SignalsmithStretch<float> stretch(0); stretch.presetDefault(2, static_cast<float>(targetRate));
                 const int inputFrames = next->audio.getNumSamples(), outputFrames = static_cast<int>(stretchedFrames);
@@ -159,6 +172,13 @@ void PracticeEngine::readTrack(const juce::File& file, unsigned generation, doub
             }
         }
     }
+    if (next) {
+        if (cancelled(generation)) return;
+        nextKey = juce::SHA256(file).toHexString(); // Streaming file hash on the worker.
+        if (cancelled(generation)) return;
+        if (!file.existsAsFile() || file.getSize() != fileSize || file.getLastModificationTime() != modified) { next.reset(); failure = "The backing track changed during preparation. Reload it."; }
+        else try { nextSections = sections.load(nextKey, next->duration); } catch (const std::exception& e) { nextSectionError = e.what(); }
+    }
     const juce::ScopedLock lock(control);
     if (generation != loadGeneration) return;
     loadingTrack.store(false);
@@ -170,6 +190,7 @@ void PracticeEngine::readTrack(const juce::File& file, unsigned generation, doub
     seek.store(preservePosition ? juce::jlimit(0., seconds, reportedPosition.load()) : 0);
     if (!preservePosition) { loop.store(false); loopA.store(0); loopB.store(seconds); }
     duration.store(seconds); playbackSpeed.store(next->speed); loadProgress.store(1); trackName = next->name; loadedFile = file;
+    trackKey = nextKey; wavePeaks = nextPeaks; sectionRows = nextSections; sectionError = nextSectionError; ++waveRevision; ++sectionRevision;
     auto old = std::move(ownedTrack); ownedTrack = std::move(next); track.store(ownedTrack.get());
     if (old) retired.push_back(std::move(old));
 }
@@ -371,7 +392,8 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
 juce::var PracticeEngine::status()
 {
     auto o = std::make_unique<juce::DynamicObject>();
-    { const juce::ScopedLock lock(control); o->setProperty("track", trackName); o->setProperty("error", error); o->setProperty("takePath", takePath); }
+    { const juce::ScopedLock lock(control); o->setProperty("track", trackName); o->setProperty("error", error); o->setProperty("takePath", takePath);
+      o->setProperty("waveRevision", waveRevision); o->setProperty("sections", sectionRows); o->setProperty("sectionRevision", sectionRevision); o->setProperty("sectionError", sectionError); }
     o->setProperty("loading", loadingTrack.load());
     o->setProperty("speed", playbackSpeed.load()); o->setProperty("requestedSpeed", requestedSpeed.load()); o->setProperty("loadProgress", loadProgress.load()); o->setProperty("fade", loopFadeMs.load());
     o->setProperty("duration", duration.load()); o->setProperty("position", reportedPosition.load());
@@ -380,4 +402,41 @@ juce::var PracticeEngine::status()
     o->setProperty("recordMode", recordMode.load()); o->setProperty("recordSeconds", recordedFrames.load() / recordingRate.load());
     o->setProperty("level", levelDb.load()); o->setProperty("loop", loop.load()); o->setProperty("a", loopA.load()); o->setProperty("b", loopB.load());
     return juce::var(o.release());
+}
+juce::var PracticeEngine::waveform()
+{
+    const juce::ScopedLock lock(control); auto o = std::make_unique<juce::DynamicObject>();
+    o->setProperty("revision", waveRevision); o->setProperty("trackId", trackKey); o->setProperty("duration", duration.load()); o->setProperty("peaks", wavePeaks);
+    return juce::var(o.release());
+}
+bool PracticeEngine::sectionsBlocked() const
+{ return duration.load() <= 0 || loadingTrack.load() || recordMode.load() != 0 || countActive.load() || startRequested.load(); }
+juce::String PracticeEngine::saveSection(const juce::String& name, const juce::String& id)
+{
+    const juce::ScopedLock lock(control);
+    if (sectionsBlocked()) return "Load a track and finish preparation, the take or count-in before editing sections.";
+    try { sectionRows = sections.change(trackKey, duration.load(), id, name, loopA.load(), loopB.load(), false); sectionError.clear(); ++sectionRevision; return {}; }
+    catch (const std::exception& e) { return e.what(); }
+}
+juce::String PracticeEngine::removeSection(const juce::String& id)
+{
+    const juce::ScopedLock lock(control);
+    if (sectionsBlocked()) return "Finish preparation, the take or count-in before editing sections.";
+    try { sectionRows = sections.change(trackKey, duration.load(), id, {}, 0, 0, true); sectionError.clear(); ++sectionRevision; return {}; }
+    catch (const std::exception& e) { return e.what(); }
+}
+juce::String PracticeEngine::recallSection(const juce::String& id)
+{
+    const juce::ScopedLock lock(control);
+    if (sectionsBlocked()) return "Finish preparation, the take or count-in before recalling a section.";
+    try {
+        auto latest = sections.load(trackKey, duration.load());
+        for (const auto& row : *latest.getArray()) if (row["id"].toString() == id) {
+            const double a = row["a"], b = juce::jmin(duration.load(), static_cast<double>(row["b"]));
+            playing.store(false); startRequested.store(false); startEpoch.fetch_add(1);
+            loop.store(false); loopA.store(a); loopB.store(b); seek.store(a); loop.store(true);
+            sectionRows = latest; sectionError.clear(); ++sectionRevision; return {};
+        }
+        sectionRows = latest; ++sectionRevision; return "That practice section no longer exists. Reload the track.";
+    } catch (const std::exception& e) { return e.what(); }
 }

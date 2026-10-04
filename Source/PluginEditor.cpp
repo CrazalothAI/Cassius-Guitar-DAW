@@ -76,6 +76,19 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (args.size() != 2 || !args[0].isString() || !(args[1].isInt() || args[1].isInt64() || args[1].isDouble())) { complete(juce::String("Invalid practice request.")); return; }
             complete(processor.practice.command(args[0].toString(), static_cast<double>(args[1])));
         })
+        .withNativeFunction("getPracticeWaveform", [this](const auto&, auto complete) { complete(processor.practice.waveform()); })
+        .withNativeFunction("savePracticeSection", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Practice sections are available in standalone.")); return; }
+            complete(args.size() == 2 && args[0].isString() && args[1].isString() ? processor.practice.saveSection(args[0].toString(), args[1].toString()) : juce::String("Invalid section request."));
+        })
+        .withNativeFunction("recallPracticeSection", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Practice sections are available in standalone.")); return; }
+            complete(args.size() == 1 && args[0].isString() ? processor.practice.recallSection(args[0].toString()) : juce::String("Invalid section request."));
+        })
+        .withNativeFunction("removePracticeSection", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Practice sections are available in standalone.")); return; }
+            complete(args.size() == 1 && args[0].isString() ? processor.practice.removeSection(args[0].toString()) : juce::String("Invalid section request."));
+        })
         .withNativeFunction("practiceStart", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Use your DAW's transport and recording.")); return; }
             if (args.size() != 2 || (args[0].toString() != "play" && args[0].toString() != "record") || !(args[1].isInt() || args[1].isInt64() || args[1].isDouble()) || !std::isfinite(static_cast<double>(args[1])) || static_cast<double>(args[1]) < 0 || static_cast<double>(args[1]) > 2 || static_cast<double>(args[1]) != std::floor(static_cast<double>(args[1]))) { complete(juce::String("Invalid count-in request.")); return; }

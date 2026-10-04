@@ -1,0 +1,63 @@
+param(
+    [string]$Standalone = 'build/AmpSuite_artefacts/Release/Standalone/Cassian.exe'
+)
+$ErrorActionPreference = 'Stop'
+$projectRoot = Split-Path -Parent $PSScriptRoot
+$allowedRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot 'build/installer-tests')).TrimEnd('\') + '\'
+$testRoot = Join-Path $allowedRoot ([Guid]::NewGuid().ToString('N'))
+$installDir = Join-Path $testRoot 'app'
+$output = Join-Path $testRoot 'output'
+$exe = if ([IO.Path]::IsPathRooted($Standalone)) { $Standalone } else { Join-Path $projectRoot $Standalone }
+$uninstaller = Join-Path $installDir 'unins000.exe'
+function RunInstaller([string]$program, [string[]]$arguments) {
+    $process = Start-Process -FilePath $program -ArgumentList $arguments -WindowStyle Hidden -PassThru
+    if (!$process.WaitForExit(120000)) { throw "Installer did not finish; inspect $testRoot before retrying." }
+    if ($process.ExitCode -ne 0) { throw "Installer exited with code $($process.ExitCode); inspect $testRoot." }
+}
+function Assert([bool]$condition, [string]$message) {
+    if (!$condition) { throw $message }
+}
+New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
+try {
+    & "$PSScriptRoot/package-windows.ps1" -Standalone $Standalone -SmokeTest -SkipRootCopy -OutputDirectory $output -AppVersion '0.0.1'
+    $setup = Join-Path $output 'Cassian-Setup-Smoke.exe'
+    $installArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=""', '/COMPONENTS="app,vst3"', "/DIR=`"$installDir`"")
+    RunInstaller $setup ($installArgs + "/LOG=`"$(Join-Path $testRoot 'install.log')`"")
+    $installedExe = Join-Path $installDir 'Cassian.exe'
+    Assert (Test-Path -LiteralPath $installedExe) 'Installed app is missing.'
+    Assert ((Get-FileHash -LiteralPath $installedExe).Hash -eq (Get-FileHash -LiteralPath $exe).Hash) 'Installed executable differs from the built app.'
+    Assert (Test-Path -LiteralPath (Join-Path $installDir 'VST3/Cassian.vst3/Contents/x86_64-win/Cassian.vst3')) 'Optional VST3 was not installed.'
+    $shortcut = Join-Path $installDir 'Cassian Test.lnk'
+    Assert (Test-Path -LiteralPath $shortcut) 'App shortcut is missing.'
+    $shell = New-Object -ComObject WScript.Shell
+    Assert ($shell.CreateShortcut($shortcut).TargetPath -eq $installedExe) 'Shortcut does not point at the app.'
+    $sentinel = Join-Path $installDir 'user-data.txt'
+    [IO.File]::WriteAllText($sentinel, 'preserve user data')
+    & "$PSScriptRoot/package-windows.ps1" -Standalone $Standalone -SmokeTest -SkipRootCopy -OutputDirectory $output
+    RunInstaller $setup ($installArgs + "/LOG=`"$(Join-Path $testRoot 'upgrade.log')`"")
+    Assert ((Get-FileHash -LiteralPath $installedExe).Hash -eq (Get-FileHash -LiteralPath $exe).Hash) 'Upgrade did not retain the correct executable.'
+    Assert ([IO.File]::ReadAllText($sentinel) -eq 'preserve user data') 'Upgrade changed user data.'
+    RunInstaller $uninstaller @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$(Join-Path $testRoot 'uninstall.log')`"")
+    Assert (!(Test-Path -LiteralPath $installedExe)) 'Uninstall left the app executable.'
+    Assert (!(Test-Path -LiteralPath $shortcut)) 'Uninstall left the shortcut.'
+    Assert (!(Test-Path -LiteralPath (Join-Path $installDir 'VST3'))) 'Uninstall left the optional VST3.'
+    Assert ([IO.File]::ReadAllText($sentinel) -eq 'preserve user data') 'Uninstall deleted user data.'
+    # Only our unique, verified workspace test directory is removed.
+    $resolvedTestRoot = [IO.Path]::GetFullPath($testRoot)
+    if (!$resolvedTestRoot.StartsWith($allowedRoot, [StringComparison]::OrdinalIgnoreCase)) { throw 'Unsafe installer test cleanup path.' }
+    # Inno's uninstall child can briefly retain the log after its launcher exits.
+    for ($attempt = 0; $attempt -lt 20; ++$attempt) {
+        try { Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force; break } catch {
+            if ($attempt -eq 19) { throw }
+            Start-Sleep -Milliseconds 250
+        }
+    }
+    Write-Host 'Installer checks passed: app, shortcut, optional VST3, upgrade, uninstall and preserved user data.'
+} catch {
+    # Keep logs for diagnosis. Remove only the isolated test registration/files
+    # through its own uninstaller; the real Cassian installation is untouched.
+    if (Test-Path -LiteralPath $uninstaller) {
+        try { RunInstaller $uninstaller @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART') } catch { Write-Warning $_ }
+    }
+    throw
+}

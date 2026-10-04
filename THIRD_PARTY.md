@@ -9,3 +9,5 @@
 - Signalsmith Linear 0.6.4, revision `de55e6a50ffcf6f8f43f649692d94691c7025151`: https://github.com/Signalsmith-Audio/linear — MIT; Stretch's FFT/STFT dependency. Notice: [Signalsmith Linear](licenses/Signalsmith-Linear.txt).
 
 No third-party amp captures or cabinet IRs are distributed with this project.
+
+Windows installers use Inno Setup 6.7.3 (https://jrsoftware.org/), copyright Jordan Russell and Martijn Laan, under the [Inno Setup license](https://jrsoftware.org/files/is/license.txt). Its notice accompanies the installer. The compiler download is pinned by SHA-256 and its publisher signature is checked. The setup embeds Microsoft's signed WebView2 Evergreen bootstrapper, which installs the shared runtime only when missing; its distribution is covered by Microsoft's WebView2 terms. It requires internet access when installation is needed. Inno Setup asks commercial users to purchase a compiler license; dependency and asset distribution review remains part of the commercial release work.

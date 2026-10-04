@@ -18,6 +18,23 @@
 .practice-panel .recording, .practice-panel .record-status { color: #ffb1a1; }
 .practice-timeline { margin: 14px 0; color: #bbb4a7; font-size: 11px; font-variant-numeric: tabular-nums; }
 .practice-timeline input { flex: 1; min-width: 80px; }
+.practice-waveform { position: relative; height: 78px; margin-top: 12px; border: 1px solid #51483a; border-radius: 5px; background: #101211; cursor: crosshair; overflow: hidden; }
+.practice-waveform[aria-disabled="true"] { cursor: default; opacity: .6; }
+.practice-waveform:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.practice-waveform svg { display: block; height: 100%; width: 100%; }
+.wave-midline { stroke: #ffffff16; }
+.wave-peaks { stroke: #c8b183; stroke-width: 1.3; }
+.wave-loop { fill: #c5a96f08; }
+.wave-loop.active { fill: #c5a96f20; }
+.wave-boundary { stroke: #8e7b54; stroke-dasharray: 4 4; }
+.wave-cursor { stroke: #f1e7d0; stroke-width: 2; }
+.practice-waveform text { fill: #d7c398; font: 12px sans-serif; }
+.wave-placeholder { position: absolute; inset: 0; display: grid; place-items: center; color: #aaa393; font-size: 11px; pointer-events: none; }
+.practice-sections { margin: 12px 0; border-top: 1px solid #ffffff12; padding-top: 10px; }
+.practice-sections form { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 10px; }
+.practice-sections input { border: 1px solid #5a5144; border-radius: 4px; background: #181a19; padding: 7px; font-size: 11px; width: 155px; }
+.practice-sections select { max-width: 220px; }
+.practice-sections form p { flex-basis: 100%; }
 .practice-panel input { accent-color: var(--gold); }
 .practice-options { justify-content: space-between; flex-wrap: wrap; }
 .practice-volume input { width: 105px; }

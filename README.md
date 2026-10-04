@@ -6,9 +6,11 @@ The current source adds dual-IR cabinets, an original built-in overdrive, compre
 
 ## Download and launch
 
-Download **Cassian-Windows.zip** from [Latest build](https://github.com/CrazalothAI/Cassius/releases/tag/latest). The archive contains `Cassian.exe` and the `Cassian.vst3` bundle. Successful builds from pushes to `main` update this prerelease; check [GitHub Actions](https://github.com/CrazalothAI/Cassius/actions) for build status.
+Download **[Cassian-Setup.exe](https://github.com/CrazalothAI/Cassius/releases/download/latest/Cassian-Setup.exe)** from [Latest Windows download](https://github.com/CrazalothAI/Cassius/releases/tag/latest), run it, and follow the installer. Then open **Cassian** from the Windows Start menu. Setup offers an optional desktop shortcut and VST3 plugin; administrator access is not required. It checks for Microsoft WebView2 and installs the runtime when missing (internet access is needed for that step).
 
-Run `Cassian.exe` for standalone use. Windows needs the Microsoft Edge WebView2 Evergreen Runtime to display the editor. For a DAW, copy the entire `Cassian.vst3` bundle into its VST3 plugin location and rescan. The build does not replace installed plugins automatically.
+The app installs to `%LOCALAPPDATA%\Programs\Cassian`. Run a newer installer to update it in place; close Cassian and any DAW using its plugin first. Uninstall through **Windows Settings → Apps → Cassian**. Saved settings, managed captures/rigs, practice sections and recordings are retained. Optional VST3 installation uses `%LOCALAPPDATA%\Programs\Common\VST3\Cassian.vst3`; rescan your DAW and add that location to its plugin paths if needed.
+
+For portable use, download **Cassian-Windows.zip**, extract it, and open **Cassian.exe directly inside the extracted folder**. No build/Release/Standalone folder search is needed. Portable use requires an installed WebView2 Runtime. **GitHub's “Source code (zip)” contains source files, not a runnable app.** Successful `main` builds publish the installer and portable ZIP; check [GitHub Actions](https://github.com/CrazalothAI/Cassius/actions) for status. Releases are currently development prereleases.
 
 The native window, executable, and supported system tray use the Cassian wolf logo. The tray menu offers **Show Cassian** and **Quit Cassian**; closing the main window quits the app normally. Linux/X11 tray support exists in source, but this release does not provide a validated Linux distribution.
 
@@ -133,6 +135,8 @@ Four **Scenes** in the stage panel store rhythm, lead, clean or ambient variatio
 
 In standalone, open **Practice & record** above the amp. Load a local mono/stereo backing track, adjust its separate volume, seek, and use **Set A**, **Set B**, and **Loop A–B** to repeat a section. Play resumes from the cursor; Pause keeps the cursor and Stop rewinds. Supported file types come from the native file chooser (WAV, AIFF, FLAC and Ogg on the current build). Tracks are decoded and resampled off the audio thread into bounded memory, up to 256 MiB of stereo float audio at the interface rate (about 11.7 minutes at 48 kHz). Failed imports preserve the previous track.
 
+The waveform shows the cursor and loop region; click or use its arrow keys to seek. Open **Sections** to name and save the current A/B loop, replace an existing section, recall it, or delete it. Recall pauses at A and enables looping; press Play when ready. Sections persist per track content, including renamed copies, and keep their original-track timing when Speed changes. They are saved separately from tone rigs.
+
 Choose an Off/1-bar/2-bar count-in using the metronome tempo and beats per bar, then **Play** or **Record guitar**. Recording asks for a destination folder and creates a unique take directory with **Guitar dry.wav** (raw mono input before Input gain) and **Guitar processed.wav** (stereo guitar after effects, before Master/limiter). Both are 32-bit float at the current interface rate, with matching frame counts. Backing tracks and clicks are excluded. **Finish take** pauses playback and finalizes both WAV headers; **Open take folder** reveals the files. The processed file preserves headroom above 0 dBFS, so set an appropriate playback level when importing it elsewhere. Monitoring uses the existing protected output mix.
 
 The practice transport is standalone-only; a DAW owns playback and recording in the VST3. In a supporting DAW, enable the optional stereo backing bus to route accompaniment through the plugin. Changing rigs and presets does not change practice controls. Tracks, cursor and active takes are not saved in rigs or restored into an autoplaying session. Rate/buffer changes stop practice transport and finalize an active take; loaded tracks are rebuilt for the new rate. See [practice and recording](docs/PRACTICE-RECORDING.md) for limits and validation.
@@ -201,6 +205,15 @@ build/AmpSuite_artefacts/Release/Standalone/Cassian.exe
 build/AmpSuite_artefacts/Release/VST3/Cassian.vst3
 ```
 
+To produce the same Windows downloads locally:
+
+```powershell
+./scripts/package-windows.ps1
+./scripts/test-windows-installer.ps1
+```
+
+Packaging puts **Cassian-Setup.exe**, **Cassian-Windows.zip**, and **Cassian.exe** in the repository's top-level folder. The setup compiler is downloaded from its pinned, hash-checked official release; its publisher signature and Microsoft's runtime bootstrapper signature are checked. Installer tests use a separate application identity and a temporary workspace location, checking install, shortcuts, optional VST3, upgrade and uninstall. Existing Cassian installations are untouched. The binaries statically link the MSVC runtime. See [Windows distribution](docs/WINDOWS-DISTRIBUTION.md) for packaging, prerequisite and signing details.
+
 ### Frontend preview and tests
 
 ```powershell
@@ -229,6 +242,7 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 | `Source/CompleteRig.cpp` | Off-thread complete rig preparation and short fade around activation. |
 | `Source/RigPack.cpp` | Portable ZIP export/import, entry limits, content verification, and managed storage. |
 | `Source/PracticeEngine.*` | Worker-prepared backing/review playback and paired guitar recording through a bounded audio FIFO. |
+| `Source/PracticeSections.*` | Per-track named loops, validation and atomic shared persistence. |
 | `Source/TakeLibrary.*` | Take catalog, review selection, rig snapshots, and isolated offline reamp exports. |
 | `Source/MidiControl.*` | Bounded MIDI queue, control worker, Learn, assignments and session configuration. |
 | `Source/PerformanceScenes.h` | Four guitar-parameter snapshots, bank validation, recall and rig/session persistence. |
@@ -239,14 +253,14 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 | `Source/params/ParameterIDs.h` | Native parameter layout; new routing parameters follow existing automation indices. |
 | `ui/src/` | React editor, library, presets, and parameter/native bridge tests. |
 | `tests/` | Native processor, catalog/rig, model, and interface diagnostic checks. |
-| `scripts/` | Windows build and pinned SDK setup. |
+| `scripts/`, `installer/` | Windows build, pinned SDK/tool setup, installer and portable packaging, installation smoke tests. |
 | `.github/workflows/build.yml` | Windows build, UI/native tests, artifacts, and main-branch prerelease publishing. |
 
 File reading, hashing, parsing, capture preparation, warm-up, and managed storage run outside the audio callback. The callback processes bounded internal chunks with preallocated buffers and only tries the model-swap lock; contention mutes the guitar while preserving backing, click, Master, and limiting. Cabinet publication serializes JUCE's wait-free convolution handoff with processing; retired handoff objects are reclaimed by the loader. Tone controls and capture gain changes are smoothed; resonance coefficients update at a reduced control rate. Hum and resonance telemetry use atomic snapshots.
 
 Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **93 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-03**: **103 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 

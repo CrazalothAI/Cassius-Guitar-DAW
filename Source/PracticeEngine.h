@@ -2,13 +2,14 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <atomic>
 #include <memory>
+#include "PracticeSections.h"
 
 // One audio producer, one disk consumer. No decoding, file writes, allocation,
 // mutex acquisition or ownership destruction happens in process().
 class PracticeEngine final : private juce::Thread
 {
 public:
-    explicit PracticeEngine(int fifoFrames = 262144);
+    explicit PracticeEngine(int fifoFrames = 262144, juce::File sectionsDirectory = {});
     ~PracticeEngine() override;
     void prepare(double sampleRate);
     void load(const juce::File&);
@@ -20,6 +21,10 @@ public:
     void setCountIn(int bars, double bpm, int beats);
     bool process(juce::AudioBuffer<float>& guitarAndOutput, const float* dry, bool guitarAvailable = true);
     juce::var status();
+    juce::var waveform();
+    juce::String saveSection(const juce::String& name, const juce::String& id = {});
+    juce::String recallSection(const juce::String& id);
+    juce::String removeSection(const juce::String& id);
     bool counting() const { return countActive.load(); }
     void interrupted() { if (recordMode.load() >= 2 && recordMode.load() <= 3) { startRequested.store(false); countActive.store(false); recordingFault.store(2); recordMode.store(4); } }
 private:
@@ -32,6 +37,11 @@ private:
     void finishTake();
     void reclaimTracks();
     void startCount();
+    bool sectionsBlocked() const;
+    PracticeSections sections;
+    juce::var wavePeaks, sectionRows {juce::Array<juce::var>()};
+    juce::String trackKey, sectionError;
+    int waveRevision = 0, sectionRevision = 0;
     juce::CriticalSection control;
     juce::File pendingTrack, pendingRecording, loadedFile;
     juce::File activeTake;

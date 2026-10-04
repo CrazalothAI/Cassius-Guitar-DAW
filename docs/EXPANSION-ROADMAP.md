@@ -19,6 +19,8 @@ Validation on Windows (2026-10-02): 53 UI tests and all four native CTest suites
 
 The practice speed update adds pitch-preserving 50–150% backing playback, cancellable worker preparation, cursor/loop retention and adjustable seam fades. Fades retain the exact loop length. Streaming, waveform-aware overlap crossfades and automatic metronome/BPM matching remain future work.
 
+Practice now includes a worker-prepared waveform with keyboard/pointer seeking and persistent named loop sections per track content; see [practice and recording](PRACTICE-RECORDING.md). Windows distribution adds a per-user setup EXE with shortcuts, optional VST3, WebView2 prerequisite handling and tested upgrades/uninstall; see [Windows distribution](WINDOWS-DISTRIBUTION.md). Publisher signing and fresh-PC prerequisite validation remain release work. The current checks include 103 UI tests and four native CTest suites.
+
 ## Existing user packs inspected
 
 Read-only inspection of nine supplied ZIP archives found 61 NAM/WAV entries and 55 unique file contents. No assets were bundled or downloaded for distribution.

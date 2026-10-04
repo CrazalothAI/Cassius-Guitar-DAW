@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
 import Takes from './Takes.jsx';
-
-export const time = seconds => {
-  const n = Math.max(0, Math.floor(Number(seconds) || 0));
-  return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
-};
+import PracticeWaveform from './PracticeWaveform.jsx';
+import PracticeSections from './PracticeSections.jsx';
+import { time } from '../practiceTime.js';
+export { time } from '../practiceTime.js';
 
 export default function Practice({ status, onError }) {
   const p = status.practice ?? {}, [bars, setBars] = useState(1);
@@ -39,11 +38,13 @@ export default function Practice({ status, onError }) {
     </div>
     <label className="practice-fade">Loop edge fade<select aria-label="Loop edge fade" value={p.fade ?? 5} disabled={!available || busy || p.loading} onChange={e => control('fade', Number(e.target.value))}><option value={0}>Off</option><option value={2}>2 ms</option><option value={5}>5 ms</option><option value={10}>10 ms</option><option value={20}>20 ms</option></select></label>
     <p className="practice-note">Speed changes keep pitch and prepare while paused. The timeline and loop points use the original track time. Count-in and metronome tempo stay at your chosen BPM.</p>
+    <PracticeWaveform p={p} available={available} disabled={busy || p.loading} onSeek={seconds => control('seek', seconds)} onError={onError}/>
     <div className="practice-timeline"><span>{time(p.position)}</span><input type="range" aria-label="Backing track position" min={0} max={duration || 1} step={.01} value={Math.min(p.position || 0, duration)} disabled={!available || !duration || busy || p.loading} onChange={e => control('seek', Number(e.target.value))} /><span>{time(duration)}</span></div>
     <div className="practice-options">
       <label className="practice-volume">Backing volume<input type="range" aria-label="Backing volume" min={-60} max={6} step={1} value={p.level ?? -12} disabled={!available} onChange={e => control('level', Number(e.target.value))} /><output>{p.level ?? -12} dB</output></label>
       <div className="practice-loop"><button disabled={!available || !duration || busy || p.loading} onClick={() => control('a', p.position || 0)}>Set A · {time(p.a)}</button><button disabled={!available || !duration || busy || p.loading} onClick={() => control('b', p.position || 0)}>Set B · {time(p.b)}</button><label><input type="checkbox" aria-label="Loop section" checked={!!p.loop} disabled={!available || !duration || busy || p.loading} onChange={e => control('loop', e.target.checked ? 1 : 0)} /> Loop A–B</label></div>
     </div>
+    <PracticeSections p={p} available={available} disabled={busy || p.loading} onError={onError}/>
     <p className="practice-note">{available ? '32-bit float WAV: dry mono + processed stereo before Master. Backing and clicks stay out of guitar recordings. Count-in uses the metronome tempo.' : native ? 'Use your DAW’s backing tracks and recording. This practice transport is available in the standalone app.' : 'Open the standalone app to load a backing track and record your guitar.'}</p>
     {p.error && <p className="practice-error" role="alert">{p.error}</p>}
     {p.takePath && !recording && <div className="practice-take"><span title={p.takePath}>Last take: {p.takePath}</span><button className="text-button" onClick={() => action('openTakeFolder')}>Open take folder</button></div>}
