@@ -11,6 +11,7 @@ private:
     void chooseRigFile(bool save, bool pack = false);
     void chooseRelink(const juce::String& id);
     void chooseImports(const juce::String& kind);
+    void choosePractice(bool recording);
     AmpSuiteAudioProcessor& processor;
     // Destruction order: chooser, attachments, browser, relays.
     std::vector<std::unique_ptr<juce::WebSliderRelay>> relays;

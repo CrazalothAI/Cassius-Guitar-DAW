@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include <BinaryData.h>
+#include <cmath>
 
 AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcessor& p)
     : AudioProcessorEditor(&p), processor(p)
@@ -63,6 +64,26 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (args.size() != 1 || !processor.setDeviceInputChannel) { complete(juce::String("Choose the guitar input in your DAW.")); return; }
             complete(processor.setDeviceInputChannel(static_cast<int>(args[0])));
         })
+        .withNativeFunction("loadBackingTrack", [this](const auto&, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Use your DAW's backing-track transport.")); return; }
+            choosePractice(false); complete(juce::String());
+        })
+        .withNativeFunction("practiceControl", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Use your DAW's transport and recording.")); return; }
+            if (args.size() != 2 || !args[0].isString() || !(args[1].isInt() || args[1].isInt64() || args[1].isDouble())) { complete(juce::String("Invalid practice request.")); return; }
+            complete(processor.practice.command(args[0].toString(), static_cast<double>(args[1])));
+        })
+        .withNativeFunction("practiceStart", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings) { complete(juce::String("Use your DAW's transport and recording.")); return; }
+            if (args.size() != 2 || (args[0].toString() != "play" && args[0].toString() != "record") || !(args[1].isInt() || args[1].isInt64() || args[1].isDouble()) || !std::isfinite(static_cast<double>(args[1])) || static_cast<double>(args[1]) < 0 || static_cast<double>(args[1]) > 2 || static_cast<double>(args[1]) != std::floor(static_cast<double>(args[1]))) { complete(juce::String("Invalid count-in request.")); return; }
+            processor.practice.setCountIn(static_cast<int>(args[1]), processor.apvts.getRawParameterValue("METRO_BPM")->load(), juce::roundToInt(processor.apvts.getRawParameterValue("METRO_BEATS")->load()));
+            if (args[0].toString() == "record") { choosePractice(true); complete(juce::String()); }
+            else complete(processor.practice.command("play"));
+        })
+        .withNativeFunction("openTakeFolder", [this](const auto&, auto complete) {
+            const juce::File folder(processor.practice.status()["takePath"].toString());
+            if (folder.isDirectory()) folder.revealToUser(); complete(folder.isDirectory());
+        })
         .withNativeFunction("getStatus", [this](const auto&, auto complete) { complete(processor.status()); });
     for (const auto& parameter : Params::definitions)
     {
@@ -80,6 +101,24 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
 // A closed editor cannot show the tuner, so stop its analysis.
 AmpSuiteAudioProcessorEditor::~AmpSuiteAudioProcessorEditor() { processor.setTunerActive(false); }
 void AmpSuiteAudioProcessorEditor::resized() { webView->setBounds(getLocalBounds()); }
+void AmpSuiteAudioProcessorEditor::choosePractice(bool recording)
+{
+    if (chooser) return;
+    juce::AudioFormatManager formats; formats.registerBasicFormats();
+    chooser = std::make_unique<juce::FileChooser>(recording ? "Choose a folder for the new guitar take" : "Load a backing track",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory), recording ? juce::String() : formats.getWildcardForAllFormats());
+    const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
+    chooser->launchAsync(juce::FileBrowserComponent::openMode | (recording ? juce::FileBrowserComponent::canSelectDirectories : juce::FileBrowserComponent::canSelectFiles),
+        [safe, recording](const juce::FileChooser& dialog) {
+            if (safe == nullptr) return;
+            const auto file = dialog.getResult();
+            if (recording && file.isDirectory()) {
+                const auto failure = safe->processor.practice.record(file);
+                if (failure.isNotEmpty()) safe->processor.reportLibraryResult("Load failed: " + failure);
+            } else if (!recording && file.existsAsFile()) safe->processor.practice.load(file);
+            safe->chooser.reset();
+        });
+}
 void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
 {
     if (chooser) return;

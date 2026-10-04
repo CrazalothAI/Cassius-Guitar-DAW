@@ -119,9 +119,13 @@ The header provides preset selection, previous/next, Revert for edited presets, 
 
 ## Backing tracks and metronome
 
-Play backing tracks from an existing player or DAW; Cassian does not include a standalone track player. In a supporting DAW, enable the optional stereo backing bus to route accompaniment through the plugin.
+In standalone, open **Practice & record** above the amp. Load a local mono/stereo backing track, adjust its separate volume, seek, and use **Set A**, **Set B**, and **Loop A–B** to repeat a section. Play resumes from the cursor; Pause keeps the cursor and Stop rewinds. Supported file types come from the native file chooser (WAV, AIFF, FLAC and Ogg on the current build). Tracks are decoded and resampled off the audio thread into bounded memory, up to 256 MiB of stereo float audio at the interface rate (about 11.7 minutes at 48 kHz). Failed imports preserve the previous track.
 
-The backing bus and metronome are mixed **after guitar distortion and effects**, then share Master and the output limiter. The metronome offers tempo, tap tempo, beats per bar, and click level. Standalone uses its own clock; while a DAW is playing, it follows host tempo and bar position. Presets and A/B preserve click settings. Delay can follow that tempo or use its manual time.
+Choose an Off/1-bar/2-bar count-in using the metronome tempo and beats per bar, then **Play** or **Record guitar**. Recording asks for a destination folder and creates a unique take directory with **Guitar dry.wav** (raw mono input before Input gain) and **Guitar processed.wav** (stereo guitar after effects, before Master/limiter). Both are 32-bit float at the current interface rate, with matching frame counts. Backing tracks and clicks are excluded. **Finish take** pauses playback and finalizes both WAV headers; **Open take folder** reveals the files. The processed file preserves headroom above 0 dBFS, so set an appropriate playback level when importing it elsewhere. Monitoring uses the existing protected output mix.
+
+The practice transport is standalone-only; a DAW owns playback and recording in the VST3. In a supporting DAW, enable the optional stereo backing bus to route accompaniment through the plugin. Changing rigs and presets does not change practice controls. Tracks, cursor and active takes are not saved in rigs or restored into an autoplaying session. Rate/buffer changes stop practice transport and finalize an active take; loaded tracks are rebuilt for the new rate. See [practice and recording](docs/PRACTICE-RECORDING.md) for limits and validation.
+
+The backing bus, standalone player and metronome are mixed **after guitar distortion and effects**, then share Master and the output limiter. The metronome offers tempo, tap tempo, beats per bar, and click level. Standalone uses its own clock; while a DAW is playing, it follows host tempo and bar position. Presets and A/B preserve click settings. Delay can follow that tempo or use its manual time.
 
 Simplified guitar path:
 

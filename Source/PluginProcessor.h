@@ -23,6 +23,7 @@
 #include "DeviceHooks.h"
 #include "AssetLibrary.h"
 #include "LibraryStore.h"
+#include "PracticeEngine.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
@@ -30,7 +31,7 @@ public:
     explicit AmpSuiteAudioProcessor(bool sharedLibrary = true, juce::File libraryRoot = LibraryStore::defaultRoot());
     ~AmpSuiteAudioProcessor() override;
     void prepareToPlay(double, int) override;
-    void releaseResources() override {}
+    void releaseResources() override { practice.command("pause"); }
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     bool isBusesLayoutSupported(const BusesLayout&) const override;
     juce::AudioProcessorEditor* createEditor() override;
@@ -69,12 +70,13 @@ public:
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
+    PracticeEngine practice;
     juce::AudioProcessorValueTreeState apvts;
 private:
     void run() override;
     float value(Params::Index i) const { return parameters[static_cast<size_t>(i)]->load(); }
     void processChunk(juce::AudioBuffer<float>&);
-    void finishOutputMix(juce::AudioBuffer<float>&);
+    void finishOutputMix(juce::AudioBuffer<float>&, bool suppressClick = false);
     void processUniversalAmp(juce::AudioBuffer<float>&);
     DualCab::Settings cabinetSettings() const;
     StudioCompressor::Settings compressorSettings(bool enabled) const;
@@ -132,7 +134,7 @@ private:
     int activeAmpSource = 0;
     juce::SmoothedValue<float> compressionMix, highCutoff, stereoWidth;
     juce::dsp::Compressor<float> cleanCompressor;
-    std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio, dryInput;
+    std::vector<float> cleanAudio, gateEnvelope, pedalAudio, subSynthAudio, dryInput, recordingDry;
     juce::AudioBuffer<float> backingAudio;
     juce::SmoothedValue<float> pedalBlend;
     float cleanLow = 0, cleanHigh = 0, metalLow = 0, metalLow2 = 0;

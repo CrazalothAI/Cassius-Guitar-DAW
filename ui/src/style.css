@@ -2,6 +2,32 @@
 @tailwind components;
 @tailwind utilities;
 
+.practice-toggle { color: var(--accent); }
+.practice-panel { flex: 1; min-height: 0; overflow-y: auto; margin: 8px 0; padding: 16px 20px; border: 1px solid #504536; border-radius: 8px; background: linear-gradient(135deg, #211e19, #111313); }
+.practice-heading, .practice-transport, .practice-timeline, .practice-options, .practice-loop, .practice-volume, .practice-take { display: flex; align-items: center; gap: 12px; }
+.practice-heading { justify-content: space-between; }
+.practice-heading > div { min-width: 0; }
+.practice-heading h2 { font-size: 16px; font-weight: 500; margin: 5px 0 12px; overflow-wrap: anywhere; }
+.practice-kicker { font-size: 9px; letter-spacing: 2px; color: var(--gold); }
+.practice-transport { flex-wrap: wrap; }
+.practice-panel button, .practice-panel select { border: 1px solid #5a5144; border-radius: 4px; background: #181a19; padding: 7px 12px; font-size: 11px; }
+.practice-panel button:hover:enabled { border-color: var(--gold); }
+.practice-panel label { font-size: 11px; color: #bbb4a7; display: flex; align-items: center; gap: 8px; }
+.practice-panel output { font-size: 11px; color: #aaa393; white-space: nowrap; }
+.practice-panel .practice-record { border-color: #845044; color: #f4b8a2; }
+.practice-panel .recording, .practice-panel .record-status { color: #ffb1a1; }
+.practice-timeline { margin: 14px 0; color: #bbb4a7; font-size: 11px; font-variant-numeric: tabular-nums; }
+.practice-timeline input { flex: 1; min-width: 80px; }
+.practice-panel input { accent-color: var(--gold); }
+.practice-options { justify-content: space-between; flex-wrap: wrap; }
+.practice-volume input { width: 105px; }
+.practice-loop { flex-wrap: wrap; }
+.practice-note { font-size: 10px; line-height: 1.6; color: #aaa393; margin: 12px 0 0; }
+.practice-error { color: #f4b8a2; font-size: 11px; line-height: 1.5; }
+.practice-take { margin-top: 10px; justify-content: space-between; font-size: 10px; color: #aaa393; }
+.practice-take span { min-width: 0; overflow-wrap: anywhere; }
+.practice-take button { flex-shrink: 0; }
+
 .library-toolbar { display: flex; align-items: center; gap: 12px; height: 30px; color: #8e8a82; font-size: 10px; }
 .compare-match { margin-left: auto; display: flex; align-items: center; gap: 5px; white-space: nowrap; cursor: pointer; }
 .compare-match input { accent-color: #c5a96f; }

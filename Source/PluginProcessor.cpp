@@ -86,6 +86,8 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     tone.prepare(rate, {value(Params::bass), value(Params::mid), value(Params::treble), value(Params::presence)});
     pedalEq.prepare(rate, {value(Params::eqOn) >= .5f, value(Params::eqBody), value(Params::eqMud), value(Params::eqFocus), value(Params::eqFizz)});
     backingAudio.setSize(2, maxBlock);
+    recordingDry.resize(static_cast<size_t>(maxBlock));
+    practice.prepare(rate);
     cleanAudio.resize(static_cast<size_t>(maxBlock));
     gateEnvelope.resize(static_cast<size_t>(maxBlock));
     pedalAudio.resize(static_cast<size_t>(maxBlock));
@@ -144,6 +146,8 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     const juce::ScopedTryLock lock(dspLock);
     if (!lock.isLocked())
     {
+        // An interrupted guitar path cannot produce a valid paired take.
+        practice.interrupted();
         for (int i = 0; i < mainBuffer.getNumSamples(); ++i) {
             // Read both auxiliary channels before writing overlapping outputs.
             const float left = backingBuffer.getNumChannels() > 0 ? backingBuffer.getSample(0, i) : 0;
@@ -152,7 +156,10 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
             if (mainBuffer.getNumChannels() > 1) mainBuffer.setSample(1, i, right);
         }
         swapBypasses.fetch_add(1);
-        if (mainBuffer.getNumChannels() > 0 && mainBuffer.getNumSamples() > 0) finishOutputMix(mainBuffer);
+        if (mainBuffer.getNumChannels() > 0 && mainBuffer.getNumSamples() > 0) {
+            const bool counted = practice.process(mainBuffer, mainBuffer.getReadPointer(0), false);
+            finishOutputMix(mainBuffer, counted);
+        }
         return;
     }
     if (mainBuffer.getNumChannels() == 0 || mainBuffer.getNumSamples() == 0) return;
@@ -163,6 +170,7 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
     clipHoldSamples = inputPeak.load() >= .995f ? static_cast<int>(rate)
         : juce::jmax(0, clipHoldSamples - mainBuffer.getNumSamples());
     inputClipped.store(clipHoldSamples > 0);
+    bool counted = false;
     for (int offset = 0; offset < mainBuffer.getNumSamples(); offset += maxBlock)
     {
         const int size = juce::jmin(maxBlock, mainBuffer.getNumSamples() - offset);
@@ -175,15 +183,17 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
         if (backingChannels > 0)
             for (int ch = 0; ch < chunk.getNumChannels(); ++ch)
                 backingAudio.copyFrom(ch, 0, backingBuffer, juce::jmin(ch, backingChannels - 1), offset, size);
+        juce::FloatVectorOperations::copy(recordingDry.data(), chunk.getReadPointer(0), size);
         processChunk(chunk);
+        counted = practice.process(chunk, recordingDry.data()) || counted;
         // Backing audio bypasses all guitar processing, including the EQ and effects.
         if (backingChannels > 0)
             for (int ch = 0; ch < chunk.getNumChannels(); ++ch)
                 chunk.addFrom(ch, 0, backingAudio, ch, 0, size);
     }
-    finishOutputMix(mainBuffer);
+    finishOutputMix(mainBuffer, counted);
 }
-void AmpSuiteAudioProcessor::finishOutputMix(juce::AudioBuffer<float>& mainBuffer)
+void AmpSuiteAudioProcessor::finishOutputMix(juce::AudioBuffer<float>& mainBuffer, bool suppressClick)
 {
     // The click joins after everything, so the rig never processes it.
     {
@@ -191,8 +201,9 @@ void AmpSuiteAudioProcessor::finishOutputMix(juce::AudioBuffer<float>& mainBuffe
         const bool follows = position && position->getIsPlaying() && position->getBpm() && position->getPpqPosition();
         metronomeFollowsHost.store(follows);
         metronomeBpm.store(follows ? *position->getBpm() : static_cast<double>(value(Params::metroBpm)));
+        if (suppressClick) metronome.reset();
         metronome.process(mainBuffer.getArrayOfWritePointers(), mainBuffer.getNumChannels(), mainBuffer.getNumSamples(),
-            {value(Params::metroOn) >= 0.5f, value(Params::metroBpm), juce::roundToInt(value(Params::metroBeats)), value(Params::metroLevel)}, position);
+            {value(Params::metroOn) >= 0.5f && !suppressClick, value(Params::metroBpm), juce::roundToInt(value(Params::metroBeats)), value(Params::metroLevel)}, position);
     }
     // Protect the complete mix. Previously the click bypassed Master and the
     // limiter, and guitar + click + backing audio was only hard-clipped.
@@ -695,6 +706,7 @@ void AmpSuiteAudioProcessor::run()
 juce::var AmpSuiteAudioProcessor::status()
 {
     auto result = std::make_unique<juce::DynamicObject>();
+    result->setProperty("practice", practice.status());
     {
         const juce::ScopedLock lock(requestLock);
         const auto displayName = [&](const juce::String& kind, const juce::String& path) {

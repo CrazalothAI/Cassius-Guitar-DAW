@@ -4,6 +4,7 @@ import MetronomePanel, { MetronomeButton } from './components/Metronome.jsx';
 import PresetBrowser from './components/PresetBrowser.jsx';
 import Stages from './components/Stages.jsx';
 import Library from './components/Library.jsx';
+import Practice from './components/Practice.jsx';
 import { invoke, native } from './juce/bridge.js';
 import { restoreSnapshot, snapshotParameters, useParameter, useParameters, useToggle } from './parameterState.js';
 import { applyPreset, matchPreset, presetParameterIds, presets } from './presets.js';
@@ -82,6 +83,7 @@ export default function App() {
   const [tunerOpen, setTunerOpen] = useState(false);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [practiceOpen, setPracticeOpen] = useState(false);
   const comparing = useRef(false);
   const [page, setPage] = useState('Amp');
   const [dismissed, setDismissed] = useState('');
@@ -167,9 +169,9 @@ export default function App() {
     </header>
     <main>
       <Alerts status={status} notice={notice} dismissed={dismissed} onDismiss={dismiss} onBuffer={setBuffer} />
-      <div className="library-toolbar"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><span>Amps · Pedals · Cabinets · Saved rigs</span><label className="compare-match" title="Approximate A/B level matching from recent playing. Play similar notes before storing each side."><input type="checkbox" disabled={!native} checked={matchCompare} onChange={e => setMatchCompare(e.target.checked)} /> Match A/B loudness</label></div>
+      <div className="library-toolbar"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><span>Amps · Pedals · Cabinets · Saved rigs</span><button className="text-button practice-toggle" aria-expanded={practiceOpen} onClick={() => setPracticeOpen(!practiceOpen)}>{practiceOpen ? 'Tone controls' : 'Practice & record'}</button><label className="compare-match" title="Approximate A/B level matching from recent playing. Play similar notes before storing each side."><input type="checkbox" disabled={!native} checked={matchCompare} onChange={e => setMatchCompare(e.target.checked)} /> Match A/B loudness</label></div>
       <AmpHead clean={clean} tunerOpen={tunerOpen} status={status} />
-      <Stages page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} />
+      {practiceOpen ? <Practice status={status} onError={setNotice} /> : <Stages page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} />}
     </main>
     {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} />}
     <footer>

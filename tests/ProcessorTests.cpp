@@ -8,6 +8,7 @@ static void check(bool condition, const char* message) { if (!condition) throw s
 void runLibraryChecks(const juce::File& fixture);
 void runQualityChecks(const juce::File& fixture);
 void runSoundChecks(const juce::File& fixture);
+void runPracticeChecks();
 static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
 {
     auto* parameter = p.apvts.getParameter(id);
@@ -645,6 +646,7 @@ int main(int argc, char** argv)
         runLibraryChecks(juce::File(argc > 4 ? argv[4] : argv[1]));
         runQualityChecks(juce::File(argv[1]));
         runSoundChecks(juce::File(argv[1]));
+        runPracticeChecks();
         std::cout << "Processor checks passed\n";
         return 0;
     }

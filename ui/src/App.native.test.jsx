@@ -23,6 +23,16 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('editor connected to the audio engine', () => {
+  it('keeps the amplifier visible when switching between practice and tone controls', async () => {
+    engine.status = {...engine.status, deviceSettingsAvailable: true, practice: {duration: 60, position: 12, track: 'Track.wav', recordMode: 0}};
+    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Practice & record'}));
+    await screen.findByText('Track.wav');
+    expect(screen.getByRole('region', {name: 'Amplifier'})).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', {name: 'Load backing track'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['loadBackingTrack']));
+    fireEvent.click(screen.getByRole('button', {name: 'Tone controls'}));
+    expect(screen.getByRole('tab', {name: 'Amp'})).toBeTruthy();
+  });
   it('loads and removes cabinet B without replacing cabinet A', async () => {
     engine.status = {...engine.status, ir: 'Cabinet A.wav', irB: 'Cabinet B.wav'};
     render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Cab'}));
