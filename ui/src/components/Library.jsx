@@ -8,11 +8,11 @@ const builtins = [
   { id: 'ferrum', name: 'Ferrum', kind: 'amp', source: 2, ownership: 'Factory', tags: 'high gain rock metal lead', notes: 'Cassian built-in high-gain amp.' },
   { id: 'natural', name: 'Natural DI', kind: 'amp', source: 4, ownership: 'Factory', tags: 'nylon acoustic neutral clean', notes: 'Neutral input path. No electric-to-nylon simulation. Select an external body IR intentionally if needed.' },
 ];
-const previewRigs = () => { try { return JSON.parse(localStorage.getItem('cassian-preview-rigs') || '[]'); } catch { return []; } };
-const writePreviewRigs = rigs => localStorage.setItem('cassian-preview-rigs', JSON.stringify(rigs));
+export const previewRigs = () => { try { return JSON.parse(localStorage.getItem('cassian-preview-rigs') || '[]'); } catch { return []; } };
+export const writePreviewRigs = rigs => localStorage.setItem('cassian-preview-rigs', JSON.stringify(rigs));
 const readFavorites = () => { try { return JSON.parse(localStorage.getItem('cassian-factory-favorites') || '{}'); } catch { return {}; } };
 
-export default function Library({ revision, onClose, onPreset = applyPreset }) {
+export default function Library({ revision, onClose, onPreset = applyPreset, onPreviewRig = () => {} }) {
   const [tab, setTab] = useState('amp'), [search, setSearch] = useState(''), [ownership, setOwnership] = useState('All');
   const [favorites, setFavorites] = useState(false), [selected, setSelected] = useState(null), [name, setName] = useState('');
   const [catalog, setCatalog] = useState({ assets: [], rigs: [] }), [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -46,7 +46,7 @@ export default function Library({ revision, onClose, onPreset = applyPreset }) {
       if (row.source === 4) applyPreset('Natural Nylon'); else setParameter('AMP_SOURCE', row.source);
     } else if (row.kind === 'rig') {
       if (native) { const result = await invoke('loadRig', row.id); if (result) return result; }
-      else restoreSnapshot(row.parameters);
+      else { restoreSnapshot(row.parameters); onPreviewRig(row); }
     } else if (!await invoke('selectAsset', row.id)) return 'Asset is missing. Relink the original file first.';
     onClose();
   });
@@ -54,7 +54,7 @@ export default function Library({ revision, onClose, onPreset = applyPreset }) {
     e.preventDefault(); if (!name.trim()) return;
     action(async () => {
       if (native) { const result = await invoke('saveRig', name.trim()); if (result) return result; }
-      else writePreviewRigs([...previewRigs(), {id: `preview-${Date.now()}-${Math.random()}`, name: name.trim(), parameters: snapshotParameters()}]);
+      else { const row = {id: `preview-${Date.now()}-${Math.random()}`, name: name.trim(), parameters: snapshotParameters()}; writePreviewRigs([...previewRigs(), row]); onPreviewRig(row); }
       setName(''); setTab('rig');
     });
   };

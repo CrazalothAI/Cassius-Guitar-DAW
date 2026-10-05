@@ -65,8 +65,9 @@ export function useParameters(ids) {
 }
 // A/B compares tone, like presets: input calibration, master level and the metronome stay where they are.
 const calibration = new Set(['INPUT_GAIN', 'MASTER_VOL', 'METRO_ON', 'METRO_BPM', 'METRO_BEATS', 'METRO_LEVEL']);
+export const isGlobalParameter = id => calibration.has(id) || id.startsWith('GUITAR_MIX_');
 export function snapshotParameters() {
-  return Object.fromEntries(parameters.filter(({id}) => !calibration.has(id)).map(({id}) => [id, readParameter(id)]));
+  return Object.fromEntries(parameters.filter(({id}) => !isGlobalParameter(id)).map(({id}) => [id, readParameter(id)]));
 }
 export function restoreSnapshot(snapshot) {
   Object.entries(snapshot ?? {}).forEach(([id, value]) => setParameter(id, value));

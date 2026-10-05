@@ -1,6 +1,6 @@
 # Take library and offline reamping
 
-In standalone, open **Practice & record → Take library**. Finished guitar recordings enter automatically after both WAV headers are finalized. Use **Import take folder** for an earlier Cassian folder containing matching mono `Guitar dry.wav` and stereo `Guitar processed.wav` files. New recordings save `Original rig.json` at the recording request and `Cassian take.json` after finalization. The rig snapshot represents the starting settings; parameter changes during recording are not recorded as automation.
+In standalone, open **Takes**. Finished guitar recordings enter automatically after both WAV headers are finalized. Use **Import take folder** for an earlier Cassian folder containing matching mono `Guitar dry.wav` and stereo `Guitar processed.wav` files. New recordings save `Original rig.json` at the recording request and `Cassian take.json` after finalization. The rig snapshot represents the starting settings; parameter changes during recording are not recorded as automation.
 
 Search names and creation dates, filter Favorites, select a take, edit its name and favorite flag, then press Save. Names do not rename files. The catalog lives at `takes.xml` under the existing shared library directory. It references recording folders rather than copying audio. Keep those folders available; a moved folder must be imported at its new location. Names and favorites persist across app launches. Independent catalog writes preserve other take entries; simultaneous edits to the same entry use the last saved entry.
 

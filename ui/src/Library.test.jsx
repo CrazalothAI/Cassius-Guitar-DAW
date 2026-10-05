@@ -43,8 +43,9 @@ describe('library preview', () => {
     render(<App/>); const dialog = open();
     fireEvent.click(within(within(dialog).getByText('Natural DI').closest('article')).getByRole('button', {name: 'Use'}));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-    expect(screen.getByText('VIA · NATURAL DI')).toBeTruthy();
+    expect(screen.getAllByText('Natural DI').length).toBeGreaterThan(0);
     expect(screen.getByRole('button', {name: 'Channel'}).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('tab', {name: 'Board'}));
     fireEvent.click(screen.getByRole('tab', {name: 'Effects'}));
     expect(screen.getByRole('slider', {name: 'Piezo'}).getAttribute('aria-valuetext')).toBe('Off');
     fireEvent.click(screen.getByRole('tab', {name: 'Cab'}));

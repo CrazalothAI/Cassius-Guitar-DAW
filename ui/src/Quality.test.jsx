@@ -7,6 +7,7 @@ import { setParameter, snapshotParameters } from './parameterState.js';
 
 beforeEach(() => { localStorage.clear(); applyPreset('Glass clean'); });
 afterEach(cleanup);
+const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 
 describe('expanded clean and gain controls', () => {
   it('offers compressor routing for every amp, and includes it in A/B recall', () => {
@@ -20,7 +21,7 @@ describe('expanded clean and gain controls', () => {
     expect(snapshotParameters()).toMatchObject({AMP_SOURCE: 3, COMP_MODE: 2, CLEAN_COMP: 70});
   });
   it('enables built-in drive without a capture and leaves the captured pedal independent', () => {
-    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Pedal'}));
+    render(<App/>); stage('Pedal');
     fireEvent.click(screen.getByRole('button', {name: 'Overdrive enabled'}));
     const group = screen.getByRole('group', {name: 'Cassian overdrive'});
     fireEvent.change(within(group).getByRole('slider', {name: 'Drive'}), {target: {value: '45'}});
@@ -53,13 +54,13 @@ describe('expanded clean and gain controls', () => {
     expect(snapshotParameters().COMP_THRESH).toBe(-28);
   });
   it('adds independent pedal trims with zero-gain defaults', () => {
-    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Pedal'}));
+    render(<App/>); stage('Pedal');
     const group = screen.getByRole('group', {name: 'Pedal gain'});
     expect(within(group).getByRole('slider', {name: 'Input'}).value).toBe('0');
     expect(within(group).getByRole('slider', {name: 'Output'}).value).toBe('0');
   });
   it('switches delay subdivisions without overwriting the manual time', () => {
-    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Effects'}));
+    render(<App/>); stage('Effects');
     const time = screen.getByRole('slider', {name: 'Time'}), previous = time.value;
     fireEvent.click(screen.getByRole('button', {name: 'Delay tempo sync'}));
     fireEvent.change(screen.getByRole('combobox', {name: 'Delay division'}), {target: {value: '3'}});
@@ -70,7 +71,7 @@ describe('expanded clean and gain controls', () => {
     expect(screen.queryByRole('combobox', {name: 'Delay division'})).toBeNull();
   });
   it('saves chorus, reverb, and feedback as part of tone snapshots', () => {
-    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Effects'}));
+    render(<App/>); stage('Effects');
     const chorus = screen.getByRole('group', {name: 'Chorus'}), reverb = screen.getByRole('group', {name: 'Reverb'});
     fireEvent.change(within(chorus).getByRole('slider', {name: 'Mix'}), {target: {value: '35'}});
     fireEvent.change(within(reverb).getByRole('combobox', {name: 'Reverb voice'}), {target: {value: '2'}});

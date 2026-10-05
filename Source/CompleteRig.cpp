@@ -53,7 +53,7 @@ void AmpSuiteAudioProcessor::prepareCompleteRig(juce::ValueTree state, bool pres
         if (threadShouldExit() || generation != requestGeneration.load()) return;
         if (preserveGlobals)
             for (const auto& definition : Params::definitions)
-                if (juce::String(definition.id) == "INPUT_GAIN" || juce::String(definition.id) == "MASTER_VOL" || juce::String(definition.id).startsWith("METRO_"))
+                if (PerformanceScenes::global(definition.id))
                     state.getChildWithProperty("id", definition.id).setProperty("value", apvts.getRawParameterValue(definition.id)->load(), nullptr);
         const juce::String gear = nextAmp ? nextAmp->gear() : "";
         const bool levelled = nextAmp && nextAmp->hasLoudness(), hasCab = nextAmp && nextAmp->hasCabinet(), cabKnown = nextAmp && nextAmp->cabinetIsKnown();
@@ -77,6 +77,8 @@ void AmpSuiteAudioProcessor::prepareCompleteRig(juce::ValueTree state, bool pres
             desiredIrB = irBPath = state["irBPath"].toString();
             desiredModel = modelPath = state["modelPath"].toString(); desiredPedal = pedalPath = state["pedalPath"].toString(); desiredIr = irPath = state["irPath"].toString();
             library.merge(state.getChildWithName("LIBRARY")); for (const auto& asset : assets) library.upsert(asset);
+            activeRig.restore(state.getChildWithName("ACTIVE_RIG"));
+            activeRig.refreshSavedBaseline(library.find(activeRig.id));
             // nextAmp/nextPedal now own the retired instances, destroyed on this thread.
             ampGear = gear; ampLevelled = levelled; ampLevelDb = levelDb; ampHasCab = hasCab; ampCabKnown = cabKnown;
             if (persistLibrary().isEmpty()) message = "Complete rig ready";

@@ -1,6 +1,6 @@
 # Practice player and paired guitar recording
 
-The standalone app's **Practice & record** button switches the lower controls to a backing-track transport without hiding the amp. The VST3 leaves practice playback and recording to the DAW. No tone parameter IDs, rig schema, or owner attribution markers change.
+The standalone app's **Practice** view provides a backing-track transport and recording below a compact amp strip. Tone retains the full head; Takes has a dedicated review/reamp view. The VST3 leaves practice playback and recording to the DAW. No tone parameter IDs, rig schema, or owner attribution markers change.
 
 ## Playback
 

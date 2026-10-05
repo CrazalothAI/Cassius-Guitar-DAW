@@ -19,6 +19,7 @@
 #include "dsp/HumCanceller.h"
 #include "dsp/Metronome.h"
 #include "dsp/PedalEq.h"
+#include "dsp/GuitarMix.h"
 #include "dsp/StereoChorus.h"
 #include "dsp/ModulationPedal.h"
 #include "DeviceHooks.h"
@@ -28,6 +29,7 @@
 #include "TakeLibrary.h"
 #include "MidiControl.h"
 #include "PerformanceScenes.h"
+#include "ActiveRig.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
@@ -60,6 +62,7 @@ public:
     juce::var getRig();
     juce::String applyRig(const juce::var&, bool preserveGlobals = true, bool matchLoudness = false);
     juce::String saveRig(const juce::String& name);
+    juce::String updateActiveRig();
     juce::String importRig(const juce::String& name, const juce::var& rig);
     juce::String loadRig(const juce::String& id);
     bool removeRig(const juce::String& id);
@@ -103,6 +106,7 @@ private:
     std::array<std::atomic<float>*, Params::definitions.size()> parameters {};
     juce::CriticalSection dspLock, requestLock;
     AssetLibrary library;
+    ActiveRig activeRig;
     LibraryStore sharedStore;
     std::vector<std::pair<juce::File, juce::String>> pendingImports;
     struct PackJob { juce::File file; bool save; juce::var snapshot; };
@@ -138,6 +142,8 @@ private:
     HumCanceller humCanceller;
     Metronome metronome;
     PedalEq pedalEq;
+    GuitarMix guitarMix;
+    juce::AudioBuffer<float> guitarMixDelta;
     juce::dsp::Gain<float> inputGain, ampGain, masterGain;
     juce::SmoothedValue<float> driveGain, delayTime, delayMix;
     juce::SmoothedValue<float> pedalInputGain, pedalOutputGain, delayFeedbackGain, reverbPreDelay;
@@ -177,6 +183,8 @@ private:
     std::atomic<float> gateLevel {0};
     juce::AudioProcessLoadMeasurer processLoad;
     int clipHoldSamples = 0;
+    int outputLimitHold = 0;
+    std::atomic<bool> outputPeakWarning {false};
     std::atomic<bool> inputClipped {false};
     std::atomic<double> reportedRate {48000}, ampExpectedRate {0}, pedalExpectedRate {0};
     std::atomic<int> reportedBlock {512};

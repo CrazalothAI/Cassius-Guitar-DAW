@@ -6,8 +6,9 @@ import { applyPreset } from './presets.js';
 import { snapshotParameters } from './parameterState.js';
 beforeEach(() => { localStorage.clear(); applyPreset('Glass clean'); });
 afterEach(cleanup);
+const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 it('enables modulation, selects voices and recalls its settings in A/B', () => {
-  render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Effects'}));
+  render(<App/>); stage('Effects');
   const group = screen.getByRole('group', {name: 'Modulation'});
   fireEvent.click(within(group).getByRole('button', {name: 'Modulation enabled'}));
   fireEvent.change(screen.getByLabelText('Modulation voice'), {target: {value: '1'}});
@@ -21,7 +22,7 @@ it('enables modulation, selects voices and recalls its settings in A/B', () => {
   expect(snapshotParameters()).toMatchObject({MOD_ON: 1, MOD_TYPE: 1, MOD_DEPTH: 72, MOD_STEREO: 35});
 });
 it('syncs full modulation cycles and preserves the manual speed', () => {
-  render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Effects'}));
+  render(<App/>); stage('Effects');
   const group = screen.getByRole('group', {name: 'Modulation'});
   fireEvent.change(within(group).getByRole('slider', {name: 'Speed'}), {target: {value: '2.7'}});
   fireEvent.click(screen.getByRole('button', {name: 'Modulation tempo sync'}));

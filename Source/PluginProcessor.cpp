@@ -77,6 +77,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     maxBlock = juce::jmax(1, juce::jmin(hostBlock, 256));
     processLoad.reset(rate, maxBlock);
     clipHoldSamples = 0; inputClipped.store(false);
+    outputLimitHold = 0; outputPeakWarning.store(false);
     const juce::dsp::ProcessSpec spec {rate, static_cast<juce::uint32>(maxBlock),
                                      static_cast<juce::uint32>(getTotalNumOutputChannels())};
     for (auto* gain : {&inputGain, &ampGain, &masterGain}) { gain->prepare(spec); gain->setRampDurationSeconds(0.02); }
@@ -97,6 +98,8 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     tone.prepare(rate, {value(Params::bass), value(Params::mid), value(Params::treble), value(Params::presence)});
     pedalEq.prepare(rate, {value(Params::eqOn) >= .5f, value(Params::eqBody), value(Params::eqMud), value(Params::eqFocus), value(Params::eqFizz)});
     backingAudio.setSize(2, maxBlock);
+    guitarMixDelta.setSize(2, maxBlock);
+    guitarMix.prepare(rate, maxBlock, value(Params::guitarMixLevel), value(Params::guitarMixFocus));
     recordingDry.resize(static_cast<size_t>(maxBlock));
     practice.prepare(rate);
     takes.stopReview();
@@ -203,7 +206,13 @@ void AmpSuiteAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce
                 backingAudio.copyFrom(ch, 0, backingBuffer, juce::jmin(ch, backingChannels - 1), offset, size);
         juce::FloatVectorOperations::copy(recordingDry.data(), chunk.getReadPointer(0), size);
         processChunk(chunk);
+        float* deltaChannels[] {guitarMixDelta.getWritePointer(0), guitarMixDelta.getWritePointer(1)};
+        juce::AudioBuffer<float> delta(deltaChannels, chunk.getNumChannels(), size);
+        guitarMix.difference(chunk, delta, value(Params::guitarMixLevel), value(Params::guitarMixFocus));
         counted = practice.process(chunk, recordingDry.data()) || counted;
+        // Listening balance follows take capture and precedes backing/click mix.
+        for (int ch = 0; ch < chunk.getNumChannels(); ++ch)
+            chunk.addFrom(ch, 0, delta, ch, 0, size);
         // Backing audio bypasses all guitar processing, including the EQ and effects.
         if (backingChannels > 0)
             for (int ch = 0; ch < chunk.getNumChannels(); ++ch)
@@ -252,6 +261,9 @@ void AmpSuiteAudioProcessor::finishOutputMix(juce::AudioBuffer<float>& mainBuffe
     for (int ch = 0; ch < mainBuffer.getNumChannels(); ++ch)
         for (int i = 0; i < mainBuffer.getNumSamples(); ++i)
             if (!std::isfinite(mainBuffer.getSample(ch, i))) mainBuffer.setSample(ch, i, 0);
+    outputLimitHold = mainBuffer.getMagnitude(0, mainBuffer.getNumSamples()) >= juce::Decibels::decibelsToGain(-.5f)
+        ? static_cast<int>(rate) : juce::jmax(0, outputLimitHold - mainBuffer.getNumSamples());
+    outputPeakWarning.store(outputLimitHold > 0);
     limiter.process(outputContext);
     for (int ch = 0; ch < mainBuffer.getNumChannels(); ++ch)
         juce::FloatVectorOperations::clip(mainBuffer.getWritePointer(ch), mainBuffer.getReadPointer(ch), -1.0f, 1.0f, mainBuffer.getNumSamples());
@@ -764,6 +776,11 @@ juce::var AmpSuiteAudioProcessor::status()
         result->setProperty("libraryRevision", library.revision);
         result->setProperty("modelId", library.idForPath("amp", desiredModel));
         result->setProperty("rigLoading", sceneAssetsLoading());
+        result->setProperty("activeRigId", activeRig.id); result->setProperty("activeRigName", activeRig.name);
+        const bool saved = library.find(activeRig.id).hasType("RIG");
+        result->setProperty("activeRigSaved", saved);
+        result->setProperty("activeRigEdited", activeRig.edited(apvts, {desiredModel, desiredIr, desiredPedal, desiredIrB},
+            {library.idForPath("amp", desiredModel), library.idForPath("cab", desiredIr), library.idForPath("pedal", desiredPedal), library.idForPath("cab", desiredIrB)}, scenes.save()) || (!saved && activeRig.name.isNotEmpty()));
     }
     {
         // UI polling must never hold the DSP lock: the callback would emit silence.
@@ -790,6 +807,7 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("cpu", processLoad.getLoadAsPercentage());
     result->setProperty("overruns", processLoad.getXRunCount());
     result->setProperty("inputClipped", inputClipped.load());
+    result->setProperty("outputPeakWarning", outputPeakWarning.load());
     // Driver-level dropouts (standalone only; -1 when the device cannot report them).
     result->setProperty("dropouts", deviceDropouts ? deviceDropouts() : -1);
     result->setProperty("deviceSettingsAvailable", static_cast<bool>(showDeviceSettings));
@@ -840,6 +858,8 @@ juce::ValueTree AmpSuiteAudioProcessor::copyRigState(bool includeSavedRigs)
 {
     const juce::ScopedLock snapshotGuard(requestLock);
     auto state = apvts.copyState();
+    if (const auto oldIdentity = state.getChildWithName("ACTIVE_RIG"); oldIdentity.isValid()) state.removeChild(oldIdentity, nullptr);
+    state.addChild(activeRig.save(), -1, nullptr);
     if (const auto oldMidi = state.getChildWithName("MIDICONTROL"); oldMidi.isValid()) state.removeChild(oldMidi, nullptr);
     if (const auto oldScenes = state.getChildWithName("SCENES"); oldScenes.isValid()) state.removeChild(oldScenes, nullptr);
     state.addChild(scenes.save(), -1, nullptr);
@@ -872,6 +892,7 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
     if (!xml || !xml->hasTagName(apvts.state.getType())) return;
     const juce::ScopedLock stateGuard(requestLock);
     auto state = juce::ValueTree::fromXml(*xml);
+    activeRig.restore(state.getChildWithName("ACTIVE_RIG"));
     scenes.restore(state.getChildWithName("SCENES"));
     const auto midi = state.getChildWithName("MIDICONTROL");
     const auto midiJson = midi["json"].toString();
@@ -882,6 +903,7 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
     {
         const juce::ScopedLock lock(requestLock);
         library.merge(state.getChildWithName("LIBRARY"));
+        activeRig.refreshSavedBaseline(library.find(activeRig.id));
         for (const auto& stage : {"model", "ir", "pedal", "irB"})
         {
             const auto key = juce::String(stage) + "Path";
@@ -1113,12 +1135,31 @@ juce::String AmpSuiteAudioProcessor::saveRig(const juce::String& name)
     juce::ValueTree entry("RIG");
     entry.setProperty("id", juce::Uuid().toString(), nullptr); entry.setProperty("name", title, nullptr);
     entry.setProperty("state", rig["state"], nullptr); entry.setProperty("favorite", false, nullptr);
-    library.tree.addChild(entry, -1, nullptr); ++library.revision; return persistLibrary();
+    library.tree.addChild(entry, -1, nullptr); ++library.revision;
+    const auto error = persistLibrary();
+    if (error.isEmpty()) activeRig.set(entry["id"].toString(), title, juce::ValueTree::fromXml(*juce::XmlDocument::parse(rig["state"].toString())));
+    else library.tree.removeChild(entry, nullptr);
+    return error;
+}
+juce::String AmpSuiteAudioProcessor::updateActiveRig()
+{
+    const auto snapshot = getRig(); if (snapshot.hasProperty("error")) return snapshot["error"].toString();
+    const juce::ScopedLock lock(requestLock); auto entry = library.find(activeRig.id);
+    if (!entry.hasType("RIG")) return "Save this tone as a new complete rig first.";
+    const auto previous = entry["state"]; entry.setProperty("state", snapshot["state"], nullptr); ++library.revision;
+    const auto error = persistLibrary();
+    if (error.isEmpty()) activeRig.set(activeRig.id, entry["name"].toString(), juce::ValueTree::fromXml(*juce::XmlDocument::parse(snapshot["state"].toString())));
+    else entry.setProperty("state", previous, nullptr);
+    return error;
 }
 juce::String AmpSuiteAudioProcessor::loadRig(const juce::String& id)
 {
     juce::var state;
-    { const juce::ScopedLock lock(requestLock); const auto rig = library.find(id); if (!rig.hasType("RIG")) return "Rig not found."; state = rig["state"]; }
+    { const juce::ScopedLock lock(requestLock); const auto rig = library.find(id); if (!rig.hasType("RIG")) return "Rig not found.";
+      const auto xml = juce::XmlDocument::parse(rig["state"].toString()); if (!xml) return "Invalid saved rig.";
+      auto document = juce::ValueTree::fromXml(*xml); ActiveRig identity; identity.set(id, rig["name"].toString(), document);
+      const auto old = document.getChildWithName("ACTIVE_RIG"); if (old.isValid()) document.removeChild(old, nullptr);
+      document.addChild(identity.save(), -1, nullptr); state = document.createXml()->toString(); }
     auto rig = std::make_unique<juce::DynamicObject>(); rig->setProperty("schema", 1); rig->setProperty("state", state);
     return applyRig(juce::var(rig.release()));
 }

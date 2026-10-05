@@ -14,7 +14,7 @@ The bank travels with native app/DAW state, saved complete rigs, A/B snapshots, 
 
 ## MIDI recall
 
-Open **Foot control**, choose **Recall scene**, choose scene 1–4, then Apply and optionally Learn a controller. CC switches recall on the rising crossing into 64–127; PC recalls on each matching message. An empty slot can be assigned in advance but returns an error until populated. Assignments reference slot numbers in the current rig, so loading a different rig changes their target tones. MIDI assignments remain session settings and are excluded from rig exports.
+Open **Performance**, choose **Recall scene**, choose scene 1–4, then Apply and optionally Learn a controller. CC switches recall on the rising crossing into 64–127; PC recalls on each matching message. An empty slot can be assigned in advance but returns an error until populated. Assignments reference slot numbers in the current rig, so loading a different rig changes their target tones. MIDI assignments remain session settings and are excluded from rig exports.
 
 The existing control worker handles MIDI recall with the editor closed. Host parameter notifications and scene operations occur outside the audio callback. They are asynchronous, not sample-accurate. Scenes use existing smoothing and the amp-source fade rather than preparing new engines. Parameters are notified individually, so this does not promise an atomic or gapless transition. Scene commands are rejected while a rig or stage asset is loading or unresolved.
 

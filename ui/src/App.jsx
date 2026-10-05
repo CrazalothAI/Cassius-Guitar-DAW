@@ -5,6 +5,12 @@ import PresetBrowser from './components/PresetBrowser.jsx';
 import Stages from './components/Stages.jsx';
 import Library from './components/Library.jsx';
 import Practice from './components/Practice.jsx';
+import PlayAlong from './components/PlayAlong.jsx';
+import Takes from './components/Takes.jsx';
+import CompactAmp from './components/CompactAmp.jsx';
+import RigBar from './components/RigBar.jsx';
+import UtilityDialog from './components/UtilityDialog.jsx';
+import { ampIdentity } from './ampIdentity.js';
 import Midi from './components/Midi.jsx';
 import { invoke, native } from './juce/bridge.js';
 import { restoreSnapshot, snapshotParameters, useParameter, useParameters, useToggle } from './parameterState.js';
@@ -84,10 +90,12 @@ export default function App() {
   const [tunerOpen, setTunerOpen] = useState(false);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
-  const [practiceOpen, setPracticeOpen] = useState(false);
-  const [midiOpen, setMidiOpen] = useState(false);
+  const [view, setView] = useState('Tone');
+  const [utility, setUtility] = useState(null);
+  const [previewActive, setPreviewActive] = useState(null);
   const comparing = useRef(false);
   const [page, setPage] = useState('Amp');
+  const [tonePage, setTonePage] = useState('Amp');
   const [dismissed, setDismissed] = useState('');
   const [compare, setCompare] = useState(null);
   const [compareSide, setCompareSide] = useState('A');
@@ -116,7 +124,7 @@ export default function App() {
     if (comparing.current) return;
     comparing.current = true;
     try {
-    const current = native ? await invoke('getRig') : {parameters: snapshotParameters()};
+    const current = native ? await invoke('getRig') : {parameters: snapshotParameters(), identity: previewActive};
     if (current?.error) throw new Error(current.error);
     if (!compare) {
       setCompare(current);
@@ -124,7 +132,7 @@ export default function App() {
       return;
     }
     if (native) { const error = await invoke('applyRig', ...[compare, ...(matchCompare ? [true] : [])]); if (error) throw new Error(error); }
-    else restoreSnapshot(compare.parameters);
+    else { restoreSnapshot(compare.parameters); setPreviewActive(compare.identity || null); }
     setCompare(current);
     setCompareSide(side => side === 'A' ? 'B' : 'A');
     } catch (e) { setNotice({title: 'Couldn’t compare rigs', text: e.message || 'Please try again.'}); }
@@ -156,12 +164,16 @@ export default function App() {
   const footerMessage = !native || busy || message.startsWith('Load failed:') ? message
     : clean ? 'Clean ready' : status.model ? 'Rig ready' : message;
   const showLoad = status.overrunRecent || status.cpu >= 80;
+  const identity = ampIdentity(source, clean, status);
+  const previewEdited = !!previewActive && Object.entries(previewActive.parameters).some(([id, value]) => Math.abs(values[id] - value) > .005);
+  const destinations = ['Tone', 'Board', 'Practice', 'Takes'];
+  const navigate = destination => { setView(destination); setUtility(null); };
 
   return <div className={`app-shell ${clean ? 'clean' : 'metal'}`}>
     <header>
       <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><h1>CASSIAN</h1></div>
       <PresetBrowser current={current} edited={edited} onChoose={chooseTone} onRevert={() => chooseTone(current)}
-        compare={compare} compareSide={compareSide} onCompare={toggleCompare} />
+        compare={compare} compareSide={compareSide} onCompare={toggleCompare} showCompare={false} />
       <div className="header-tools">
         <MetronomeButton open={metronomeOpen} onToggle={() => setMetronomeOpen(!metronomeOpen)} status={status} />
         <button className="tuner-toggle" aria-pressed={tunerOpen} onClick={() => setTunerOpen(!tunerOpen)}>{tunerOpen ? 'TUNER ON' : 'TUNER'}</button>
@@ -171,13 +183,26 @@ export default function App() {
     </header>
     <main>
       <Alerts status={status} notice={notice} dismissed={dismissed} onDismiss={dismiss} onBuffer={setBuffer} />
-      <div className="library-toolbar"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><span>Amps · Pedals · Cabinets · Saved rigs</span><button className="text-button practice-toggle" aria-expanded={practiceOpen && !midiOpen} onClick={() => { setPracticeOpen(midiOpen || !practiceOpen); setMidiOpen(false); }}>{practiceOpen && !midiOpen ? 'Tone controls' : 'Practice & record'}</button><button className="text-button" aria-expanded={midiOpen} onClick={() => setMidiOpen(!midiOpen)}>{midiOpen ? 'Close MIDI' : 'Foot control'}</button><label className="compare-match" title="Approximate A/B level matching from recent playing. Play similar notes before storing each side."><input type="checkbox" disabled={!native} checked={matchCompare} onChange={e => setMatchCompare(e.target.checked)} /> Match A/B loudness</label></div>
-      <AmpHead clean={clean} tunerOpen={tunerOpen} status={status} />
-      {midiOpen ? <Midi status={status} onError={setNotice} /> : practiceOpen ? <Practice status={status} onError={setNotice} /> : <Stages page={page} onPage={setPage} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice} />}
+      <RigBar status={status} amp={identity} previewActive={previewActive} previewEdited={previewEdited} onPreviewRig={setPreviewActive} onError={setNotice} onCompare={toggleCompare} compare={compare} compareSide={compareSide} matchCompare={matchCompare} onMatch={setMatchCompare}/>
+      <div className="workspace-nav"><div role="tablist" aria-label="Workspace" onKeyDown={e => {
+        let next; const i = destinations.indexOf(view);
+        if (e.key === 'ArrowRight') next = (i + 1) % destinations.length;
+        else if (e.key === 'ArrowLeft') next = (i + destinations.length - 1) % destinations.length;
+        else if (e.key === 'Home') next = 0; else if (e.key === 'End') next = destinations.length - 1;
+        else return;
+        e.preventDefault(); navigate(destinations[next]); e.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus();
+      }}>{destinations.map(destination => <button key={destination} role="tab" id={`view-${destination}`} aria-controls="workspace-content" aria-selected={view === destination} tabIndex={view === destination ? 0 : -1} onClick={() => navigate(destination)}>{destination}</button>)}</div><div className="workspace-tools"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Mix'); }}>Mix</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Performance'); }}>Performance</button></div></div>
+      <div className={`workspace-content view-${view.toLowerCase()}`} role="tabpanel" id="workspace-content" aria-labelledby={`view-${view}`}>
+        {view === 'Tone' ? <AmpHead clean={clean} tunerOpen={tunerOpen} status={status}/> : <CompactAmp clean={clean} tunerOpen={tunerOpen} status={status}/>}
+        {view === 'Practice' ? <Practice status={status} onError={setNotice} onTakes={() => navigate('Takes')}/> : view === 'Takes' ? <section className="takes-workspace" aria-label="Take library"><div className="practice-heading"><h2>Your take library</h2><button className="text-button" onClick={() => navigate('Practice')}>Record a take</button></div><Takes status={status} onError={setNotice}/></section> : <Stages page={view === 'Tone' ? tonePage : page} onPage={view === 'Tone' ? setTonePage : setPage} availablePages={view === 'Tone' ? ['Amp', 'Cab'] : undefined} showScenes={view === 'Board'} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice}/>}
+      </div>
     </main>
-    {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} />}
+    {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive}/>}
+    {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
     <footer>
       <span role="status">{footerMessage}</span>
+      {native && status.review?.playing && <button className="device-settings" onClick={() => deviceAction('reviewControl', 'stop', 0)}>Stop take review</button>}
+      {native && status.practice?.recordMode > 0 && <button className="device-settings" onClick={() => navigate('Practice')}>Recording · Open Practice</button>}
       <span className="device-controls">
       {native && status.deviceSettingsAvailable && <button className="device-settings" onClick={() => deviceAction('showAudioSettings')}>Audio settings</button>}
       {native && status.inputChannels?.length > 0 && <select className="buffer-select input-select" aria-label="Guitar input" title="Physical guitar input · input monitoring is controlled in Audio settings" value={status.selectedInput ?? -1} onChange={e => deviceAction('setInputChannel', Number(e.target.value))}>

@@ -226,6 +226,7 @@ void runPracticeChecks()
     // The integrated backing player bypasses the overdrive, high-gain amp and cab.
     {
         AmpSuiteAudioProcessor p(false); set(p, "AMP_SOURCE", 2); set(p, "OD_ON", 1); set(p, "OD_DRIVE", 100);
+        set(p, "GUITAR_MIX_LEVEL", 12); set(p, "GUITAR_MIX_FOCUS", 100);
         set(p, "GATE_ON", 0); set(p, "DRIVE_GAIN", 20); set(p, "REVERB_MIX", 0); set(p, "DELAY_MIX", 0); set(p, "MASTER_VOL", -12);
         p.prepareToPlay(48000, 128); p.practice.command("level", 0); p.practice.setCountIn(0, 120, 4); loaded(p.practice, stereo);
         juce::AudioBuffer<float> audio(2, 128); juce::MidiBuffer midi;

@@ -5,13 +5,17 @@ import App from './App.jsx';
 afterEach(cleanup);
 const choose = name => fireEvent.change(screen.getByRole('combobox', { name: 'Preset' }), { target: { value: name } });
 const display = () => document.querySelector('.preset-display').textContent;
-const stage = name => fireEvent.click(screen.getByRole('tab', { name }));
+const stage = name => {
+  if (!screen.queryByRole('tab', { name })) fireEvent.click(screen.getByRole('tab', { name: 'Board' }));
+  fireEvent.click(screen.getByRole('tab', { name }));
+};
 const amp = () => within(screen.getByRole('region', { name: 'Amplifier' }));
 describe('amp and signal chain', () => {
   it('shows six amp controls and the selected stage’s controls below, in signal order', () => {
     render(<App/>);
     expect(amp().getAllByRole('slider')).toHaveLength(6);
-    expect(screen.getAllByRole('tab').map(t => t.getAttribute('aria-label'))).toEqual(['Input', 'Pedal', 'Amp', 'Cab', 'EQ', 'Effects']);
+    fireEvent.click(screen.getByRole('tab', { name: 'Board' }));
+    expect(within(screen.getByRole('tablist', { name: 'Signal chain' })).getAllByRole('tab').map(t => t.getAttribute('aria-label'))).toEqual(['Input', 'Pedal', 'Amp', 'Cab', 'EQ', 'Effects']);
     expect(screen.getByRole('tab', { name: 'Amp' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getByRole('slider', { name: 'High cut' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Load amp model/ }).disabled).toBe(true);
@@ -67,10 +71,10 @@ describe('amp and signal chain', () => {
     choose('Modern metalcore');
     const channel = screen.getByRole('button', { name: 'Channel' });
     expect(channel.getAttribute('aria-pressed')).toBe('true');
-    expect(screen.getByText('FERRUM · HIGH GAIN')).toBeTruthy();
+    expect(screen.getAllByText('Ferrum · built-in high gain').length).toBeGreaterThan(0);
     fireEvent.click(channel);
     expect(channel.getAttribute('aria-pressed')).toBe('false');
-    expect(screen.getByText('LUMEN · CLEAN')).toBeTruthy();
+    expect(screen.getAllByText('Lumen · built-in clean').length).toBeGreaterThan(0);
     expect(screen.getByRole('slider', { name: 'Compression' })).toBeTruthy();
     expect(display()).toContain('Edited');
   });
@@ -158,16 +162,17 @@ describe('amp and signal chain', () => {
   it('shows the family of presets chosen from the list', () => {
     render(<App/>);
     choose('Drop-Z djent');
-    expect(document.querySelector('.preset-family').textContent).toBe('Extended range');
+    expect(document.querySelector('.preset-family').textContent).toBe('Starting point · Extended range');
   });
   it('moves along the signal chain with the arrow keys', () => {
     render(<App/>);
+    fireEvent.click(screen.getByRole('tab', { name: 'Board' }));
     const ampTab = screen.getByRole('tab', { name: 'Amp' });
     fireEvent.keyDown(ampTab, { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: 'Cab' }).getAttribute('aria-selected')).toBe('true');
     expect(document.activeElement).toBe(screen.getByRole('tab', { name: 'Cab' }));
     fireEvent.keyDown(document.activeElement, { key: 'End' });
-    expect(screen.getByRole('tabpanel').getAttribute('aria-labelledby')).toBe('tab-Effects');
+    expect(screen.getByRole('tabpanel', {name: 'Effects'}).getAttribute('aria-labelledby')).toBe('tab-Effects');
     fireEvent.keyDown(document.activeElement, { key: 'ArrowRight' });
     expect(screen.getByRole('tab', { name: 'Input' }).getAttribute('aria-selected')).toBe('true');
   });

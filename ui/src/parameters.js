@@ -87,6 +87,8 @@ export const parameters = [
   ['MOD_STEREO', 'Spread', 0, 100, 0, '%', 1],
   ['MOD_SYNC', 'Modulation sync', 0, 1, 0, '', 1],
   ['MOD_DIVISION', 'Modulation division', 0, 4, 2, '', 1],
+  ['GUITAR_MIX_LEVEL', 'Guitar balance', -12, 12, 0, 'dB', 0.1],
+  ['GUITAR_MIX_FOCUS', 'Mix focus', 0, 100, 0, '%', 1],
 
 ].map(([id, label, min, max, initial, unit, step, centre = 0]) =>
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));

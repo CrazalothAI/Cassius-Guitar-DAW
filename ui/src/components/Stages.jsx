@@ -188,7 +188,7 @@ const shortAmp = (clean, status) => clean ? 'Lumen clean'
 const stripExtension = name => name.replace(/\.(nam|wav)$/i, '');
 
 // Signal chain: stages in order, each with its live level, then the selected stage's controls.
-export default function Stages({ page, onPage, clean, native, status, onLoad, onRemove, onError }) {
+export default function Stages({ page, onPage, availablePages = pages, showScenes = true, clean, native, status, onLoad, onRemove, onError }) {
   const tabs = useRef([]);
   const fx = useParameters(['DELAY_MIX', 'REVERB_MIX', 'CHORUS_MIX', 'PEDAL_ON', 'GATE_ON', 'EQ_ON', 'AMP_SOURCE', 'CAB_MODE', 'CAPTURE_KIND', 'OD_ON', 'CAB_B_ON', 'MOD_ON', 'MOD_TYPE', 'MOD_MIX']);
   const View = views[page] ?? Amp;
@@ -206,12 +206,12 @@ export default function Stages({ page, onPage, clean, native, status, onLoad, on
     Effects: { detail: effects, value: status.output, lit: effects !== 'Dry' },
   };
   const keyDown = e => {
-    const i = pages.indexOf(page);
-    const target = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: pages.length - 1 }[e.key];
+    const i = availablePages.indexOf(page);
+    const target = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: availablePages.length - 1 }[e.key];
     if (target === undefined) return;
     e.preventDefault();
-    const next = (target + pages.length) % pages.length;
-    onPage(pages[next]);
+    const next = (target + availablePages.length) % availablePages.length;
+    onPage(availablePages[next]);
     tabs.current[next]?.focus();
   };
   const load = (type, text) => <button className="text-button" disabled={!native} onClick={() => onLoad(type)}>{text}<span aria-hidden="true"> ↗</span></button>;
@@ -220,7 +220,7 @@ export default function Stages({ page, onPage, clean, native, status, onLoad, on
   return <section className="rig" aria-label="Signal chain">
     <div className="chain" role="tablist" aria-label="Signal chain" onKeyDown={keyDown}>
       <span className="chain-end" aria-hidden="true">GUITAR</span>
-      {pages.map((name, i) => {
+      {availablePages.map((name, i) => {
         const node = nodes[name];
         return <button key={name} ref={el => { tabs.current[i] = el; }} role="tab" id={`tab-${name}`} aria-label={name}
           aria-selected={page === name} aria-controls="stage-panel" tabIndex={page === name ? 0 : -1} onClick={() => onPage(name)}
@@ -233,7 +233,7 @@ export default function Stages({ page, onPage, clean, native, status, onLoad, on
       <span className="chain-end" aria-hidden="true">OUT</span>
     </div>
     <div className="stage-panel" role="tabpanel" id="stage-panel" aria-labelledby={`tab-${page}`}>
-      <Scenes status={status} onError={onError} />
+      {showScenes && <Scenes status={status} onError={onError} />}
       <View clean={clean} native={native} status={status} load={load} remove={remove} />
     </div>
   </section>;

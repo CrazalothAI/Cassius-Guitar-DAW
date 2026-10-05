@@ -6,7 +6,7 @@
 class PerformanceScenes
 {
 public:
-    static bool global(const juce::String& id) { return id == "INPUT_GAIN" || id == "MASTER_VOL" || id.startsWith("METRO_"); }
+    static bool global(const juce::String& id) { return id == "INPUT_GAIN" || id == "MASTER_VOL" || id.startsWith("METRO_") || id.startsWith("GUITAR_MIX_"); }
     static juce::var capture(juce::AudioProcessorValueTreeState& state)
     {
         auto o = std::make_unique<juce::DynamicObject>();

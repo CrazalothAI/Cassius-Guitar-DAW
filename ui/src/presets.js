@@ -1,5 +1,5 @@
 import { byId, parameters } from './parameters.js';
-import { setParameter } from './parameterState.js';
+import { setParameter, isGlobalParameter } from './parameterState.js';
 // Keep input calibration, master level and loaded files when choosing a starting point.
 export const presets = {
   'Low-tuned chug': {AMP_CLEAN: 0, PEDAL_ON: 1, GATE_ON: 1, GATE_RELEASE: 60, GATE_THRESH: -46, DRIVE_GAIN: 0, TIGHT: 90, AMP_BASS: -1, AMP_MID: 2, AMP_TREBLE: 0, AMP_OUT: 0, PRESENCE: 1, HIGH_CUT: 6800, CLEAN_COMP: 35, DELAY_TIME: 320, DELAY_MIX: 0, DELAY_WIDTH: 0, REVERB_MIX: 2, REVERB_SIZE: 30, DYN_RES_ON: 1, DYN_RES_AMOUNT: 75, CHUG_ATTACK: 65, THICKEN_ON: 1, THICKEN_MIX: 35, PIEZO_ON: 0, PIEZO_BLEND: 0, MICRO_DELAY: 0.35},
@@ -18,7 +18,7 @@ export const presets = {
 };
 // Appended controls default to the legacy/bypassed sound for every starting point.
 for (const preset of Object.values(presets))
-  for (const p of parameters.slice(41)) preset[p.id] = p.initial;
+  for (const p of parameters.slice(41).filter(p => !isGlobalParameter(p.id))) preset[p.id] = p.initial;
 // EQ is part of each tone and A/B snapshot; clean voices stay flat and bypassed.
 const flatEq = {EQ_ON: 0, EQ_BODY: 0, EQ_MUD: 0, EQ_FOCUS: 0, EQ_FIZZ: 0};
 for (const [name, preset] of Object.entries(presets)) {

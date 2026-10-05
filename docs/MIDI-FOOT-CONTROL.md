@@ -1,6 +1,6 @@
 # MIDI foot control
 
-Open **Foot control** above the amp to configure eight assignments. Mapping starts disabled. Standalone and VST3 accept CC and program-change messages; notes, clocks and SysEx do not control the rig. Cassian produces no MIDI output.
+Open **Performance** to configure eight assignments. Mapping starts disabled. Standalone and VST3 accept CC and program-change messages; notes, clocks and SysEx do not control the rig. Cassian produces no MIDI output.
 
 ## Connect and assign
 

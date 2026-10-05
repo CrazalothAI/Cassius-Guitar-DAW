@@ -33,6 +33,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("clearScene", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isInt() ? processor.clearScene(static_cast<int>(args[0])) : juce::String("Invalid scene request.")); })
         .withNativeFunction("applyRig", [this](const auto& args, auto complete) { complete(args.size() == 1 || args.size() == 2 ? processor.applyRig(args[0], true, args.size() == 2 && static_cast<bool>(args[1])) : "Invalid rig request."); })
         .withNativeFunction("saveRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.saveRig(args[0].toString()) : "Give the rig a name."); })
+        .withNativeFunction("updateActiveRig", [this](const auto&, auto complete) { complete(processor.updateActiveRig()); })
         .withNativeFunction("loadRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.loadRig(args[0].toString()) : "Rig not found."); })
         .withNativeFunction("removeRig", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.removeRig(args[0].toString())); })
         .withNativeFunction("selectAsset", [this](const auto& args, auto complete) { complete((args.size() == 1 || (args.size() == 2 && args[1].toString() == "cabB")) && processor.selectAsset(args[0].toString(), args.size() == 2)); })

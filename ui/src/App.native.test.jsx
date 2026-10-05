@@ -10,7 +10,7 @@ vi.mock('./juce/bridge.js', () => ({
     engine.calls.push([name, ...args]);
     if (name === 'getRig') return engine.rig;
     if (name === 'getLibrary') return engine.library;
-    if (name === 'applyRig' || name === 'loadRig' || name === 'saveRig') return engine.error;
+    if (name === 'applyRig' || name === 'loadRig' || name === 'saveRig' || name === 'updateActiveRig' || name === 'practiceControl') return engine.error;
     return true;
   },
 }));
@@ -22,15 +22,55 @@ beforeEach(() => {
   engine.status = { model: 'Rig.nam', ir: '', pedal: '', input: 0, output: 0, gate: 0, sampleRate: 48000, bufferSize: 256, cpu: 10, overruns: 0, message: 'Loaded Rig.nam' };
 });
 afterEach(cleanup);
+const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 describe('editor connected to the audio engine', () => {
-  it('keeps the amplifier visible when switching between practice and tone controls', async () => {
+  it('shows authoritative rig identity, saves in place, and keeps failed Save As open for retry', async () => {
+    engine.status = {...engine.status, activeRigId: 'lead', activeRigName: 'Quiet lead', activeRigSaved: true, activeRigEdited: true, model: 'Ivory red'};
+    render(<App/>);
+    const bar = within(screen.getByRole('region', {name: 'Current complete rig'}));
+    await bar.findByText('Quiet lead'); expect(bar.getByText('Edited')).toBeTruthy();
+    fireEvent.click(bar.getByRole('button', {name: 'Save rig'}));
+    await waitFor(() => expect(engine.calls).toContainEqual(['updateActiveRig']));
+    engine.status = {...engine.status, activeRigEdited: false};
+    await waitFor(() => expect(bar.queryByText('Edited')).toBeNull());
+    fireEvent.click(bar.getByRole('button', {name: 'Save rig as'}));
+    const dialog = screen.getByRole('dialog', {name: 'Save complete rig'});
+    fireEvent.change(within(dialog).getByRole('textbox', {name: 'Rig name'}), {target: {value: 'New lead'}});
+    engine.error = 'Could not save the shared library';
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Save complete rig'}));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(engine.error);
+    expect(bar.getByText('Quiet lead')).toBeTruthy();
+    engine.error = ''; fireEvent.click(within(dialog).getByRole('button', {name: 'Save complete rig'}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(engine.calls).toContainEqual(['saveRig', 'New lead']);
+  });
+  it('keeps take review stoppable after navigating away from Takes', async () => {
+    engine.status = {...engine.status, review: {playing: true}, practice: {recordMode: 3}};
+    render(<App/>); const stop = await screen.findByRole('button', {name: 'Stop take review'});
+    fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(stop);
+    await waitFor(() => expect(engine.calls).toContainEqual(['reviewControl', 'stop', 0]));
+    fireEvent.click(screen.getByRole('button', {name: 'Recording · Open Practice'}));
+    expect(screen.getByRole('tab', {name: 'Practice'}).getAttribute('aria-selected')).toBe('true');
+  });
+  it('shows backing-volume failures inside Mix so the modal does not hide them', async () => {
+    engine.status = {...engine.status, deviceSettingsAvailable: true, practice: {duration: 60, level: -12}};
+    render(<App/>); await screen.findByText(/48.0 kHz/);
+    fireEvent.click(screen.getByRole('button', {name: 'Mix'}));
+    const dialog = screen.getByRole('dialog', {name: 'Play along mix'});
+    engine.error = 'Backing volume unavailable';
+    fireEvent.change(within(dialog).getByRole('slider', {name: 'Cassian backing volume'}), {target: {value: '-15'}});
+    expect((await within(dialog).findByRole('alert')).textContent).toContain('Backing volume unavailable');
+  });
+  it('uses a compact amplifier in Practice and restores the full head in Tone', async () => {
     engine.status = {...engine.status, deviceSettingsAvailable: true, practice: {duration: 60, position: 12, track: 'Track.wav', recordMode: 0}};
-    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Practice & record'}));
+    render(<App/>); fireEvent.click(screen.getByRole('tab', {name: 'Practice'}));
     await screen.findByText('Track.wav');
-    expect(screen.getByRole('region', {name: 'Amplifier'})).toBeTruthy();
+    expect(screen.getByRole('region', {name: 'Compact amplifier'})).toBeTruthy();
+    expect(screen.queryByRole('region', {name: 'Amplifier'})).toBeNull();
     fireEvent.click(screen.getByRole('button', {name: 'Load backing track'}));
     await waitFor(() => expect(engine.calls).toContainEqual(['loadBackingTrack']));
-    fireEvent.click(screen.getByRole('button', {name: 'Tone controls'}));
+    fireEvent.click(screen.getByRole('tab', {name: 'Tone'}));
+    expect(screen.getByRole('region', {name: 'Amplifier'})).toBeTruthy();
     expect(screen.getByRole('tab', {name: 'Amp'})).toBeTruthy();
   });
   it('loads and removes cabinet B without replacing cabinet A', async () => {
@@ -82,7 +122,7 @@ describe('editor connected to the audio engine', () => {
     engine.status = { ...engine.status, sampleRate: 44100, ampExpectedRate: 48000, ampResampled: true, pedal: 'Drive.nam', pedalExpectedRate: 44100, pedalResampled: false };
     render(<App/>);
     expect(await screen.findByText('48.0 kHz capture · resampled to 44.1 kHz')).toBeTruthy();
-    fireEvent.click(screen.getByRole('tab', { name: 'Pedal' }));
+    stage('Pedal');
     expect(screen.getByText('Before the selected amp')).toBeTruthy();
     expect(screen.queryByRole('alert')).toBeNull();
   });
@@ -110,6 +150,7 @@ describe('editor connected to the audio engine', () => {
   });
   it('shows the gate opening and closing on the Input stage', async () => {
     render(<App/>);
+    fireEvent.click(screen.getByRole('tab', {name: 'Board'}));
     const input = screen.getByRole('tab', { name: 'Input' });
     await waitFor(() => expect(input.textContent).toContain('Gate closed'));
     engine.status.gate = 1;
@@ -117,7 +158,7 @@ describe('editor connected to the audio engine', () => {
   });
   it('reports the hum filter once it engages', async () => {
     render(<App/>);
-    fireEvent.click(screen.getByRole('tab', { name: 'Input' }));
+    stage('Input');
     expect(await screen.findByText('Listening · engages if hum is heard between notes')).toBeTruthy();
     engine.status = { ...engine.status, humCancelling: true, mainsHz: 50 };
     expect(await screen.findByText('Removing 50 Hz hum')).toBeTruthy();
@@ -156,7 +197,7 @@ describe('editor connected to the audio engine', () => {
     expect(cab.disabled).toBe(false);
     fireEvent.click(cab);
     await waitFor(() => expect(engine.calls).toContainEqual(['loadIR']));
-    fireEvent.click(screen.getByRole('tab', { name: 'Pedal' }));
+    stage('Pedal');
     expect(screen.getByRole('button', { name: 'Pedal enabled' }).disabled).toBe(true);
   });
   it('runs the engine pitch analysis only while the tuner is open', async () => {
@@ -186,10 +227,10 @@ describe('editor connected to the audio engine', () => {
   it('removes a loaded capture, pedal or cabinet', async () => {
     engine.status = { ...engine.status, pedal: 'Drive.nam', ir: 'Cab.wav' };
     render(<App/>);
-    for (const [name, stage, tab] of [['Remove amp capture', 'amp', 'Amp'], ['Remove pedal capture', 'pedal', 'Pedal'], ['Remove cabinet IR', 'cab', 'Cab']]) {
-      fireEvent.click(screen.getByRole('tab', { name: tab }));
+    for (const [name, slot, tab] of [['Remove amp capture', 'amp', 'Amp'], ['Remove pedal capture', 'pedal', 'Pedal'], ['Remove cabinet IR', 'cab', 'Cab']]) {
+      stage(tab);
       fireEvent.click(await screen.findByRole('button', { name }));
-      await waitFor(() => expect(engine.calls).toContainEqual(['clearStage', stage]));
+      await waitFor(() => expect(engine.calls).toContainEqual(['clearStage', slot]));
     }
   });
   it('flags recent processing overruns in the footer', async () => {
@@ -246,8 +287,9 @@ describe('editor connected to the audio engine', () => {
     fireEvent.change(screen.getByRole('combobox', {name: 'Preset'}), {target: {value: 'Glass clean'}});
     fireEvent.change(screen.getByRole('combobox', {name: 'Amp source'}), {target: {value: '3'}});
     await screen.findByRole('button', {name: 'Change amp'});
-    fireEvent.click(screen.getByRole('tab', {name: 'Pedal'}));
+    stage('Pedal');
     expect(screen.getByRole('button', {name: 'Pedal enabled'}).disabled).toBe(false);
+    fireEvent.click(screen.getByRole('tab', {name: 'Tone'}));
     expect(screen.getByRole('button', {name: 'Channel'}).disabled).toBe(true);
     expect(screen.getByRole('tab', {name: 'Cab'}).textContent).toContain('Included in capture');
     fireEvent.click(screen.getByRole('tab', {name: 'Cab'}));

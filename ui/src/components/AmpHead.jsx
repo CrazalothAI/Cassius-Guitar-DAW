@@ -2,6 +2,7 @@ import Knob from './Knob.jsx';
 import Tuner from './Tuner.jsx';
 import { setParameter, useParameter } from '../parameterState.js';
 import cassianLogo from '../assets/cassian-logo-192.png'; // shown at 34-46 px; the full-size original stays in assets
+import { ampIdentity } from '../ampIdentity.js';
 
 const controls = ['DRIVE_GAIN', 'AMP_BASS', 'AMP_MID', 'AMP_TREBLE', 'REVERB_MIX', 'MASTER_VOL'];
 
@@ -17,7 +18,7 @@ export default function AmpHead({ clean, tunerOpen, status }) {
         <div className="badge">
           <img src={cassianLogo} alt="" />
           <span className="badge-word">Cassian</span>
-          <span className="badge-model">{source === 4 ? 'VIA · NATURAL DI' : source === 3 ? 'NAM · CAPTURE' : clean ? 'LUMEN · CLEAN' : 'FERRUM · HIGH GAIN'}</span>
+          <span className="badge-model" title={ampIdentity(source, clean, status)}>{ampIdentity(source, clean, status)}</span>
         </div>
         {tunerOpen && <Tuner status={status} />}
       </div>

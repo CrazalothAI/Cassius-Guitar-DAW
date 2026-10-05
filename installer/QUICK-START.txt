@@ -11,8 +11,19 @@ FIRST SOUND
 5. Use your interface's Playback monitoring to avoid doubling the dry guitar.
 
 PRACTICE
-Open Practice & record to load a backing track, change speed without changing pitch,
+Open Practice to load a backing track, change speed without changing pitch,
 see its waveform, save named loop sections, and record dry/processed guitar takes.
+Open Takes to review, name, favorite and reamp your recordings.
+
+YOUR RIG
+Tone shows the full amp head; Board opens all detailed stages below a compact strip.
+Save as names a complete rig. Save updates it; Edited shows tone changes.
+Library imports NAM amp/pedal captures and WAV cabinets. Performance sets MIDI foot control.
+
+PLAY ALONG
+Open Mix and try Bring guitar forward for listening-only balance and focus.
+With YouTube/browser backing, start video volume around 25% and adjust to taste.
+These controls keep dry/processed recordings and offline reamps unchanged.
 
 OPTIONAL DAW PLUGIN
 The installer can also install the VST3 plugin for the current user at:

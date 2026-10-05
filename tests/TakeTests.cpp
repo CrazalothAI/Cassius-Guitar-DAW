@@ -26,7 +26,8 @@ void imported(TakeLibrary& library, const juce::File& folder, int count = 1) {
 }
 juce::var rig() {
     AmpSuiteAudioProcessor p(false); set(p, "AMP_SOURCE", 4); set(p, "CAB_MODE", 3); set(p, "INPUT_GAIN", 6);
-    set(p, "GATE_ON", 0); set(p, "REVERB_MIX", 0); set(p, "DELAY_MIX", 0); set(p, "MASTER_VOL", -48); return p.getRig();
+    set(p, "GATE_ON", 0); set(p, "REVERB_MIX", 0); set(p, "DELAY_MIX", 0); set(p, "MASTER_VOL", -48);
+    set(p, "GUITAR_MIX_LEVEL", 12); set(p, "GUITAR_MIX_FOCUS", 100); return p.getRig();
 }
 }
 void runTakeChecks()

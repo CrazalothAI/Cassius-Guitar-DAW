@@ -2,9 +2,11 @@
 
 Cassian is a guitar processor with a tube-head interface, built-in clean and high-gain amps, Neural Amp Modeler (NAM) support, cabinet convolution, and stereo effects. It runs as a Windows standalone app or VST3 plugin, with a JUCE/C++20 audio engine and an embedded React editor.
 
-The current source adds dual-IR cabinets, an original built-in overdrive, compression for every amp source, and clean/lead starting points. Standalone practice includes backing-track playback, paired guitar recording, a searchable take library, and offline reamping. It also includes safer audio loading, prepared complete rig recall, a shared managed library, portable rig packs, independent pedal trims, and expanded clean/stereo effects. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md).
+The current source adds listening-only Play Along controls and clear Tone, Board, Practice, and Takes views, with a persistent saved rig name and direct Save/Save As. Standalone practice includes backing-track playback, paired guitar recording, a searchable take library, and offline reamping. The sound engine includes dual-IR cabinets, built-in overdrive, compression, modulation and stereo effects, plus prepared complete rig recall, a shared managed library and portable rig packs. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md) and [next steps](docs/NEXT-STEPS.md).
 
 ## Download and launch
+
+This README describes the development source; public downloads can lag the current feature branch. Local milestone builds are not automatically published or merged.
 
 Download **[Cassian-Setup.exe](https://github.com/CrazalothAI/Cassius/releases/download/latest/Cassian-Setup.exe)** from [Latest Windows download](https://github.com/CrazalothAI/Cassius/releases/tag/latest), run it, and follow the installer. Then open **Cassian** from the Windows Start menu. Setup offers an optional desktop shortcut and VST3 plugin; administrator access is not required. It checks for Microsoft WebView2 and installs the runtime when missing (internet access is needed for that step).
 
@@ -19,10 +21,29 @@ The native window, executable, and supported system tray use the Cassian wolf lo
 1. Connect your guitar and headphones/speakers to your audio interface. Input 1 and outputs 1–2 are the initial defaults. In standalone, choose any physical guitar input with the footer's **Guitar input** menu; **Audio settings** opens driver/device/output selection. In a DAW, route the intended guitar input to Cassian's first input channel.
 2. In standalone, open **Audio settings** in the footer (or **Options → Audio/MIDI Settings**) to select your driver and outputs. A DAW controls its own device, sample rate, and buffer size.
 3. Choose a starting preset from the header. Clean, ambient, piezo, rock, lead, metal, and extended-range voices are available. **Natural Nylon** provides a neutral DI starting point for a real nylon or piezo input.
-4. Select **Amp** below the head to choose Lumen, Ferrum, a NAM capture, or Natural DI. The built-in amps work without downloading captures.
-5. Raise Master gradually from its default −12 dB. Use the IN/OUT and stage meters to check levels, then save the result in **Library → Presets → Save current rig**.
+4. In **Tone**, select **Amp** below the head to choose Lumen, Ferrum, a NAM capture, or Natural DI. The built-in amps work without downloading captures.
+5. Raise Master gradually from its default −12 dB. Use the stage meters to check levels, then choose **Save as** in the rig bar and name your complete rig. **Save** updates that entry after edits.
 
-For difficult passages, open **Practice & record**, load a backing track and choose **Speed** from 50–150%. Pitch stays unchanged. Preparation pauses the track and preserves its cursor and loop points; press Play when ready. The timeline uses the original track's seconds. **Loop edge fade** applies short fades around the seam (5 ms by default) to reduce clicks without shortening the loop. Metronome/count-in BPM remains independently set. See [practice and recording](docs/PRACTICE-RECORDING.md) for preparation, memory and sound-quality limits.
+For difficult passages, open **Practice**, load a backing track and choose **Speed** from 50–150%. Pitch stays unchanged. Preparation pauses the track and preserves its cursor and loop points; press Play when ready. The timeline uses the original track's seconds. **Loop edge fade** applies short fades around the seam (5 ms by default) to reduce clicks without shortening the loop. Metronome/count-in BPM remains independently set. See [practice and recording](docs/PRACTICE-RECORDING.md) for preparation, memory and sound-quality limits.
+
+### Find your workspace
+
+| View | Purpose |
+|---|---|
+| **Tone** | Full amp head, main knobs, amp source and cabinet details. |
+| **Board** | Compact amp strip and all six fixed stages in signal order. Multiple independent pedal instances/reordering are planned. |
+| **Practice** | Compact amp strip, backing waveform, transport, sections and recording. |
+| **Takes** | Compact amp strip, take search, review and reamping. |
+
+The rig bar stays visible in every view: name, **Edited**, selected amp identity, **Save**, **Save as**, and complete-rig **A/B**. Header starting points are labeled separately. **Library**, **Mix**, and **Performance** are available beside the view tabs; **Audio settings** remains in the standalone footer. Arrow keys, Home and End move between tabs. Review can be stopped from the footer after leaving Takes; an active recording provides a link back to Practice.
+
+### Play along with YouTube or other backing
+
+Open **Mix** and choose **Bring guitar forward** for +3 dB Guitar balance and 45% Mix focus. Start browser/video volume around 25%, then adjust to taste. Cassian cannot control browser audio; the two applications mix at your interface. For Cassian's loaded backing track, adjust its separate backing volume in Mix or Practice; in a DAW, use the host's backing fader.
+
+**Guitar balance** (−12 to +12 dB) follows the amp/effects. **Mix focus** (0–100%) adds broad 1.2 kHz definition, reduces 120/350 Hz overlap and gently softens the high shelf. Both start neutral, work with clean and distorted tones, and ramp smoothly. **Neutral mix** resets only these two controls. Rig, scene, starting-point and A/B changes preserve them; native sessions save them. They neither mark a saved tone Edited nor alter dry/processed recordings or offline reamps. Internal backing and metronome bypass them.
+
+The Mix warning reports peaks reaching the −0.5 dBFS pre-limiter ceiling within the last second. It does not measure limiter gain reduction. Lower Master if warned; an external browser track is outside this measurement. See [Play Along validation](docs/PLAY-ALONG-NAVIGATION.md) for test coverage and limits.
 
 ### Audio interfaces
 
@@ -82,7 +103,9 @@ Cabinet files must be mono or stereo WAVs no longer than ten seconds. Stereo IRs
 
 ### Save, recall, and share
 
-**Save current rig** stores the selected amp source, capture classification, cabinet mode, stage files, tone controls, and bypass states. Native **A/B** compares the same complete rig state. Rig recall preserves input calibration, Master, and metronome settings by default; reopening a standalone or DAW session restores its full saved state.
+**Save as** in the rig bar (or **Save current rig** in Library) stores the selected amp source, capture classification, cabinet mode, stage files, tone controls, bypass states and scenes as a new complete rig. **Save** updates the active saved entry; an unsaved or deleted entry prompts for a new name. Tone/asset/scene edits show **Edited**, while listening controls do not. The name and comparison baseline survive native session restoration and complete-rig A/B. Browser preview saves control settings only.
+
+Native **A/B** compares complete rig state. Rig recall preserves input calibration, Master, metronome and Play Along controls by default; reopening a standalone or DAW session restores its full saved state. Failed recall or saving keeps the previous identity and reports an error.
 
 Use **Import rig** and **Export current rig** for `.cassian.json` documents. Imported rigs enter the library without changing the sound; select Use to recall them. Recall validates the document and its referenced assets before changing parameters. Missing or changed assets, invalid values, and incomplete documents are rejected with an error.
 
@@ -100,13 +123,13 @@ Header presets are **control starting points**, distinct from saved complete rig
 
 ### MIDI foot control
 
-Open **Foot control** above the amp for eight CC/program-change assignments and **Learn controller**. Recall saved complete rigs, toggle overdrive/NAM pedal/EQ/gate/metronome, or use CC expression for Master, Drive, reverb and delay mix. In standalone, enable the controller's input checkbox; in VST3, route MIDI through your DAW. Mapping starts disabled and stays with the native app/DAW session when rigs change. CC switches need a release below 64 before their next press; PC numbers use 0–127. See [MIDI foot control](docs/MIDI-FOOT-CONTROL.md) for setup, ranges, persistence and timing limits.
+Open **Performance** for eight CC/program-change assignments and **Learn controller**. Recall saved complete rigs, toggle overdrive/NAM pedal/EQ/gate/metronome, or use CC expression for Master, Drive, reverb and delay mix. In standalone, enable the controller's input checkbox; in VST3, route MIDI through your DAW. Mapping starts disabled and stays with the native app/DAW session when rigs change. CC switches need a release below 64 before their next press; PC numbers use 0–127. See [MIDI foot control](docs/MIDI-FOOT-CONTROL.md) for setup, ranges, persistence and timing limits.
 
 ### Tone controls
 
 The Effects page includes an original **Modulation** pedal with phaser, flanger and tremolo, smoothed switching, stereo Spread and tempo sync. Try **Velvet tremolo**, **Phase lead** or **Jet rock**. It runs after EQ and before chorus/delay/reverb, with a MIDI bypass assignment. Older rigs and ordinary starting presets keep it bypassed. See [modulation pedal](docs/MODULATION-PEDAL.md) for controls, routing and validation.
 
-The head keeps six primary controls: **Drive, Bass, Middle, Treble, Space, and Master**. Space adjusts reverb mix. The stage row opens detailed controls in signal order without hiding the amp.
+The Tone head keeps six primary controls: **Drive, Bass, Middle, Treble, Space, and Master**. Space adjusts reverb mix. Board exposes all detailed stages below a compact Drive/Master strip.
 
 | Stage | Controls |
 |---|---|
@@ -127,13 +150,13 @@ For input calibration, play your hardest notes and press **Auto trim** on the In
 
 Drag a dial vertically or horizontally; hold Shift for fine adjustment. Arrow keys step through its range, Page Up/Down make larger steps, Home/End select the limits, and double-click resets it. A click without dragging leaves its value unchanged. Native gestures and parameter changes participate in DAW automation.
 
-The header provides preset selection, previous/next, Revert for edited presets, A/B, tuner, and metronome. The tuner analyzes pitch while open; the sub-octave effect can also request pitch analysis. The editor supports a minimum 860 × 620 size, keyboard-accessible tabs, and a library dialog with focus handling.
+The header provides starting-point selection, previous/next, Revert for edited starting points, tuner, and metronome. Complete-rig A/B is in the rig bar. The tuner analyzes pitch while open; the sub-octave effect can also request pitch analysis. The editor supports a minimum 860 × 620 size, keyboard-accessible tabs, and library/utility dialogs with focus handling.
 
-Four **Scenes** in the stage panel store rhythm, lead, clean or ambient variations using the current amp/pedal/cabinet files. Open **Edit scenes**, select a slot, name it and store the current tone; click a populated slot or assign **Recall scene** in Foot control to switch. Scenes retain guitar routing/effects while preserving Input, Master, click settings and practice controls. Banks save with complete rigs, native sessions and portable packs. Existing effects keep their history, but changes to their controls can alter audible tails. See [performance scenes](docs/PERFORMANCE-SCENES.md) for behavior and limits.
+Four **Scenes** in the Board stage panel store rhythm, lead, clean or ambient variations using the current amp/pedal/cabinet files. Open **Edit scenes**, select a slot, name it and store the current tone; click a populated slot or assign **Recall scene** in Performance to switch. Scenes retain guitar routing/effects while preserving Input, Master, click settings and practice controls. Banks save with complete rigs, native sessions and portable packs. Existing effects keep their history, but changes to their controls can alter audible tails. See [performance scenes](docs/PERFORMANCE-SCENES.md) for behavior and limits.
 
 ## Backing tracks and metronome
 
-In standalone, open **Practice & record** above the amp. Load a local mono/stereo backing track, adjust its separate volume, seek, and use **Set A**, **Set B**, and **Loop A–B** to repeat a section. Play resumes from the cursor; Pause keeps the cursor and Stop rewinds. Supported file types come from the native file chooser (WAV, AIFF, FLAC and Ogg on the current build). Tracks are decoded and resampled off the audio thread into bounded memory, up to 256 MiB of stereo float audio at the interface rate (about 11.7 minutes at 48 kHz). Failed imports preserve the previous track.
+In standalone, open **Practice**. Load a local mono/stereo backing track, adjust its separate volume, seek, and use **Set A**, **Set B**, and **Loop A–B** to repeat a section. Play resumes from the cursor; Pause keeps the cursor and Stop rewinds. Supported file types come from the native file chooser (WAV, AIFF, FLAC and Ogg on the current build). Tracks are decoded and resampled off the audio thread into bounded memory, up to 256 MiB of stereo float audio at the interface rate (about 11.7 minutes at 48 kHz). Failed imports preserve the previous track.
 
 The waveform shows the cursor and loop region; click or use its arrow keys to seek. Open **Sections** to name and save the current A/B loop, replace an existing section, recall it, or delete it. Recall pauses at A and enables looping; press Play when ready. Sections persist per track content, including renamed copies, and keep their original-track timing when Speed changes. They are saved separately from tone rigs.
 
@@ -141,7 +164,7 @@ Choose an Off/1-bar/2-bar count-in using the metronome tempo and beats per bar, 
 
 The practice transport is standalone-only; a DAW owns playback and recording in the VST3. In a supporting DAW, enable the optional stereo backing bus to route accompaniment through the plugin. Changing rigs and presets does not change practice controls. Tracks, cursor and active takes are not saved in rigs or restored into an autoplaying session. Rate/buffer changes stop practice transport and finalize an active take; loaded tracks are rebuilt for the new rate. See [practice and recording](docs/PRACTICE-RECORDING.md) for limits and validation.
 
-Open **Take library** within Practice & record to search, name and favorite recordings. New takes enter automatically with an original rig snapshot; **Import take folder** adds older Cassian dry/processed pairs. **Listen** reviews the selected original, dry DI or reamp version with a separate volume, pausing backing playback and muting live guitar and the click. **Reamp with current rig** renders the dry file through an isolated copy of your current guitar chain and saves a new stereo float WAV plus its rig snapshot. Originals stay unchanged. Exports retain the original rate and frame count, omit Master/backing/clicks, and can be cancelled. See [take library and reamping](docs/TAKE-LIBRARY.md) for storage and limits.
+Open **Takes** to search, name and favorite recordings. New takes enter automatically with an original rig snapshot; **Import take folder** adds older Cassian dry/processed pairs. **Listen** reviews the selected original, dry DI or reamp version with a separate volume, pausing backing playback and muting live guitar and the click. **Reamp with current rig** renders the dry file through an isolated copy of your current guitar chain and saves a new stereo float WAV plus its rig snapshot. Originals stay unchanged. Exports retain the original rate and frame count, omit Master/backing/clicks, and can be cancelled. See [take library and reamping](docs/TAKE-LIBRARY.md) for storage and limits.
 
 The backing bus, standalone player and metronome are mixed **after guitar distortion and effects**, then share Master and the output limiter. The metronome offers tempo, tap tempo, beats per bar, and click level. Standalone uses its own clock; while a DAW is playing, it follows host tempo and bar position. Presets and A/B preserve click settings. Delay can follow that tempo or use its manual time.
 
@@ -152,6 +175,7 @@ Input gain → hum/piezo/input shaping → gate → optional pre-amp compressor
 → Cassian overdrive → NAM pedal → selected amp → cabinet A/B blend
 → optional post-cab compressor → amp output/tone shaping → high cut/post-amp gate → EQ
 → phaser/flanger/tremolo → stereo chorus → stereo delay → voiced reverb → micro-delay
+→ guitar recording tap → listening-only Guitar balance / Mix focus
 → backing/metronome mix → Master → output limiter
 ```
 
@@ -260,7 +284,7 @@ File reading, hashing, parsing, capture preparation, warm-up, and managed storag
 
 Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-03**: **103 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-05**: **113 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
