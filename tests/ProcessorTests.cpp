@@ -15,6 +15,8 @@ void runModulationChecks();
 void runSceneChecks();
 void runPracticeSectionChecks();
 void runGuitarMixChecks();
+bool runPedalboardStateTests();
+void runBoardIntegrationChecks(const juce::File& fixture);
 static void set(AmpSuiteAudioProcessor& p, const char* id, float value)
 {
     auto* parameter = p.apvts.getParameter(id);
@@ -659,6 +661,8 @@ int main(int argc, char** argv)
         runSceneChecks();
         runPracticeSectionChecks();
         runGuitarMixChecks();
+        check(runPedalboardStateTests(), "Pedalboard state checks must pass");
+        runBoardIntegrationChecks(juce::File(argv[1]));
         std::cout << "Processor checks passed\n";
         return 0;
     }

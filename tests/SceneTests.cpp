@@ -18,6 +18,17 @@ void di(AmpSuiteAudioProcessor& p) {
     set(p, "REVERB_MIX", 0); set(p, "DELAY_TIME", 80); set(p, "DELAY_MIX", 50); set(p, "DELAY_FEEDBACK", 35);
     p.prepareToPlay(48000, 128);
 }
+juce::ValueTree sceneBoard(const juce::var& bank, int slot) {
+    const auto xml = juce::XmlDocument::parse(bank["slots"][slot]["board"].toString());
+    require(xml != nullptr && xml->hasTagName("PEDALBOARD"), "Scene must contain a valid board XML root");
+    return juce::ValueTree::fromXml(*xml);
+}
+void makeLegacyBank(juce::ValueTree& parent) {
+    auto scenes = parent.getChildWithName("SCENES"); auto bank = juce::JSON::parse(scenes["json"].toString());
+    bank.getDynamicObject()->setProperty("version", 1);
+    for (auto& slot : *bank["slots"].getArray()) if (slot.isObject()) slot.getDynamicObject()->removeProperty("board");
+    scenes.setProperty("json", juce::JSON::toString(bank), nullptr);
+}
 }
 void runSceneChecks()
 {
@@ -58,12 +69,82 @@ void runSceneChecks()
     badBank([](juce::var& v) { v["slots"][0]["parameters"].getDynamicObject()->setProperty("DRIVE_GAIN", "NaN"); });
     badBank([](juce::var& v) { v["slots"][0]["parameters"].getDynamicObject()->setProperty("OD_DRIVE", 101); });
     badBank([](juce::var& v) { v["slots"][0]["parameters"].getDynamicObject()->setProperty("AMP_SOURCE", .5); });
+    badBank([](juce::var& v) {
+        auto board = sceneBoard(v, 0); board.setProperty("runtime", "serial-v99", nullptr);
+        v["slots"][0].getDynamicObject()->setProperty("board", board.toXmlString());
+    });
     auto duplicate = original.createCopy(); duplicate.addChild(duplicate.getChildWithName("SCENES").createCopy(), -1, nullptr);
     require(!p.applyRig(wrap(duplicate)).isEmpty(), "Duplicate scene banks must reject a rig");
     auto malformed = original.createCopy(); malformed.getChildWithName("SCENES").setProperty("json", "{broken", nullptr);
     require(!p.applyRig(wrap(malformed)).isEmpty(), "Malformed scene JSON must reject a rig");
     juce::AudioProcessor::copyXmlToBinary(*malformed.createXml(), session); restored.setStateInformation(session.getData(), static_cast<int>(session.getSize())); settle(restored);
     require(restored.scenes.status(restored.apvts)["error"].toString().isNotEmpty() && !restored.recallScene(0).isEmpty(), "Invalid native session bank must clear scenes and report its error");
+
+    // Old scene banks inherit the shared rig's block identities, while current
+    // scenes restore their own saved identities without changing DSP routing.
+    AmpSuiteAudioProcessor identities(false); identities.prepareToPlay(48000, 128);
+    auto currentBoard = identities.apvts.state.getChildWithName("PEDALBOARD");
+    require(currentBoard.isValid(), "New processor must initialize its board state");
+    currentBoard.getChild(1).setProperty("id", "owner.overdrive.1", nullptr);
+    set(identities, "OD_DRIVE", 37);
+    require(identities.storeScene(0, "Identity").isEmpty(), "Scene must store a custom stable identity");
+    const auto identityBank = juce::JSON::parse(identities.scenes.save()["json"].toString());
+    require(static_cast<int>(identityBank["version"]) == 2 && sceneBoard(identityBank, 0).getChild(1)["id"].toString() == "owner.overdrive.1", "New scene format must preserve stable block identities");
+    currentBoard.getChild(1).setProperty("id", "owner.overdrive.2", nullptr);
+    require(static_cast<bool>(identities.scenes.status(identities.apvts)["edited"]), "Changing a block identity must mark the active scene edited");
+    require(identities.recallScene(0).isEmpty() && identities.apvts.state.getChildWithName("PEDALBOARD").getChild(1)["id"].toString() == "owner.overdrive.1", "Scene recall must restore its stable identity");
+    require(!static_cast<bool>(identities.scenes.status(identities.apvts)["edited"]), "Recalled board identity must match its scene baseline");
+    auto oldSceneRig = unwrap(identities.getRig()); makeLegacyBank(oldSceneRig);
+    require(identities.applyRig(wrap(oldSceneRig)).isEmpty(), "Version1 bank must migrate through complete rig recall"); settle(identities);
+    const auto migratedBank = juce::JSON::parse(identities.scenes.save()["json"].toString());
+    require(static_cast<int>(migratedBank["version"]) == 2 && sceneBoard(migratedBank, 0).getChild(1)["id"].toString() == "owner.overdrive.1", "Legacy scene migration must inherit shared rig identities");
+    require(identities.recallScene(0).isEmpty() && get(identities, "OD_DRIVE") == 37, "Migrated scene must retain its original control values");
+    auto noBoardSceneRig = unwrap(identities.getRig()); makeLegacyBank(noBoardSceneRig);
+    noBoardSceneRig.removeChild(noBoardSceneRig.getChildWithName("PEDALBOARD"), nullptr);
+    require(identities.applyRig(wrap(noBoardSceneRig)).isEmpty(), "Old rig without board metadata must migrate its scene bank"); settle(identities);
+    const auto oldestBank = juce::JSON::parse(identities.scenes.save()["json"].toString());
+    require(sceneBoard(oldestBank, 0).getChild(1)["id"].toString() == "legacy.overdrive", "Old scene bank must receive deterministic default block IDs");
+    require(identities.recallScene(0).isEmpty() && get(identities, "OD_DRIVE") == 37, "Old scene parameters must survive default identity migration");
+    // A future board in a host session must reject the whole recall, before
+    // either tone parameters or the existing bank are replaced.
+    auto unsupportedSession = unwrap(identities.getRig());
+    auto unsupportedScenes = unsupportedSession.getChildWithName("SCENES");
+    auto unsupportedData = juce::JSON::parse(unsupportedScenes["json"].toString());
+    auto unsupportedBoard = sceneBoard(unsupportedData, 0); unsupportedBoard.setProperty("version", 99, nullptr);
+    unsupportedData["slots"][0].getDynamicObject()->setProperty("board", unsupportedBoard.toXmlString());
+    unsupportedScenes.setProperty("json", juce::JSON::toString(unsupportedData), nullptr);
+    unsupportedSession.getChildWithProperty("id", "OD_DRIVE").setProperty("value", 99, nullptr);
+    const auto preservedScenes = identities.scenes.save(); const auto preservedState = identities.apvts.state.createCopy();
+    juce::AudioProcessor::copyXmlToBinary(*unsupportedSession.createXml(), session);
+    identities.setStateInformation(session.getData(), static_cast<int>(session.getSize())); settle(identities);
+    require(get(identities, "OD_DRIVE") == 37 && PerformanceScenes::equivalent(preservedScenes, identities.scenes.save())
+            && PedalboardState::equal(preservedState, identities.apvts.state), "Unsupported scene board must atomically preserve native session tone and state");
+    auto futureSceneSession = unwrap(identities.getRig()); auto futureScenes = futureSceneSession.getChildWithName("SCENES");
+    auto futureData = juce::JSON::parse(futureScenes["json"].toString());
+    futureData.getDynamicObject()->setProperty("version", static_cast<juce::int64>(4294967298LL));
+    futureScenes.setProperty("json", juce::JSON::toString(futureData), nullptr);
+    futureSceneSession.getChildWithProperty("id", "OD_DRIVE").setProperty("value", 99, nullptr);
+    juce::AudioProcessor::copyXmlToBinary(*futureSceneSession.createXml(), session);
+    identities.setStateInformation(session.getData(), static_cast<int>(session.getSize())); settle(identities);
+    require(get(identities, "OD_DRIVE") == 37 && PerformanceScenes::equivalent(preservedScenes, identities.scenes.save())
+            && PedalboardState::equal(preservedState, identities.apvts.state), "64-bit future scene version must reject atomically without wrapping to a supported version");
+
+    // Saved active-rig baselines from before board metadata remain unedited
+    // when only their scene-bank representation is upgraded.
+    AmpSuiteAudioProcessor baselineProcessor(false); baselineProcessor.prepareToPlay(48000, 128);
+    require(baselineProcessor.storeScene(0, "Legacy baseline").isEmpty(), "Legacy baseline scene must store");
+    ActiveRig baseline; baseline.set("baseline-id", "Baseline", unwrap(baselineProcessor.getRig()));
+    auto savedBaseline = baseline.save(); auto priorBaseline = savedBaseline.getChildWithName("BASELINE");
+    priorBaseline.removeChild(priorBaseline.getChildWithName("PEDALBOARD"), nullptr); makeLegacyBank(priorBaseline);
+    ActiveRig upgradedBaseline; upgradedBaseline.restore(savedBaseline);
+    require(upgradedBaseline.name == "Baseline" && !upgradedBaseline.edited(baselineProcessor.apvts, {}, {}, baselineProcessor.scenes.save()), "Legacy baseline migration must preserve identity without false edited status");
+    baselineProcessor.apvts.state.getChildWithName("PEDALBOARD").getChild(1).setProperty("id", "changed.overdrive", nullptr);
+    require(upgradedBaseline.edited(baselineProcessor.apvts, {}, {}, baselineProcessor.scenes.save()), "Active rig must track stable block identity edits");
+    require(baselineProcessor.storeScene(0, "Custom baseline").isEmpty(), "Custom baseline scene must store");
+    baseline.set("custom-id", "Custom baseline", unwrap(baselineProcessor.getRig()));
+    auto customBaseline = baseline.save(); auto customPrior = customBaseline.getChildWithName("BASELINE"); makeLegacyBank(customPrior);
+    upgradedBaseline.restore(customBaseline);
+    require(upgradedBaseline.name == "Custom baseline" && !upgradedBaseline.edited(baselineProcessor.apvts, {}, {}, baselineProcessor.scenes.save()), "Version1 bank baseline must inherit its shared custom IDs without false edited status");
 
     p.clearScene(0); require(get(p, "EQ_MUD") == 0 && !p.recallScene(0).isEmpty(), "Clearing a scene must leave the current tone unchanged");
     require(p.applyRig(rig).isEmpty(), "Complete rig must recall its original bank"); settle(p);
@@ -131,5 +212,5 @@ void runSceneChecks()
     const auto rigs = imported.getLibrary()["rigs"]; require(rigs.size() == 1 && !imported.recallScene(0).isEmpty(), "Pack import must leave the live scene bank unchanged");
     require(imported.loadRig(rigs[0]["id"].toString()).isEmpty(), "Imported scene rig must recall"); settle(imported);
     require(imported.recallScene(0).isEmpty() && get(imported, "DELAY_TIME") == 80, "Portable pack recall must preserve scene controls");
-    std::cout << "Scene bank, globals, migration, MIDI, pack, failure rollback and delay continuity checks passed\n";
+    std::cout << "Scene bank, stable board identities, globals, migration, MIDI, pack, failure rollback and delay continuity checks passed\n";
 }

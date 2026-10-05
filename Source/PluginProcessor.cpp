@@ -4,12 +4,16 @@
 
 static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
 {
-    if (static_cast<int>(rig["schema"]) != 1 || !rig["state"].isString() || rig["state"].toString().length() > 4 * 1024 * 1024)
+    const auto schema = rig["schema"];
+    if ((!schema.isInt() && !schema.isInt64()) || (static_cast<juce::int64>(schema) != 1 && static_cast<juce::int64>(schema) != 2)
+        || !rig["state"].isString() || rig["state"].toString().length() > 4 * 1024 * 1024)
         return "Unsupported Cassian rig format.";
     auto xml = juce::XmlDocument::parse(rig["state"].toString());
     if (!xml || !xml->hasTagName("AmpSuiteState")) return "Invalid rig state.";
     state = juce::ValueTree::fromXml(*xml);
-    if (const auto failure = PerformanceScenes::validate(state.getChildWithName("SCENES")); failure.isNotEmpty()) return failure;
+    if (static_cast<int>(schema) == 2 && !state.getChildWithName("PEDALBOARD").isValid()) return "Incomplete rig pedalboard state.";
+    if (const auto failure = PedalboardState::migrate(state); failure.isNotEmpty()) return failure;
+    if (const auto failure = PerformanceScenes::migrate(state); failure.isNotEmpty()) return failure;
     juce::StringArray ids;
     int sceneBanks = 0;
     for (const auto& child : state)
@@ -18,6 +22,10 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
         if (child.hasType("PARAM")) {
             const auto id = child["id"].toString();
             if (ids.contains(id)) return "Duplicate rig parameter.";
+            if (static_cast<int>(schema) == 2) {
+                bool known = false; for (const auto& definition : Params::definitions) if (id == definition.id) { known = true; break; }
+                if (!known) return "Unsupported rig parameter.";
+            }
             ids.add(id);
         }
     for (size_t index = 0; index < Params::definitions.size(); ++index)
@@ -25,7 +33,7 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
         const auto& definition = Params::definitions[index];
         auto parameter = state.getChildWithProperty("id", definition.id);
         // Schema-1 rigs predating this update contain exactly the first 41 controls.
-        if (!parameter.isValid() && index >= 41) {
+        if (!parameter.isValid() && static_cast<int>(schema) == 1 && index >= 41) {
             parameter = juce::ValueTree("PARAM"); parameter.setProperty("id", definition.id, nullptr);
             parameter.setProperty("value", definition.initial, nullptr); state.addChild(parameter, -1, nullptr);
         }
@@ -37,7 +45,7 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
         const auto nativeAmount = static_cast<float>(amount);
         if (end == text.c_str() || *end != '\0' || !std::isfinite(amount) || nativeAmount < definition.min || nativeAmount > definition.max)
             return "Invalid rig parameter: " + juce::String(definition.id);
-        if ((definition.isSwitch() || juce::String(definition.id) == "AMP_SOURCE" || juce::String(definition.id) == "CAPTURE_KIND" || juce::String(definition.id) == "CAB_MODE" || juce::String(definition.id) == "DELAY_DIVISION" || juce::String(definition.id) == "REVERB_STYLE" || juce::String(definition.id) == "COMP_MODE") && amount != std::floor(amount))
+        if (definition.unit[0] == 0 && amount != std::floor(amount))
             return "Invalid rig routing choice.";
     }
     return {};
@@ -53,6 +61,7 @@ AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File li
 {
     for (size_t i = 0; i < parameters.size(); ++i)
         parameters[i] = apvts.getRawParameterValue(Params::definitions[i].id);
+    PedalboardState::migrate(apvts.state);
     try { library.merge(sharedStore.load()); } catch (const std::exception& e) { message = "Load failed: " + juce::String(e.what()); }
     practice.onTakeFinished = [&store = takes](const juce::File& folder) { store.importFolder(folder); };
     midiControl.start([this](const auto& mapping, int amount) { return handleMidiAction(mapping, amount); });
@@ -858,6 +867,7 @@ juce::ValueTree AmpSuiteAudioProcessor::copyRigState(bool includeSavedRigs)
 {
     const juce::ScopedLock snapshotGuard(requestLock);
     auto state = apvts.copyState();
+    PedalboardState::migrate(state);
     if (const auto oldIdentity = state.getChildWithName("ACTIVE_RIG"); oldIdentity.isValid()) state.removeChild(oldIdentity, nullptr);
     state.addChild(activeRig.save(), -1, nullptr);
     if (const auto oldMidi = state.getChildWithName("MIDICONTROL"); oldMidi.isValid()) state.removeChild(oldMidi, nullptr);
@@ -892,6 +902,16 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
     if (!xml || !xml->hasTagName(apvts.state.getType())) return;
     const juce::ScopedLock stateGuard(requestLock);
     auto state = juce::ValueTree::fromXml(*xml);
+    // Sparse legacy host states remain supported. Present routing metadata must
+    // be understood before identities, scenes, MIDI, assets or parameters change.
+    auto failure = PedalboardState::migrate(state);
+    int sceneBanks = 0;
+    for (const auto& child : state) if (child.hasType("SCENES") && ++sceneBanks > 1) failure = "Duplicate scene bank.";
+    if (failure.isEmpty()) failure = PerformanceScenes::validateBoards(state.getChildWithName("SCENES"));
+    if (failure.isNotEmpty()) { message = "Session not restored: " + failure; return; }
+    // Malformed old scene banks still clear/report their own error as before.
+    // Valid banks are upgraded on this isolated tree, without rewriting files.
+    PerformanceScenes::migrate(state);
     activeRig.restore(state.getChildWithName("ACTIVE_RIG"));
     scenes.restore(state.getChildWithName("SCENES"));
     const auto midi = state.getChildWithName("MIDICONTROL");
@@ -1054,6 +1074,7 @@ juce::String AmpSuiteAudioProcessor::assetSourceName(const juce::ValueTree& asse
     return reference["name"].toString();
 }
 juce::String AmpSuiteAudioProcessor::validateRigDocument(const juce::var& rig) { juce::ValueTree state; return readRig(rig, state); }
+juce::String AmpSuiteAudioProcessor::migrateRigDocument(const juce::var& rig, juce::ValueTree& state) { return readRig(rig, state); }
 void AmpSuiteAudioProcessor::importAssets(const juce::Array<juce::File>& files, const juce::String& kind)
 {
     if (kind != "amp" && kind != "pedal" && kind != "cab") return;
@@ -1073,7 +1094,11 @@ juce::var AmpSuiteAudioProcessor::getRig()
         }
     }
     auto result = std::make_unique<juce::DynamicObject>();
-    result->setProperty("schema", 1); result->setProperty("state", copyRigState(false).createXml()->toString());
+    const auto state = copyRigState(false);
+    if (const auto failure = PedalboardState::validate(state); failure.isNotEmpty()) {
+        result->setProperty("error", failure); return juce::var(result.release());
+    }
+    result->setProperty("schema", 2); result->setProperty("state", state.createXml()->toString());
     const auto guitar = guitarPower.load(), input = inputPower.load();
     if (guitar > 1e-6f && input > 1e-6f) {
         result->setProperty("guitarRmsDb", 10 * std::log10(guitar)); result->setProperty("inputRmsDb", 10 * std::log10(input));
@@ -1134,6 +1159,7 @@ juce::String AmpSuiteAudioProcessor::saveRig(const juce::String& name)
     const juce::ScopedLock lock(requestLock);
     juce::ValueTree entry("RIG");
     entry.setProperty("id", juce::Uuid().toString(), nullptr); entry.setProperty("name", title, nullptr);
+    entry.setProperty("schema", 2, nullptr);
     entry.setProperty("state", rig["state"], nullptr); entry.setProperty("favorite", false, nullptr);
     library.tree.addChild(entry, -1, nullptr); ++library.revision;
     const auto error = persistLibrary();
@@ -1146,21 +1172,26 @@ juce::String AmpSuiteAudioProcessor::updateActiveRig()
     const auto snapshot = getRig(); if (snapshot.hasProperty("error")) return snapshot["error"].toString();
     const juce::ScopedLock lock(requestLock); auto entry = library.find(activeRig.id);
     if (!entry.hasType("RIG")) return "Save this tone as a new complete rig first.";
-    const auto previous = entry["state"]; entry.setProperty("state", snapshot["state"], nullptr); ++library.revision;
+    const auto previous = entry["state"], previousSchema = entry["schema"]; const bool hadSchema = entry.hasProperty("schema");
+    entry.setProperty("state", snapshot["state"], nullptr); entry.setProperty("schema", 2, nullptr); ++library.revision;
     const auto error = persistLibrary();
     if (error.isEmpty()) activeRig.set(activeRig.id, entry["name"].toString(), juce::ValueTree::fromXml(*juce::XmlDocument::parse(snapshot["state"].toString())));
-    else entry.setProperty("state", previous, nullptr);
+    else { entry.setProperty("state", previous, nullptr); if (hadSchema) entry.setProperty("schema", previousSchema, nullptr); else entry.removeProperty("schema", nullptr); }
     return error;
 }
 juce::String AmpSuiteAudioProcessor::loadRig(const juce::String& id)
 {
-    juce::var state;
+    juce::var state; int schema = 1;
     { const juce::ScopedLock lock(requestLock); const auto rig = library.find(id); if (!rig.hasType("RIG")) return "Rig not found.";
+      if (rig.hasProperty("schema")) {
+          const auto stored = rig["schema"].toString(); if (stored != "1" && stored != "2") return "Unsupported saved rig format.";
+          schema = stored == "2" ? 2 : 1;
+      }
       const auto xml = juce::XmlDocument::parse(rig["state"].toString()); if (!xml) return "Invalid saved rig.";
       auto document = juce::ValueTree::fromXml(*xml); ActiveRig identity; identity.set(id, rig["name"].toString(), document);
       const auto old = document.getChildWithName("ACTIVE_RIG"); if (old.isValid()) document.removeChild(old, nullptr);
       document.addChild(identity.save(), -1, nullptr); state = document.createXml()->toString(); }
-    auto rig = std::make_unique<juce::DynamicObject>(); rig->setProperty("schema", 1); rig->setProperty("state", state);
+    auto rig = std::make_unique<juce::DynamicObject>(); rig->setProperty("schema", schema); rig->setProperty("state", state);
     return applyRig(juce::var(rig.release()));
 }
 juce::String AmpSuiteAudioProcessor::importRig(const juce::String& name, const juce::var& rig)
@@ -1171,6 +1202,7 @@ juce::String AmpSuiteAudioProcessor::importRig(const juce::String& name, const j
     for (int i = imported.getNumChildren(); --i >= 0;) if (!imported.getChild(i).hasType("ASSET")) imported.removeChild(i, nullptr);
     const juce::ScopedLock lock(requestLock); library.merge(imported);
     juce::ValueTree entry("RIG"); entry.setProperty("id", juce::Uuid().toString(), nullptr);
+    entry.setProperty("schema", 2, nullptr);
     entry.setProperty("name", name.trim().substring(0, 80), nullptr); entry.setProperty("state", state.createXml()->toString(), nullptr);
     library.tree.addChild(entry, -1, nullptr); ++library.revision;
     return persistLibrary();

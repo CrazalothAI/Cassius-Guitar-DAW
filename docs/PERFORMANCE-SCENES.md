@@ -8,7 +8,9 @@ Click an occupied scene to recall it. The active scene is highlighted; **Edited*
 
 Scenes include every guitar-chain parameter: amp source/routing, drive and EQ, pedal controls, cabinet blend/alignment, compression, gate and effects. All four share the currently loaded amp, neural pedal and cabinet A/B files. They do not load alternate captures. Switching a built-in source still uses the current preallocated processing paths; selecting NAM requires an already loaded capture.
 
-Input gain, Master and all metronome settings are global and stay unchanged. Practice transport, track level and recording/review are also independent. Use Amp Output or pedal Output for a scene's relative level; listen at a conservative Master setting while balancing the four tones.
+Scene banks now save version 2 with stable identities for the existing effects. Version-1 banks acquire the current rig's identities during migration. Board identity changes participate in Edited status; the audio chain remains fixed and scene recall still retains running effect histories. Unsupported board metadata rejects before changing a tone or native session. See [pedalboard state](PEDALBOARD-STATE.md).
+
+Input gain, Master, all metronome settings and Play Along Guitar balance/Mix focus are global and stay unchanged. Practice transport, track level and recording/review are also independent. Use Amp Output or pedal Output for a scene's relative level; listen at a conservative Master setting while balancing the four tones.
 
 The bank travels with native app/DAW state, saved complete rigs, A/B snapshots, take/reamp rig snapshots, JSON rig exports and portable packs. Save the complete rig after updating scenes to persist those edits in its library entry. Parameter-only starting presets change the live tone, leaving the bank available; **Edited** indicates a difference. Recalling another complete rig replaces the entire bank. Older rigs/sessions use an empty bank. Browser preview cannot store native scenes.
 

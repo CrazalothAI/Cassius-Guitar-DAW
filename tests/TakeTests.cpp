@@ -37,6 +37,15 @@ void runTakeChecks()
     require(root.createDirectory().wasOk(), "Take test directory must create");
     struct Cleanup { juce::File folder, base; ~Cleanup() { if (folder.isAChildOf(base)) folder.deleteRecursively(); } } cleanup {root, base};
     const auto folder = root.getChildFile("Original take"), catalog = root.getChildFile("takes.xml"); makeTake(folder);
+    // Original snapshots from before board metadata are migrated in the isolated
+    // renderer. The original take and its reference document remain untouched.
+    const auto oldSnapshot = rig(); auto oldXml = juce::XmlDocument::parse(oldSnapshot["state"].toString());
+    require(oldXml != nullptr, "Legacy take snapshot must contain XML"); auto oldState = juce::ValueTree::fromXml(*oldXml);
+    oldState.removeChild(oldState.getChildWithName("PEDALBOARD"), nullptr);
+    oldSnapshot.getDynamicObject()->setProperty("schema", 1); oldSnapshot.getDynamicObject()->setProperty("state", oldState.toXmlString());
+    const auto originalRigFile = folder.getChildFile("Original rig.json");
+    require(originalRigFile.replaceWithText(juce::JSON::toString(oldSnapshot)), "Legacy original snapshot must write");
+    const auto originalRigHash = juce::SHA256(originalRigFile).toHexString();
     const auto dryHash = juce::SHA256(folder.getChildFile("Guitar dry.wav")).toHexString(), wetHash = juce::SHA256(folder.getChildFile("Guitar processed.wav")).toHexString();
     // Persist names/favorites, deduplicate an imported folder, merge writes from
     // independent stores and reopen the resulting catalog.
@@ -82,6 +91,20 @@ void runTakeChecks()
         require(std::abs(rendered.getSample(0, 3000) - .125f * 2 * juce::Decibels::decibelsToGain(6.f)) < .0001f, "Reamp must include current Input gain and guitar chain while excluding Master");
         const auto saved = juce::JSON::parse(juce::File(version["rigPath"].toString()).loadFileAsString());
         require(saved["state"].toString() == snapshot["state"].toString(), "Reamp version must save its exact rig snapshot");
+        require(library.reamp(originalId, juce::JSON::parse(originalRigFile.loadFileAsString())).isEmpty(), "Original schema-1 take snapshot must reamp");
+        waitFor([&] { return !static_cast<bool>(library.status()["exporting"]); });
+        require(library.status()["error"].toString().isEmpty(), "Legacy take reamp must complete");
+        juce::var oldVersion;
+        const auto updatedEntries = library.list();
+        for (const auto& take : *updatedEntries.getArray()) if (take["id"].toString() == originalId) {
+            require(take["versions"].size() == 2, "Legacy reamp must add a separate version"); oldVersion = take["versions"][1];
+        }
+        std::unique_ptr<juce::AudioFormatReader> oldReader(formats.createReaderFor(juce::File(oldVersion["path"].toString())));
+        juce::AudioBuffer<float> oldRendered(2, 4096);
+        require(oldReader && oldReader->read(&oldRendered, 0, 4096, 0, true, true), "Legacy reamp must decode");
+        for (int channel = 0; channel < 2; ++channel) for (int sample = 0; sample < 4096; ++sample)
+            require(oldRendered.getSample(channel, sample) == rendered.getSample(channel, sample), "Legacy and new take snapshots must render identical audio");
+        require(juce::SHA256(originalRigFile).toHexString() == originalRigHash, "Reamping must never rewrite a legacy Original rig.json");
         require(juce::SHA256(folder.getChildFile("Guitar dry.wav")).toHexString() == dryHash && juce::SHA256(folder.getChildFile("Guitar processed.wav")).toHexString() == wetHash, "Reamping must leave both originals byte-identical");
     }
     // New processor recordings automatically enter the catalog with their rig.

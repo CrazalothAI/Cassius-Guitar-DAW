@@ -28,6 +28,7 @@
 #include "PracticeEngine.h"
 #include "TakeLibrary.h"
 #include "MidiControl.h"
+#include "PedalboardState.h"
 #include "PerformanceScenes.h"
 #include "ActiveRig.h"
 
@@ -72,6 +73,8 @@ public:
     juce::String exportRigPack(const juce::File& destination, const juce::var& snapshot = {});
     juce::String importRigPack(const juce::File& source);
     juce::String validateRigDocument(const juce::var& rig);
+    // Validate and migrate on an isolated tree before live recall or pack writes.
+    juce::String migrateRigDocument(const juce::var& rig, juce::ValueTree& state);
     void requestRigPack(bool save, const juce::File& file);
     void reportLibraryResult(const juce::String& text) { const juce::ScopedLock lock(requestLock); message = text; }
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).

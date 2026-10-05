@@ -1,11 +1,6 @@
 #include "PluginProcessor.h"
 
 namespace {
-juce::ValueTree packState(const juce::var& rig) {
-    auto xml = juce::XmlDocument::parse(rig["state"].toString());
-    if (!xml || !xml->hasTagName("AmpSuiteState")) throw std::runtime_error("Invalid rig document");
-    return juce::ValueTree::fromXml(*xml);
-}
 juce::String assetKind(const juce::String& stage) { return stage == "model" ? "amp" : (stage == "ir" || stage == "irB") ? "cab" : "pedal"; }
 juce::String entryName(const juce::String& id, const juce::String& kind) {
     const auto hash = id.fromFirstOccurrenceOf(":", false, false);
@@ -20,7 +15,9 @@ juce::String AmpSuiteAudioProcessor::exportRigPack(const juce::File& destination
     try {
         const auto rig = snapshot.isVoid() ? getRig() : snapshot;
         if (rig.hasProperty("error")) return rig["error"].toString();
-        auto state = packState(rig); juce::ZipFile::Builder builder; juce::StringArray ids;
+        juce::ValueTree state;
+        if (const auto failure = migrateRigDocument(rig, state); failure.isNotEmpty()) return failure;
+        juce::ZipFile::Builder builder; juce::StringArray ids;
         for (const auto* label : {"model", "ir", "pedal", "irB"}) {
             const juce::String stage(label), path = state[stage + "Path"].toString();
             if (path.isEmpty()) continue;
@@ -39,7 +36,7 @@ juce::String AmpSuiteAudioProcessor::exportRigPack(const juce::File& destination
                 item.removeProperty("aliases", nullptr);
             }
         }
-        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 1); object->setProperty("state", state.createXml()->toString());
+        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 2); object->setProperty("state", state.createXml()->toString());
         juce::TemporaryFile document(".json");
         if (!document.getFile().replaceWithText(juce::JSON::toString(juce::var(object.release())))) return "Could not write the pack document";
         builder.addFile(document.getFile(), 6, "rig.cassian.json");
@@ -72,9 +69,10 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
         if (docIndex < 0 || archive.getEntry(docIndex)->uncompressedSize > 4 * 1024 * 1024) return "Rig pack has no valid document";
         std::unique_ptr<juce::InputStream> document(archive.createStreamForEntry(docIndex));
         if (!document) return "Could not read the rig pack document";
-        auto rig = juce::JSON::parse(document->readEntireStreamAsString()); auto state = packState(rig);
-        // Validate parameter schema before extracting anything.
-        if (auto error = validateRigDocument(rig); error.isNotEmpty()) return error;
+        const auto rig = juce::JSON::parse(document->readEntireStreamAsString()); juce::ValueTree state;
+        // Parameters, scenes and the bounded board are validated and migrated
+        // together before any pack asset is written into managed storage.
+        if (const auto failure = migrateRigDocument(rig, state); failure.isNotEmpty()) return failure;
         juce::StringArray expected {"rig.cassian.json"};
         auto catalog = state.getChildWithName("LIBRARY"); if (!catalog.isValid()) { catalog = juce::ValueTree("LIBRARY"); state.addChild(catalog, -1, nullptr); }
         for (const auto* label : {"model", "ir", "pedal", "irB"}) {
@@ -113,7 +111,7 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
             if (!asset.isValid()) { asset = AssetLibrary::describe(target, kind); catalog.addChild(asset, -1, nullptr); }
             AssetLibrary::rememberPath(asset, target.getFullPathName()); asset.setProperty("managed", true, nullptr);
         }
-        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 1); object->setProperty("state", state.createXml()->toString());
+        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 2); object->setProperty("state", state.createXml()->toString());
         return importRig(source.getFileNameWithoutExtension().replace(".cassian", ""), juce::var(object.release()));
     } catch (const std::exception& e) { return e.what(); }
 }

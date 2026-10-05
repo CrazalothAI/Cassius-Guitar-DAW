@@ -4,7 +4,12 @@
 
 - [x] Finish Play Along: listening-only tests, accurate output-peak warning, playable build.
 - [x] Simplify navigation: Tone, Board, Practice and Takes; compact practice/take amp strip; saved rig identity and direct saving.
+- [x] Add the compatibility foundation for pedalboards: bounded identities, fixed automation bindings, schema-2 exports, legacy migrations and rejected-recall protection.
+- [x] Inventory existing sound files and document calibration, routing, coverage gaps and redistribution evidence.
+- [ ] Complete independent block parameters/assets, ordered pre/post lanes, automation slot reuse rules and broader pack traversal.
+- [ ] Build the serial audio runtime and editor with duplication, reordering, bypass, undo/redo and keyboard alternatives.
 - Validation and remaining limits: [Play Along and navigation](PLAY-ALONG-NAVIGATION.md).
+- Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).
 - Follow the implementation order in [NEXT-STEPS.md](NEXT-STEPS.md) for pedalboards, sounds, curated rigs and real-use validation.
 
 ## After the app is more mature

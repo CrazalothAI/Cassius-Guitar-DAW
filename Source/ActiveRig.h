@@ -10,15 +10,20 @@ public:
     juce::String id, name;
     void set(const juce::String& nextId, const juce::String& nextName, const juce::ValueTree& state)
     {
+        auto normalized = state.createCopy();
+        if (PedalboardState::migrate(normalized).isNotEmpty() || PerformanceScenes::migrate(normalized).isNotEmpty()) {
+            id.clear(); name.clear(); baseline = {}; return;
+        }
         id = nextId; name = nextName.substring(0, 80); baseline = juce::ValueTree("BASELINE");
         for (const auto& p : Params::definitions) if (!PerformanceScenes::global(p.id)) {
-            const auto row = state.getChildWithProperty("id", p.id);
+            const auto row = normalized.getChildWithProperty("id", p.id);
             if (row.isValid()) baseline.addChild(row.createCopy(), -1, nullptr);
         }
         for (const auto* stage : {"model", "ir", "pedal", "irB"}) for (const auto* suffix : {"Path", "Id"}) {
-            const auto key = juce::String(stage) + suffix; baseline.setProperty(key, state[key], nullptr);
+            const auto key = juce::String(stage) + suffix; baseline.setProperty(key, normalized[key], nullptr);
         }
-        const auto scenes = state.getChildWithName("SCENES"); if (scenes.isValid()) baseline.addChild(scenes.createCopy(), -1, nullptr);
+        const auto scenes = normalized.getChildWithName("SCENES"); if (scenes.isValid()) baseline.addChild(scenes.createCopy(), -1, nullptr);
+        baseline.addChild(normalized.getChildWithName("PEDALBOARD").createCopy(), -1, nullptr);
     }
     juce::ValueTree save() const {
         juce::ValueTree tree("ACTIVE_RIG"); tree.setProperty("id", id, nullptr); tree.setProperty("name", name, nullptr);
@@ -28,12 +33,14 @@ public:
         id.clear(); name.clear(); baseline = {};
         if (!tree.isValid() || tree["id"].toString().length() > 128 || tree["name"].toString().length() > 80) return;
         const auto saved = tree.getChildWithName("BASELINE");
-        if (!saved.isValid() || saved.getNumChildren() > static_cast<int>(Params::definitions.size()) + 1 || tree.toXmlString().length() > 131072) return;
+        if (!saved.isValid() || saved.getNumChildren() > static_cast<int>(Params::definitions.size()) + 2 || tree.toXmlString().length() > 131072) return;
         for (const auto& p : Params::definitions) if (!PerformanceScenes::global(p.id)) {
             const auto row = saved.getChildWithProperty("id", p.id); const float x = static_cast<float>(row["value"]);
             if (!row.isValid() || !std::isfinite(x) || x < p.min || x > p.max) return;
         }
-        id = tree["id"].toString(); name = tree["name"].toString(); baseline = saved.createCopy();
+        auto migrated = saved.createCopy();
+        if (PedalboardState::migrate(migrated).isNotEmpty() || PerformanceScenes::migrate(migrated).isNotEmpty()) return;
+        id = tree["id"].toString(); name = tree["name"].toString(); baseline = migrated;
     }
     // A/B/session snapshots can predate an in-place Save. Compare against the
     // currently saved entry so an older sound is correctly marked edited.
@@ -41,7 +48,12 @@ public:
         if (!entry.hasType("RIG") || entry["id"].toString() != id) return;
         const auto xml = juce::XmlDocument::parse(entry["state"].toString());
         if (!xml || !xml->hasTagName("AmpSuiteState")) return;
-        ActiveRig candidate; candidate.set(id, entry["name"].toString(), juce::ValueTree::fromXml(*xml));
+        const auto state = juce::ValueTree::fromXml(*xml);
+        if (entry.hasProperty("schema")) {
+            const auto schema = entry["schema"].toString();
+            if ((schema != "1" && schema != "2") || (schema == "2" && !state.getChildWithName("PEDALBOARD").isValid())) return;
+        }
+        ActiveRig candidate; candidate.set(id, entry["name"].toString(), state);
         ActiveRig validated; validated.restore(candidate.save());
         if (validated.name.isNotEmpty()) *this = std::move(validated);
     }
@@ -55,7 +67,8 @@ public:
             const auto savedId = baseline[juce::String(stages[i]) + "Id"].toString();
             if (savedId.isNotEmpty() ? savedId != ids[i] : baseline[juce::String(stages[i]) + "Path"].toString() != paths[i]) return true;
         }
-        return baseline.getChildWithName("SCENES")["json"].toString() != scenes["json"].toString();
+        return !PedalboardState::equal(baseline, state.state)
+            || !PerformanceScenes::equivalent(baseline.getChildWithName("SCENES"), scenes);
     }
 private:
     juce::ValueTree baseline;

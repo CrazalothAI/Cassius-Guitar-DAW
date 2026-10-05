@@ -1,5 +1,6 @@
 #pragma once
 #include "params/ParameterIDs.h"
+#include "PedalboardState.h"
 
 // Four parameter snapshots share the current rig's files. All bank operations
 // run outside the audio callback; parameters use the existing DSP smoothing.
@@ -17,11 +18,70 @@ public:
     {
         juce::var parsed; return parse(tree, parsed);
     }
+    // Upgrade old banks with the shared rig's stable block identities. Missing
+    // banks remain absent so old sessions still start with four empty slots.
+    static juce::String migrate(juce::ValueTree& parent)
+    {
+        juce::ValueTree tree;
+        for (const auto& child : parent) if (child.hasType("SCENES")) {
+            if (tree.isValid()) return "Duplicate scene bank.";
+            tree = child;
+        }
+        if (!tree.isValid()) return {};
+        juce::var parsed;
+        const auto board = parent.getChildWithName("PEDALBOARD");
+        if (const auto failure = parse(tree, parsed, board.isValid() ? board : PedalboardState::legacy()); failure.isNotEmpty()) return failure;
+        tree.setProperty("json", juce::JSON::toString(parsed), nullptr);
+        return {};
+    }
+    // Native legacy banks historically clear/report malformed parameter JSON.
+    // Present board metadata is checked separately before any session mutation.
+    static juce::String validateBoards(const juce::ValueTree& tree)
+    {
+        if (!tree.isValid() || !tree["json"].isString()) return {};
+        if (tree["json"].toString().length() > 65536) return "Scene bank is too large.";
+        const auto parsed = juce::JSON::parse(tree["json"].toString());
+        if (!parsed.isObject()) return {};
+        const auto version = parsed["version"];
+        if ((version.isInt() || version.isInt64() || version.isDouble()) && static_cast<double>(version) >= 2) {
+            juce::var checked; return parse(tree, checked);
+        }
+        if (!parsed["slots"].isArray()) return {};
+        bool carriesBoards = false;
+        for (const auto& slot : *parsed["slots"].getArray()) if (slot.isObject() && slot.hasProperty("board")) {
+            carriesBoards = true;
+            juce::ValueTree board;
+            if (const auto failure = readBoard(slot["board"], board); failure.isNotEmpty()) return failure;
+        }
+        if (carriesBoards) { juce::var checked; return parse(tree, checked); }
+        return {};
+    }
+    static bool equivalent(const juce::ValueTree& a, const juce::ValueTree& b)
+    {
+        juce::var left, right;
+        if (parse(a, left).isNotEmpty() || parse(b, right).isNotEmpty()) return false;
+        for (int i = 0; i < 4; ++i) {
+            const auto x = left.isObject() ? left["slots"][i] : juce::var();
+            const auto y = right.isObject() ? right["slots"][i] : juce::var();
+            if (x.isVoid() != y.isVoid()) return false;
+            if (x.isVoid()) continue;
+            if (x["name"].toString() != y["name"].toString()) return false;
+            for (const auto& p : Params::definitions) if (!global(p.id)
+                && std::abs(static_cast<float>(x["parameters"][p.id]) - static_cast<float>(y["parameters"][p.id])) > .0001f) return false;
+            juce::ValueTree first, second;
+            if (readBoard(x["board"], first).isNotEmpty() || readBoard(y["board"], second).isNotEmpty()
+                || !PedalboardState::equal(holder(first), holder(second))) return false;
+        }
+        return true;
+    }
     juce::String store(int slot, const juce::String& name, juce::AudioProcessorValueTreeState& state)
     {
         if (!validSlot(slot)) return "Choose one of the four scenes.";
         const auto title = name.trim(); if (title.isEmpty() || title.length() > 48) return "Give the scene a name of 1–48 characters.";
+        if (const auto failure = PedalboardState::validate(state.state); failure.isNotEmpty()) return failure;
+        auto board = state.state.getChildWithName("PEDALBOARD"); if (!board.isValid()) board = PedalboardState::legacy();
         auto o = std::make_unique<juce::DynamicObject>(); o->setProperty("name", title); o->setProperty("parameters", capture(state));
+        o->setProperty("board", board.toXmlString());
         const juce::ScopedLock guard(lock); slots[static_cast<size_t>(slot)] = juce::var(o.release()); active = slot; ++revision; error.clear(); return {};
     }
     juce::String clear(int slot)
@@ -35,10 +95,15 @@ public:
         juce::var saved; int generation;
         { const juce::ScopedLock guard(lock); saved = slots[static_cast<size_t>(slot)]; generation = revision; }
         if (saved.isVoid()) return "This scene is empty. Store the current tone first.";
+        juce::ValueTree board;
+        if (const auto failure = readBoard(saved["board"], board); failure.isNotEmpty()) return failure;
         for (const auto& p : Params::definitions) if (!global(p.id)) {
             auto* parameter = state.getParameter(p.id);
             parameter->beginChangeGesture(); parameter->setValueNotifyingHost(parameter->convertTo0to1(static_cast<float>(saved["parameters"][p.id]))); parameter->endChangeGesture();
         }
+        // Metadata changes do not reset any DSP objects or running effect tails.
+        state.state.removeChild(state.state.getChildWithName("PEDALBOARD"), nullptr);
+        state.state.addChild(board, -1, nullptr);
         const juce::ScopedLock guard(lock);
         if (revision == generation) { active = slot; ++revision; error.clear(); }
         return {};
@@ -48,7 +113,7 @@ public:
         const juce::ScopedLock guard(lock); juce::ValueTree tree("SCENES");
         auto o = std::make_unique<juce::DynamicObject>(); juce::Array<juce::var> rows;
         for (const auto& slot : slots) rows.add(slot);
-        o->setProperty("version", 1); o->setProperty("slots", rows); tree.setProperty("json", juce::JSON::toString(juce::var(o.release())), nullptr); return tree;
+        o->setProperty("version", 2); o->setProperty("slots", rows); tree.setProperty("json", juce::JSON::toString(juce::var(o.release())), nullptr); return tree;
     }
     juce::String restore(const juce::ValueTree& tree)
     {
@@ -64,16 +129,35 @@ public:
         for (const auto& slot : slots) { auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("name", slot["name"]); row->setProperty("stored", slot.isObject()); rows.add(juce::var(row.release())); }
         bool edited = false;
         if (validSlot(active)) for (const auto& p : Params::definitions) if (!global(p.id) && std::abs(static_cast<float>(current[p.id]) - static_cast<float>(slots[static_cast<size_t>(active)]["parameters"][p.id])) > .005f) { edited = true; break; }
+        if (validSlot(active) && !edited) {
+            juce::ValueTree board;
+            edited = readBoard(slots[static_cast<size_t>(active)]["board"], board).isNotEmpty()
+                || !PedalboardState::equal(state.state, holder(board));
+        }
         o->setProperty("slots", rows); o->setProperty("active", active); o->setProperty("edited", edited); o->setProperty("revision", revision); o->setProperty("error", error); return juce::var(o.release());
     }
 private:
     static bool validSlot(int i) { return i >= 0 && i < 4; }
-    static juce::String parse(const juce::ValueTree& tree, juce::var& parsed)
+    static juce::ValueTree holder(const juce::ValueTree& board)
+    {
+        juce::ValueTree parent("AmpSuiteState"); parent.addChild(board.createCopy(), -1, nullptr); return parent;
+    }
+    static juce::String readBoard(const juce::var& text, juce::ValueTree& board)
+    {
+        if (!text.isString() || text.toString().getNumBytesAsUTF8() > PedalboardState::maximumBytes) return "Invalid saved scene pedalboard.";
+        const auto xml = juce::XmlDocument::parse(text.toString());
+        if (!xml || !xml->hasTagName("PEDALBOARD")) return "Invalid saved scene pedalboard.";
+        board = juce::ValueTree::fromXml(*xml);
+        return PedalboardState::validate(holder(board));
+    }
+    static juce::String parse(const juce::ValueTree& tree, juce::var& parsed,
+                              const juce::ValueTree& legacyBoard = PedalboardState::legacy())
     {
         if (!tree.isValid()) return {}; // Legacy rigs/sessions have an empty bank.
         if (!tree.hasType("SCENES") || !tree["json"].isString() || tree["json"].toString().length() > 65536) return "Invalid scene bank.";
         parsed = juce::JSON::parse(tree["json"].toString());
-        if (!parsed.isObject() || !parsed["version"].isInt() || static_cast<int>(parsed["version"]) != 1 || !parsed["slots"].isArray() || parsed["slots"].size() != 4) return "Unsupported scene bank.";
+        if (!parsed.isObject() || !parsed["version"].isInt() || (static_cast<int>(parsed["version"]) != 1 && static_cast<int>(parsed["version"]) != 2) || !parsed["slots"].isArray() || parsed["slots"].size() != 4) return "Unsupported scene bank.";
+        const bool legacy = static_cast<int>(parsed["version"]) == 1;
         for (auto& slot : *parsed["slots"].getArray()) {
             if (slot.isVoid()) continue;
             if (!slot.isObject() || !slot["name"].isString() || slot["name"].toString().trim().isEmpty() || slot["name"].toString().length() > 48 || !slot["parameters"].isObject()) return "Invalid saved scene.";
@@ -92,7 +176,15 @@ private:
                 const auto amount = static_cast<float>(x);
                 if ((!v.isDouble() && !v.isInt() && !v.isInt64()) || !std::isfinite(x) || amount < p.min || amount > p.max || (p.unit[0] == 0 && x != std::round(x))) return "Invalid scene parameter: " + juce::String(p.id);
             }
+            juce::ValueTree board;
+            if (slot.hasProperty("board")) {
+                if (const auto failure = readBoard(slot["board"], board); failure.isNotEmpty()) return failure;
+            } else if (legacy) board = legacyBoard.createCopy();
+            else return "Saved scene is missing its pedalboard.";
+            if (const auto failure = PedalboardState::validate(holder(board)); failure.isNotEmpty()) return failure;
+            slot.getDynamicObject()->setProperty("board", board.toXmlString());
         }
+        parsed.getDynamicObject()->setProperty("version", 2);
         return {};
     }
     juce::CriticalSection lock;

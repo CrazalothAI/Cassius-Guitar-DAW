@@ -66,7 +66,9 @@ void runModulationChecks()
         require(restored.apvts.getRawParameterValue("MOD_ON")->load() == 1 && std::abs(restored.apvts.getRawParameterValue("MOD_RATE")->load() - 3.5f) < .001f && std::abs(restored.apvts.getRawParameterValue("MOD_STEREO")->load() - 60) < .001f, "Sessions must retain modulation settings");
         auto rig = p.getRig(); auto xml = juce::XmlDocument::parse(rig["state"].toString()); require(xml != nullptr, "Modulation rig must serialize");
         auto legacy = juce::ValueTree::fromXml(*xml);
+        legacy.removeChild(legacy.getChildWithName("PEDALBOARD"), nullptr);
         for (size_t i = 76; i < Params::definitions.size(); ++i) legacy.removeChild(legacy.getChildWithProperty("id", Params::definitions[i].id), nullptr);
+        rig.getDynamicObject()->setProperty("schema", 1);
         rig.getDynamicObject()->setProperty("state", legacy.createXml()->toString()); require(p.applyRig(rig).isEmpty(), "Older 76-control rigs must accept compatible modulation defaults");
         for (int b = 0; b < 1000 && p.apvts.getRawParameterValue("MOD_ON")->load() > .5f; ++b) { juce::AudioBuffer<float> audio(2, 128); audio.clear(); juce::MidiBuffer midi; p.processBlock(audio, midi); juce::Thread::sleep(2); }
         require(p.apvts.getRawParameterValue("MOD_ON")->load() == 0, "Older complete rigs must recall with modulation bypassed");

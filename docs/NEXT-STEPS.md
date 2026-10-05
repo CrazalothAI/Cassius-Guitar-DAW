@@ -2,7 +2,7 @@
 
 Planning checkpoint: 2026-10-05. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Implementation checkpoint, 2026-10-05: steps 1 and 2 are implemented in the development checkout. See [Play Along and navigation](PLAY-ALONG-NAVIGATION.md) for current tests, rebuilt local packages and remaining real-use limits. The verified baseline below records the inspection before that milestone. Continue with the serial-board state design in step 3 and sound intake in step 5. The website is deferred in [TODO.md](TODO.md).
+Implementation checkpoint, 2026-10-05: steps 1 and 2 are implemented in the development checkout. The compatibility portion of step 3 now adds bounded pedal identities, fixed automation bindings, schema-2 exports and migration/rollback checks; see [pedalboard state](PEDALBOARD-STATE.md). The existing DSP order remains fixed. [Sound intake](SOUND-INTAKE.md) records 42 unique NAM captures and 13 WAV responses, calibration/routing evidence, coverage gaps and unknown redistribution rights. See [Play Along and navigation](PLAY-ALONG-NAVIGATION.md) for the previous milestone. The verified baseline below records the earlier inspection. The website is deferred in [TODO.md](TODO.md).
 
 ## Verified baseline
 
@@ -36,8 +36,8 @@ Implementation checkpoint, 2026-10-05: steps 1 and 2 are implemented in the deve
 
 ## Verification limits and reproducibility
 
-The current existing tests have no focused native coverage for GuitarMix or its output-warning telemetry. That gap is why step 1 remains necessary despite the green baseline.
+The earlier GuitarMix/output-warning coverage gap is closed by step 1. The current native suite also verifies board validation, migrations, atomic rejected recall and exact old/new guitar-path output; full serial graphs, additional captured blocks, live hardware and real DAW automation still require their own verification.
 
 MSBuild initially failed because its child environment contained conflicting `Path`/`PATH` keys. The native-test rebuild succeeded with a process-local normalized `Path` key and worker reuse disabled; no system environment setting was changed. The standard Vite development launch also hit sandbox directory-access errors; visual inspection used the successfully built production preview instead. These are local tool-environment observations, not established product defects.
 
-Recommended next coding task: complete step 1, then implement step 2; begin the sound-rights/intake work in step 5 alongside the serial-board design in step 3.
+Recommended next coding task: finish the multi-instance portion of step 3, then implement step 4. Add bounded independent parameter/asset state and ordered pre/post lanes, define slot deletion/replacement/reuse rules, implement validated asset traversal/deduplicated packs and measure actual neural-block budgets before enabling serial graph editing. Preserve the fixed compatibility adapter and existing parameter IDs. Continue real guitar auditions and clean/jazz/nylon sound sourcing from the intake document.

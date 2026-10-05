@@ -4,6 +4,8 @@ Cassian is a guitar processor with a tube-head interface, built-in clean and hig
 
 The current source adds listening-only Play Along controls and clear Tone, Board, Practice, and Takes views, with a persistent saved rig name and direct Save/Save As. Standalone practice includes backing-track playback, paired guitar recording, a searchable take library, and offline reamping. The sound engine includes dual-IR cabinets, built-in overdrive, compression, modulation and stereo effects, plus prepared complete rig recall, a shared managed library and portable rig packs. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md) and [next steps](docs/NEXT-STEPS.md).
 
+The next state foundation gives the existing effects persistent identities and fixed automation bindings. New rig exports use schema 2; older rigs, scenes, sessions, packs and take snapshots migrate when read. See [pedalboard state](docs/PEDALBOARD-STATE.md). Audio order remains fixed; independent instances and reordering are the next implementation stage.
+
 ## Download and launch
 
 This README describes the development source; public downloads can lag the current feature branch. Local milestone builds are not automatically published or merged.
@@ -108,6 +110,8 @@ Cabinet files must be mono or stereo WAVs no longer than ten seconds. Stereo IRs
 Native **A/B** compares complete rig state. Rig recall preserves input calibration, Master, metronome and Play Along controls by default; reopening a standalone or DAW session restores its full saved state. Failed recall or saving keeps the previous identity and reports an error.
 
 Use **Import rig** and **Export current rig** for `.cassian.json` documents. Imported rigs enter the library without changing the sound; select Use to recall them. Recall validates the document and its referenced assets before changing parameters. Missing or changed assets, invalid values, and incomplete documents are rejected with an error.
+
+New schema-2 documents require the complete parameter set and a supported pedalboard description. Schema-1 documents retain their established defaults during migration. Present unsupported board metadata rejects before replacing the active sound, including during native session restoration. Keep original files if you need to open them in an older Cassian version; schema-2 exports are for this update and later compatible builds.
 
 Native asset imports and successful stage loads create content-verified copies in the shared library. Its default location is `%APPDATA%\Cassian\Library` on Windows and `~/.config/Cassian/Library` on Linux. Standalone and plugin instances share this catalog; session state also retains its references. Edited metadata and deleted rigs survive writes from older instances. Factory favorites remain editor-profile preferences.
 
@@ -270,6 +274,7 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 | `Source/TakeLibrary.*` | Take catalog, review selection, rig snapshots, and isolated offline reamp exports. |
 | `Source/MidiControl.*` | Bounded MIDI queue, control worker, Learn, assignments and session configuration. |
 | `Source/PerformanceScenes.h` | Four guitar-parameter snapshots, bank validation, recall and rig/session persistence. |
+| `Source/PedalboardState.h` | Bounded fixed-board identities, legacy migration and stable automation bindings. |
 | `Source/dsp/ModulationPedal.h` | Stereo phaser/flanger/tremolo, smoothed bypass/voice transitions and tempo subdivisions. |
 | `Source/PluginEditor.*` | Embedded WebView editor, native bridge, and asynchronous file pickers. |
 | `Source/Standalone.cpp` | Standalone entry point, device setup, and tray integration. |
@@ -295,5 +300,7 @@ Automated renders do not establish live sound quality, long-run AudioBox reliabi
 ## Roadmap, attribution, and dependencies
 
 See the [expansion roadmap](docs/EXPANSION-ROADMAP.md) for ordered pedalboards, more effects, power-amp processing, MIDI/scenes, parallel amp paths, and asset sourcing. The current chain has a built-in overdrive, one neural pedal, one amp, two parallel cabinet responses, and global effects.
+
+[Sound intake](docs/SOUND-INTAKE.md) records the supplied capture families, calibration and cabinet-routing evidence, clean/jazz/nylon gaps, and missing redistribution documentation. It does not add third-party factory assets or claim a completed guitar audition.
 
 Project ownership markers and their preservation instruction are recorded in [provenance](docs/PROVENANCE.md). Third-party attribution and licenses are listed in [THIRD_PARTY.md](THIRD_PARTY.md). JUCE uses AGPLv3 or a commercial license; NAM Core is MIT licensed. Review the applicable dependency and asset distribution terms before shipping a commercial build. User-imported captures are marked unverified for factory redistribution and are excluded from this repository. Rig JSON contains references; user-exported portable packs contain selected files.
