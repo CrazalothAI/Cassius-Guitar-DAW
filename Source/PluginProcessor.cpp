@@ -1,4 +1,5 @@
 #include "PluginProcessor.h"
+#include "BundledSoundBank.h"
 #include "PluginEditor.h"
 #include "SoundPack.h"
 #include <cstdlib>
@@ -65,6 +66,8 @@ AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File li
         parameters[i] = apvts.getRawParameterValue(Params::definitions[i].id);
     PedalboardState::migrate(apvts.state);
     try { library.merge(sharedStore.load()); } catch (const std::exception& e) { message = "Load failed: " + juce::String(e.what()); }
+    if (sharedLibrary) try { BundledSoundBank::install(BundledSoundBank::location(), sharedStore, library); }
+    catch (const std::exception& e) { message = "Load failed: " + juce::String(e.what()); }
     practice.onTakeFinished = [&store = takes](const juce::File& folder) { store.importFolder(folder); };
     midiControl.start([this](const auto& mapping, int amount) { return handleMidiAction(mapping, amount); });
     startThread();
@@ -814,9 +817,11 @@ juce::var AmpSuiteAudioProcessor::status()
         result->setProperty("board", boardStatus());
         result->setProperty("activeRigId", activeRig.id); result->setProperty("activeRigName", activeRig.name);
         const bool saved = library.find(activeRig.id).hasType("RIG");
+        const bool starter = !saved && activeRig.id.startsWith("factory.");
         result->setProperty("activeRigSaved", saved);
+        result->setProperty("activeRigStarter", starter);
         result->setProperty("activeRigEdited", activeRig.edited(apvts, {desiredModel, desiredIr, desiredPedal, desiredIrB, desiredPedal1, desiredAmbience, desiredAmbience1},
-            {library.idForPath("amp", desiredModel), library.idForPath("cab", desiredIr), library.idForPath("pedal", desiredPedal), library.idForPath("cab", desiredIrB), library.idForPath("pedal", desiredPedal1), library.idForPath("ambience", desiredAmbience), library.idForPath("ambience", desiredAmbience1)}, scenes.save()) || (!saved && activeRig.name.isNotEmpty()));
+            {library.idForPath("amp", desiredModel), library.idForPath("cab", desiredIr), library.idForPath("pedal", desiredPedal), library.idForPath("cab", desiredIrB), library.idForPath("pedal", desiredPedal1), library.idForPath("ambience", desiredAmbience), library.idForPath("ambience", desiredAmbience1)}, scenes.save()) || (!saved && !starter && activeRig.name.isNotEmpty()));
     }
     {
         // UI polling must never hold the DSP lock: the callback would emit silence.
@@ -1267,10 +1272,18 @@ bool AmpSuiteAudioProcessor::removeRig(const juce::String& id)
 bool AmpSuiteAudioProcessor::editAsset(const juce::String& id, const juce::var& changes)
 {
     const juce::ScopedLock lock(requestLock); auto asset = library.find(id); if (!asset.isValid()) return false;
-    for (const auto& key : {"name", "creator", "tags", "sourceURL", "notes"})
+    if (!changes.isObject()) return false;
+    if (changes.hasProperty("gain")) {
+        const juce::StringArray choices {"", "clean", "breakup", "crunch", "high-gain", "drive", "fuzz"};
+        if (!changes["gain"].isString() || !choices.contains(changes["gain"].toString())) return false;
+    }
+    const auto previous = asset.createCopy();
+    for (const auto& key : {"name", "creator", "tags", "sourceURL", "notes", "styles", "speaker", "gain"})
         if (changes.hasProperty(key) && changes[key].isString()) asset.setProperty(key, changes[key].toString().substring(0, 1000), nullptr);
     if (changes["favorite"].isBool()) asset.setProperty("favorite", changes["favorite"], nullptr);
-    ++library.revision; return persistLibrary().isEmpty();
+    ++library.revision;
+    if (persistLibrary().isEmpty()) return true;
+    asset.copyPropertiesAndChildrenFrom(previous, nullptr); ++library.revision; return false;
 }
 bool AmpSuiteAudioProcessor::selectAsset(const juce::String& id, bool cabinetB)
 {

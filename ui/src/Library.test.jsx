@@ -7,6 +7,20 @@ beforeEach(() => { localStorage.clear(); applyPreset('Glass clean'); });
 afterEach(cleanup);
 const open = () => { const button = screen.getByRole('button', {name: 'Library'}); button.focus(); fireEvent.click(button); return screen.getByRole('dialog'); };
 describe('library preview', () => {
+  it('filters complete starters and keeps listening controls when previewing a clean rig', async () => {
+    render(<App/>); fireEvent.change(screen.getByRole('slider', {name: 'Master'}), {target: {value: '-28'}});
+    const dialog = open(); fireEvent.click(within(dialog).getByRole('button', {name: 'Presets'}));
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library rig type'}), {target: {value: 'starter'}});
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library style'}), {target: {value: 'jazz'}});
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library gain'}), {target: {value: 'clean'}});
+    expect(within(dialog).queryByText('Modern Metalcore')).toBeNull(); expect(within(dialog).queryByText('Glass clean')).toBeNull();
+    expect(within(dialog).getByRole('status').textContent).toMatch(/^3 of \d+ rigs and starting points$/);
+    fireEvent.click(within(within(dialog).getByText('Warm Jazz').closest('article')).getByRole('button', {name: 'Use'}));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    const bar = within(screen.getByRole('region', {name: 'Current complete rig'})); expect(bar.getByText('Warm Jazz')).toBeTruthy(); expect(bar.getByText('STARTER RIG')).toBeTruthy(); expect(bar.queryByText('Edited')).toBeNull();
+    expect(screen.getByRole('slider', {name: 'Master'}).value).toBe('-28');
+    fireEvent.click(bar.getByRole('button', {name: 'Save rig'})); expect(screen.getByRole('dialog', {name: 'Save complete rig'})).toBeTruthy();
+  });
   it('searches built-in amps, remembers favorites, and keeps keyboard focus in the dialog', async () => {
     render(<App/>); let dialog = open();
     const close = within(dialog).getByRole('button', {name: 'Close library'});

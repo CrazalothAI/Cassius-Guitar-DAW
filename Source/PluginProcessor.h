@@ -67,6 +67,8 @@ public:
     juce::String updateActiveRig();
     juce::String importRig(const juce::String& name, const juce::var& rig);
     juce::String loadRig(const juce::String& id);
+    static juce::var startingRigCatalog();
+    juce::String loadStartingRig(const juce::String& id);
     bool removeRig(const juce::String& id);
     bool editAsset(const juce::String& id, const juce::var& changes);
     bool selectAsset(const juce::String& id, bool cabinetB = false);

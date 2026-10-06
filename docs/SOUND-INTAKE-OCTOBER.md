@@ -1,6 +1,6 @@
 # October user sound intake
 
-Inspected and validated on 2026-10-06. The eleven supplied ZIPs contain 65 unique files: 39 NAM captures and 26 WAV responses. Seventeen files duplicate content from the earlier intake, so the combined archive inventory has 103 unique files. All October files pass the actual NAM loader or supported WAV checks. They were imported into the owner's managed user library with original names and pack metadata; they are not included in Git or app/install/portable packages.
+Inspected and validated on 2026-10-06. The eleven supplied ZIPs contain 65 unique files: 39 NAM captures and 26 WAV responses. Seventeen files duplicate content from the earlier intake, so the combined archive inventory has 103 unique files. All October files pass the actual NAM loader or supported WAV checks. The October and prior packs are now combined into the owner's managed library (103 unique sounds), with original names and pack metadata. A private 103-file bank has been prepared for relocated-library and installer tests. Public bank distribution remains pending creator/platform grants; no third-party sound data has been added to Git. See [complete presets and shared sounds](PRESETS-AND-SHARED-SOUNDS.md).
 
 | Archive | Files | Library category | Use and limits |
 | --- | ---: | --- | --- |

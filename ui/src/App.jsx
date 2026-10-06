@@ -15,7 +15,9 @@ import { ampIdentity } from './ampIdentity.js';
 import Midi from './components/Midi.jsx';
 import { invoke, native } from './juce/bridge.js';
 import { restoreSnapshot, snapshotParameters, useParameter, useParameters, useToggle } from './parameterState.js';
-import { applyPreset, matchPreset, presetParameterIds, presets } from './presets.js';
+import { applyPreset, matchPreset, presets } from './presets.js';
+import { allParameters } from './parameters.js';
+import { applyStartingPreview, resolveStartingRigs, startingRigs } from './startingRigs.js';
 import cassianLogo from './assets/cassian-logo-192.png'; // shown at 34 px; the full-size original stays in assets
 
 const initialStatus = {
@@ -85,8 +87,8 @@ function Alerts({ status, notice, dismissed, onDismiss, onBuffer }) {
 export default function App() {
   const status = useEngineStatus();
   const legacyClean = useToggle('AMP_CLEAN'), source = Math.round(useParameter('AMP_SOURCE'));
-  const clean = source === 1 || (source === 0 && legacyClean);
-  const values = useParameters(presetParameterIds);
+  const clean = source === 1 || source === 4 || ((source === 0 || source === 3) && legacyClean);
+  const values = useParameters(allParameters.map(p => p.id));
   const [chosen, setChosen] = useState('');
   const [tunerOpen, setTunerOpen] = useState(false);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
@@ -94,6 +96,14 @@ export default function App() {
   const [view, setView] = useState('Tone');
   const [utility, setUtility] = useState(null);
   const [previewActive, setPreviewActive] = useState(null);
+  const [presetAssets, setPresetAssets] = useState([]), [presetLoading, setPresetLoading] = useState(false);
+  const selectingPreset = useRef(false);
+  useEffect(() => {
+    if (!native) return;
+    let active = true;
+    invoke('getLibrary').then(next => { if (active) setPresetAssets(next?.assets || []); }).catch(() => {});
+    return () => { active = false; };
+  }, [status.libraryRevision]);
   const comparing = useRef(false);
   const [page, setPage] = useState('Amp');
   const [tonePage, setTonePage] = useState('Amp');
@@ -113,12 +123,20 @@ export default function App() {
   const dismiss = key => key === 'notice' ? setNotice(null) : setDismissed(status.message);
 
   const chooseTone = async name => {
+    if (startingRigs.some(r => r.id === name)) {
+      if (selectingPreset.current || status.rigLoading) return;
+      selectingPreset.current = true; setPresetLoading(true);
+      try {
+        if (native) { const error = await invoke('loadStartingRig', name); if (error) throw new Error(error); }
+        else setPreviewActive(applyStartingPreview(name));
+        setChosen('');
+      } catch (e) { setNotice({title: 'Couldn’t load the rig', text: e.message || 'Please try again.'}); }
+      finally { selectingPreset.current = false; setPresetLoading(false); }
+      return;
+    }
     if (!presets[name]) return;
     applyPreset(name); setChosen(name);
-    if (native && !presets[name].AMP_CLEAN) {
-      try { await invoke('selectAmpVoice', name === '80s rock' ? 'Blue-I' : 'Red-I'); }
-      catch { setNotice({ title: 'Couldn’t switch amp voice', text: 'Your current capture is still active.' }); }
-    }
+    if (!native) setPreviewActive(null);
   };
   // A/B: the first press stores A; each later press swaps the stored state with the current one.
   const toggleCompare = async () => {
@@ -159,7 +177,8 @@ export default function App() {
   };
 
   // Recognise a preset from the parameters themselves, so the name survives reopening the editor.
-  const matched = matchPreset(values), current = matched ?? (chosen || null), edited = !matched && Boolean(chosen);
+  const matched = chosen ? matchPreset(values) : null, current = matched ?? (chosen || null), edited = !matched && Boolean(chosen);
+  const currentRig = startingRigs.find(r => r.id === (native ? status.activeRigId : previewActive?.id));
   const { message } = status;
   const busy = /^(Loading|Restoring|Preparing|Packing|Importing)/.test(message);
   const footerMessage = !native || busy || message.startsWith('Load failed:') ? message
@@ -173,7 +192,7 @@ export default function App() {
   return <div className={`app-shell ${clean ? 'clean' : 'metal'}`}>
     <header>
       <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><h1>CASSIAN</h1></div>
-      <PresetBrowser current={current} edited={edited} onChoose={chooseTone} onRevert={() => chooseTone(current)}
+      <PresetBrowser current={currentRig ? null : current} currentRig={currentRig} rigs={resolveStartingRigs(presetAssets, !native)} loading={presetLoading || status.rigLoading} edited={currentRig ? (native ? status.activeRigEdited : previewEdited) : edited} onChoose={chooseTone} onRevert={() => chooseTone(currentRig?.id || current)}
         compare={compare} compareSide={compareSide} onCompare={toggleCompare} showCompare={false} />
       <div className="header-tools">
         <MetronomeButton open={metronomeOpen} onToggle={() => setMetronomeOpen(!metronomeOpen)} status={status} />
@@ -199,7 +218,7 @@ export default function App() {
         {view === 'Practice' ? <Practice status={status} onError={setNotice} onTakes={() => navigate('Takes')}/> : view === 'Takes' ? <section className="takes-workspace" aria-label="Take library"><div className="practice-heading"><h2>Your take library</h2><button className="text-button" onClick={() => navigate('Practice')}>Record a take</button></div><Takes status={status} onError={setNotice}/></section> : view === 'Board' && status.board?.serial ? <Pedalboard status={status} onError={setNotice}/> : <Stages page={view === 'Tone' ? tonePage : page} onPage={view === 'Tone' ? setTonePage : setPage} availablePages={view === 'Tone' ? ['Amp', 'Cab'] : undefined} showScenes={view === 'Board'} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice}/>}
       </div>
     </main>
-    {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive}/>}
+    {libraryOpen && <Library revision={status.libraryRevision} loading={status.rigLoading} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive}/>}
     {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
     <footer>
       <span role="status">{footerMessage}</span>

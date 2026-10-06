@@ -92,7 +92,9 @@ A capture containing a cabinet usually works best with cabinet Auto or Off. Stac
 
 Open **Library** to browse **Amps**, **Pedals**, **Cabinets**, and **Presets**. Search names, gear, creators, tags, and notes; filter by Factory, User, or Favorites. Edit friendly names, creator attribution, source URLs, tags, and notes in the details panel.
 
-Factory entries currently consist of Cassian's own built-in amps and control starting points. No third-party NAM captures or WAV responses are bundled. **Articulate lead** uses Cassian overdrive into Ferrum; **Studio clean** uses Lumen with post-cab compression. Both work without external files.
+The preset menu now offers **12 complete built-in rigs** and **20 exact-capture recipes** covering clean, ambient, blues, rock, lead, metalcore and fuzz sounds. Red-II is selected explicitly for harder EVH distortion; British rock/crunch uses the JCM800 or Brit 50 captures. Complete recall replaces files, the serial board and scenes, preserving global listening/performance controls. Legacy control starting points remain separately labeled and no longer switch all distorted presets to Red-I. Missing exact sounds disable a capture recipe instead of substituting another head. See [presets and shared sounds](docs/PRESETS-AND-SHARED-SOUNDS.md).
+
+The owner's 103 supplied sounds are imported locally. A verified bank can accompany the installer/portable ZIP and import automatically on a new PC. Public third-party sound distribution is still pending source/license records; built-in rigs need no files. The bank pipeline preserves creator metadata and includes per-asset permissions/notices. No third-party NAM/WAV files have been added to Git during this update.
 
 ### Import and use assets
 
@@ -104,6 +106,10 @@ Factory entries currently consist of Cassian's own built-in amps and control sta
 NAM support includes mono-input/mono-output WaveNet, LSTM, and A2/SlimmableContainer models in supported file versions 0.5.x through 0.7.0. Captures and pedal models are resampled when their embedded sample rate differs from the host. Models without a declared rate run at the host rate. Load errors appear in the editor.
 
 Cabinet files must be mono or stereo WAVs no longer than ten seconds. Stereo IRs retain their left/right response. A fixed ambience WAV can be imported, but this does not turn it into an adjustable reverb pedal.
+
+### Export audio for video
+
+Record a take in Practice, then open **Takes → Video soundtrack → Export for video**. Export the selected processed, dry or reamped version as a **48 kHz / 24-bit stereo WAV**, with optional recorded backing and separate balance controls. New takes store a synchronized backing stem alongside the original guitar stems. The worker preserves originals, supports cancellation and reduces mixed peaks only when needed for −1 dBFS sample-peak headroom. Browser audio, metronome/count-in and listening-only Play Along controls remain excluded. Import the WAV into Clipchamp with your video; see [recording/export steps](docs/VIDEO-AUDIO-EXPORT.md).
 
 ### Save, recall, and share
 
@@ -271,9 +277,9 @@ UI tests are separate from the Windows build helper. Native tests require a conf
 | `Source/LibraryStore.h` | Shared manifest merging, atomic persistence, managed asset copies, and deleted-rig tracking. |
 | `Source/CompleteRig.cpp` | Off-thread complete rig preparation and short fade around activation. |
 | `Source/RigPack.cpp` | Portable ZIP export/import, entry limits, content verification, and managed storage. |
-| `Source/PracticeEngine.*` | Worker-prepared backing/review playback and paired guitar recording through a bounded audio FIFO. |
+| `Source/PracticeEngine.*` | Worker-prepared backing/review playback and aligned dry/processed/backing recording through a bounded audio FIFO. |
 | `Source/PracticeSections.*` | Per-track named loops, validation and atomic shared persistence. |
-| `Source/TakeLibrary.*` | Take catalog, review selection, rig snapshots, and isolated offline reamp exports. |
+| `Source/TakeLibrary.*`, `Source/VideoAudioExport.cpp` | Take catalog, review selection, rig snapshots, isolated reamps and video soundtrack WAV export. |
 | `Source/MidiControl.*` | Bounded MIDI queue, control worker, Learn, assignments and session configuration. |
 | `Source/PerformanceScenes.h` | Four guitar-parameter snapshots, bank validation, recall and rig/session persistence. |
 | `Source/PedalboardState.h` | Bounded fixed-board identities, legacy migration and stable automation bindings. |
@@ -291,7 +297,7 @@ File reading, hashing, parsing, capture preparation, warm-up, and managed storag
 
 Sample-rate conversion retains streaming state between callbacks. New controls append without moving the previous 58 parameter indices; old complete rigs receive compatible defaults, including bypassed chorus and manual delay. See [audio quality update](docs/AUDIO-QUALITY-UPDATE.md) for engineering details and remaining limits.
 
-Verified on Windows on **2026-10-05**: **113 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover paired float recordings, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks use user-supplied amp, pedal, and cabinet files, which remain excluded from Git.
+Verified on Windows on **2026-10-06**: **132 UI tests**, **four native CTest suites**, and standalone/VST3 Release builds pass. Regressions include parameter parity and legacy recall, routing, gates/EQ, resampling, backing/click isolation, concurrent IR publication, complete rig preparation during callbacks and failed-preparation rollback, chorus stereo width, measured delay timing, reverb pre-delay/decay, pedal levels, compressor dynamics, A/B matching, shared/stale library writers, managed copies, and portable packs with tamper/path rejection. Additional checks cover overdrive harmonics and exact bypass, stereo-linked compression on every source, dual-IR level/polarity/pan/alignment, cabinet B recall and pack deduplication, and older rig defaults. Practice and take checks cover aligned guitar/backing float recordings and 48 kHz / 24-bit video WAV export, looping/count-in, catalog persistence, review cancellation, offline reamp consistency with byte-identical originals, pitch preservation at 50/75/150%, cancelled preparation, real-time recording isolation and loop-seam fade reduction. See [sound foundation](docs/SOUND-FOUNDATION.md) for local callback timings and limits. Additional checks install the complete 103-file user bank into relocated empty storage and recall/render all 20 exact capture recipes. Supplied sound data remains excluded from Git pending redistribution records. Reference signal checks do not replace live playing, DAW host or fresh-PC validation.
 
 Interface checks cover brand-independent device matching, arbitrary physical channel masks, restored non-ASIO and older combined-name settings, missing/ambiguous startup choices, fallback microphone rejection, and the standalone input/settings controls. Diagnostic `--help` and `--list` were verified on the development machine. Other manufacturers' hardware has not been physically tested.
 
@@ -301,7 +307,7 @@ Automated renders do not establish live sound quality, long-run AudioBox reliabi
 
 ## Roadmap, attribution, and dependencies
 
-See the [expansion roadmap](docs/EXPANSION-ROADMAP.md) for ordered pedalboards, more effects, power-amp processing, MIDI/scenes, parallel amp paths, and asset sourcing. The current chain has a built-in overdrive, one neural pedal, one amp, two parallel cabinet responses, and global effects.
+See the [expansion roadmap](docs/EXPANSION-ROADMAP.md) for more effects, power-amp processing, MIDI/scenes, parallel amp paths, and asset sourcing. Serial boards support up to 16 independently controlled blocks, with two slots per effect type, including two neural pedals and two recorded ambience responses. They surround one amp and two parallel cabinet responses; legacy rigs retain their fixed routing until converted.
 
 [Sound intake](docs/SOUND-INTAKE.md) records the supplied capture families, calibration and cabinet-routing evidence, clean/jazz/nylon gaps, and missing redistribution documentation. It does not add third-party factory assets or claim a completed guitar audition.
 

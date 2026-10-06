@@ -66,6 +66,7 @@ file(GLOB_RECURSE UI_INPUTS CONFIGURE_DEPENDS "${UI_DIR}/src/*")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${UI_INPUTS} "${UI_DIR}/package-lock.json" "${UI_DIR}/vite.config.js" "${UI_DIR}/index.html")
 # Vite produces a single self-contained HTML resource; no install-time asset paths.
 juce_add_binary_data(AmpSuiteAssets SOURCES "${UI_DIR}/dist/index.html")
+juce_add_binary_data(CassianRigAssets NAMESPACE CassianRigs HEADER_NAME CassianRigData.h SOURCES "${UI_DIR}/src/startingRigs.json")
 set(CASSIAN_ICON "${UI_DIR}/src/assets/cassian-logo-192.png")
 juce_add_binary_data(CassianBrandAssets NAMESPACE CassianBrand HEADER_NAME CassianBrandData.h SOURCES "${CASSIAN_ICON}")
 juce_add_plugin(AmpSuite COMPANY_NAME MyAudioLab BUNDLE_ID com.myaudiolab.ampsuite
@@ -76,7 +77,7 @@ juce_add_plugin(AmpSuite COMPANY_NAME MyAudioLab BUNDLE_ID com.myaudiolab.ampsui
     IS_SYNTH FALSE NEEDS_MIDI_INPUT TRUE NEEDS_MIDI_OUTPUT FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE COPY_PLUGIN_AFTER_BUILD FALSE
     NEEDS_WEB_BROWSER TRUE NEEDS_WEBVIEW2 TRUE)
-target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/BoardCommands.cpp Source/PracticeEngine.cpp Source/PracticeSections.cpp Source/TakeLibrary.cpp Source/MidiControl.cpp)
+target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/BoardCommands.cpp Source/StartingRigs.cpp Source/PracticeEngine.cpp Source/PracticeSections.cpp Source/TakeLibrary.cpp Source/VideoAudioExport.cpp Source/MidiControl.cpp)
 target_sources(AmpSuite_Standalone PRIVATE Source/Standalone.cpp)
 target_link_libraries(AmpSuite_Standalone PRIVATE CassianBrandAssets)
 target_compile_definitions(AmpSuite_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
@@ -91,12 +92,12 @@ if(WIN32)
         target_link_options(AmpSuite PUBLIC /NODEFAULTLIB:MSVCRT)
     endif()
 endif()
-target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets signalsmith-stretch juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra juce::juce_cryptography
+target_link_libraries(AmpSuite PRIVATE nam_core AmpSuiteAssets CassianRigAssets signalsmith-stretch juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra juce::juce_cryptography
     PUBLIC juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
 include(CTest)
 if(BUILD_TESTING)
     juce_add_console_app(AmpSuiteTests PRODUCT_NAME CassianTests NEEDS_WEBVIEW2 TRUE NEEDS_WEB_BROWSER TRUE)
-    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp tests/SoundTests.cpp tests/PracticeTests.cpp tests/TakeTests.cpp tests/MidiTests.cpp tests/ModulationTests.cpp tests/SceneTests.cpp tests/PracticeSectionTests.cpp tests/GuitarMixTests.cpp tests/PedalboardStateTests.cpp tests/BoardIntegrationTests.cpp tests/SerialBoardTests.cpp tests/SoundPackTests.cpp)
+    target_sources(AmpSuiteTests PRIVATE tests/ProcessorTests.cpp tests/LibraryTests.cpp tests/QualityTests.cpp tests/SoundTests.cpp tests/PracticeTests.cpp tests/TakeTests.cpp tests/MidiTests.cpp tests/ModulationTests.cpp tests/SceneTests.cpp tests/PracticeSectionTests.cpp tests/GuitarMixTests.cpp tests/PedalboardStateTests.cpp tests/BoardIntegrationTests.cpp tests/SerialBoardTests.cpp tests/SoundPackTests.cpp tests/StartingRigTests.cpp)
     target_link_libraries(AmpSuiteTests PRIVATE AmpSuite nam_core juce::juce_audio_utils juce::juce_dsp juce::juce_gui_extra)
     add_test(NAME processor COMMAND AmpSuiteTests "${nam_SOURCE_DIR}/example_models/wavenet.nam")
     juce_add_console_app(CassianModelCheck PRODUCT_NAME CassianModelCheck)

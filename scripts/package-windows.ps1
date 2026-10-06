@@ -5,7 +5,9 @@ param(
     [string]$AppVersion = '',
     [switch]$SmokeTest,
     [switch]$SkipRootCopy,
-    [string]$OutputDirectory = '.'
+    [string]$OutputDirectory = '.',
+    [string]$SoundBank = 'assets/sound-bank',
+    [switch]$AllowDevelopmentSounds
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -33,6 +35,30 @@ $packageRoot = Join-Path $projectRoot 'build/packages'
 $staging = Join-Path $packageRoot ('windows-' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Force -Path $staging,$output | Out-Null
 try {
+    $bank = ProjectPath $SoundBank
+    $withSounds = Test-Path -LiteralPath (Join-Path $bank 'manifest.json')
+    if ($withSounds) {
+        $manifest = Get-Content -LiteralPath (Join-Path $bank 'manifest.json') -Raw | ConvertFrom-Json
+        if ($manifest.schema -ne 1 -or !$manifest.assets.Count -or $manifest.assets.Count -gt 1024) { throw 'Invalid packaged sound bank.' }
+        if (!$manifest.distributionApproved -and !$AllowDevelopmentSounds) { throw 'Sound bank redistribution records are incomplete. Use private development packaging until the creator terms are recorded.' }
+        foreach ($asset in $manifest.assets) {
+            $kind = [string]$asset.kind; $id = [string]$asset.id
+            if ($kind -notin @('amp','pedal','cab','ambience') -or $id -notmatch "^${kind}:[a-f0-9]{64}$") { throw 'Invalid packaged asset identity.' }
+            $hash = $id.Split(':')[1]; $extension = if ($kind -in @('amp','pedal')) { '.nam' } else { '.wav' }
+            $file = Join-Path $bank "assets/$kind/$hash$extension"
+            if (!(Test-Path -LiteralPath $file) -or (Get-FileHash -LiteralPath $file).Hash.ToLowerInvariant() -ne $hash) { throw "Missing or changed packaged sound: $($asset.name)" }
+            if (!$AllowDevelopmentSounds) {
+                if (!$asset.source -or !$asset.permission -or $asset.license -ne "licenses/$hash.txt" -or !(Test-Path -LiteralPath (Join-Path $bank $asset.license))) { throw "Missing packaged sound rights record: $($asset.name)" }
+            }
+        }
+        $recipes = Get-Content -LiteralPath (Join-Path $projectRoot 'ui/src/startingRigs.json') -Raw | ConvertFrom-Json
+        foreach ($recipe in $recipes.captureRigs) {
+            foreach ($reference in $recipe.assets.PSObject.Properties.Value) {
+                if ($reference.id -notin $manifest.assets.id) { throw "Packaged bank is missing recipe sound: $($reference.name)" }
+            }
+        }
+        Copy-Item -LiteralPath $bank -Destination (Join-Path $staging 'Sounds') -Recurse
+    }
     Copy-Item -LiteralPath $exe -Destination (Join-Path $staging 'Cassian.exe')
     Copy-Item -LiteralPath $plugin -Destination (Join-Path $staging 'Cassian.vst3') -Recurse
     Copy-Item -LiteralPath (Join-Path $projectRoot 'installer/QUICK-START.txt'),(Join-Path $projectRoot 'THIRD_PARTY.md'),(Join-Path $projectRoot 'licenses') -Destination $staging -Recurse
@@ -67,12 +93,14 @@ try {
     $commit = & git -C $projectRoot rev-parse HEAD
     [IO.File]::WriteAllText((Join-Path $staging 'SOURCE.txt'), "Cassian source and build instructions:`r`nhttps://github.com/CrazalothAI/Cassius`r`nCheckout: $commit`r`nDevelopment packages may include uncommitted local changes.`r`n", [Text.UTF8Encoding]::new($false))
     $options = @('/Qp', "/DPackageDir=$staging", "/DOutputDir=$output", "/DAppVersion=$AppVersion")
+    if ($withSounds) { $options += '/DWithSoundBank=1' }
     if ($SmokeTest) { $options += '/DSmokeTest=1' }
     & $Compiler @options (Join-Path $projectRoot 'installer/Cassian.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation failed.' }
     if (!$SmokeTest) {
         # Select top-level entries: no build or Standalone folder wrappers in the ZIP.
         $entries = @('Cassian.exe', 'Cassian.vst3', 'QUICK-START.txt', 'SOURCE.txt', 'THIRD_PARTY.md', 'licenses') | ForEach-Object { Join-Path $staging $_ }
+        if ($withSounds) { $entries += Join-Path $staging 'Sounds' }
         Compress-Archive -LiteralPath $entries -DestinationPath (Join-Path $output 'Cassian-Windows.zip') -Force
         if (!$SkipRootCopy -and $exe -ne (Join-Path $projectRoot 'Cassian.exe')) { Copy-Item -LiteralPath $exe -Destination (Join-Path $projectRoot 'Cassian.exe') -Force }
         Write-Host "Windows download ready: $(Join-Path $output 'Cassian-Setup.exe')"

@@ -10,7 +10,7 @@ vi.mock('./juce/bridge.js', () => ({
     engine.calls.push([name, ...args]);
     if (name === 'getRig') return engine.rig;
     if (name === 'getLibrary') return engine.library;
-    if (name === 'applyRig' || name === 'loadRig' || name === 'saveRig' || name === 'updateActiveRig' || name === 'practiceControl') return engine.error;
+    if (name === 'applyRig' || name === 'loadRig' || name === 'loadStartingRig' || name === 'saveRig' || name === 'updateActiveRig' || name === 'practiceControl') return engine.error;
     return true;
   },
 }));
@@ -24,6 +24,45 @@ beforeEach(() => {
 afterEach(cleanup);
 const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 describe('editor connected to the audio engine', () => {
+  it('selects an exact capture rig in the header without the legacy amp switch', async () => {
+    const recipe = (await import('./startingRigs.json')).default.captureRigs.find(r => r.id === 'factory.capture-red2-tight');
+    engine.library.assets = Object.values(recipe.assets).map(a => ({...a,missing:false}));
+    render(<App/>); const preset = screen.getByRole('combobox',{name:'Preset'});
+    await waitFor(() => expect(within(preset).getByRole('option',{name:'5153 Red-II Tight'}).disabled).toBe(false));
+    fireEvent.change(preset,{target:{value:recipe.id}});
+    await waitFor(() => expect(engine.calls).toContainEqual(['loadStartingRig',recipe.id]));
+    expect(engine.calls.some(([name]) => name === 'selectAmpVoice')).toBe(false);
+    engine.status = {...engine.status,activeRigId:recipe.id,activeRigStarter:true,activeRigEdited:false};
+    await waitFor(() => expect(document.querySelector('.preset-name').textContent).toBe('5153 Red-II Tight'));
+  });
+  it('loads complete starters through native recall and reports a rejected load', async () => {
+    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Library'})); const dialog = screen.getByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Presets'}));
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library rig type'}), {target: {value: 'starter'}});
+    const use = within(within(dialog).getByText('Neoclassical Lead').closest('article')).getByRole('button', {name: 'Use'});
+    engine.error = 'Finish loading before selecting a starter rig.'; fireEvent.click(use);
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(engine.error);
+    engine.error = ''; fireEvent.click(use); await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(engine.calls).toContainEqual(['loadStartingRig', 'factory.neoclassical-lead']);
+    expect(engine.calls.some(([name]) => name === 'selectAmpVoice')).toBe(false);
+  });
+  it('searches imported source packs, combines tone filters and saves corrections', async () => {
+    engine.library = {assets: [
+      {id: 'a', kind: 'amp', name: 'Clean V30', ownership: 'User', pack: 'Clean Pack.zip', path: 'a.nam', notes: 'Local capture'},
+      {id: 'b', kind: 'amp', name: 'Lead', ownership: 'User', pack: 'Lead Pack.zip', gain: 'high-gain', path: 'b.nam'}
+    ], rigs: []};
+    render(<App/>); fireEvent.click(screen.getByRole('button', {name: 'Library'})); const dialog = screen.getByRole('dialog');
+    await within(dialog).findByText('Clean V30');
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library source pack'}), {target: {value: 'Clean Pack.zip'}});
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library gain'}), {target: {value: 'clean'}});
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library speaker'}), {target: {value: 'V30'}});
+    expect(within(dialog).queryByText('Ferrum')).toBeNull(); expect(within(dialog).queryByRole('button', {name: 'Favorite Lead'})).toBeNull();
+    fireEvent.click(within(dialog).getByText('Clean V30'));
+    fireEvent.change(within(dialog).getByRole('combobox', {name: 'Asset gain'}), {target: {value: 'breakup'}});
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Save metadata'}));
+    await waitFor(() => expect(engine.calls.some(([name,id,changes]) => name === 'editAsset' && id === 'a' && changes.gain === 'breakup' && changes.speaker === 'V30')).toBe(true));
+    fireEvent.click(within(dialog).getByRole('button', {name: 'Clear filters'})); expect(within(dialog).getByText('Ferrum')).toBeTruthy();
+  });
   it('shows authoritative rig identity, saves in place, and keeps failed Save As open for retry', async () => {
     engine.status = {...engine.status, activeRigId: 'lead', activeRigName: 'Quiet lead', activeRigSaved: true, activeRigEdited: true, model: 'Ivory red'};
     render(<App/>);
@@ -287,6 +326,9 @@ describe('editor connected to the audio engine', () => {
     fireEvent.change(screen.getByRole('combobox', {name: 'Preset'}), {target: {value: 'Glass clean'}});
     fireEvent.change(screen.getByRole('combobox', {name: 'Amp source'}), {target: {value: '3'}});
     await screen.findByRole('button', {name: 'Change amp'});
+    expect(screen.getByRole('button', {name: 'Channel'}).getAttribute('aria-pressed')).toBe('false');
+    expect(document.querySelector('.app-shell').classList.contains('clean')).toBe(true);
+    expect(screen.getByRole('tab', {name: /^Amp/}).textContent).toContain('Rig');
     stage('Pedal');
     expect(screen.getByRole('button', {name: 'Pedal enabled'}).disabled).toBe(false);
     fireEvent.click(screen.getByRole('tab', {name: 'Tone'}));

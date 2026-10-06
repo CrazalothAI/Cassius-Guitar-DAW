@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
 import { restoreSnapshot, setParameter, snapshotParameters } from '../parameterState.js';
-import { applyPreset, presets } from '../presets.js';
+import { applyPreset, presets, notes, familyOf } from '../presets.js';
+import { applyStartingPreview, resolveStartingRigs } from '../startingRigs.js';
+import { catalogRow, gainLabels, matchesCatalog, title } from '../libraryCatalog.js';
 
 const builtins = [
   { id: 'lumen', name: 'Lumen', kind: 'amp', source: 1, ownership: 'Factory', tags: 'clean warm jazz', notes: 'Cassian built-in clean amp.' },
@@ -12,11 +14,14 @@ export const previewRigs = () => { try { return JSON.parse(localStorage.getItem(
 export const writePreviewRigs = rigs => localStorage.setItem('cassian-preview-rigs', JSON.stringify(rigs));
 const readFavorites = () => { try { return JSON.parse(localStorage.getItem('cassian-factory-favorites') || '{}'); } catch { return {}; } };
 
-export default function Library({ revision, onClose, onPreset = applyPreset, onPreviewRig = () => {} }) {
+export default function Library({ revision, loading = false, onClose, onPreset = applyPreset, onPreviewRig = () => {} }) {
   const [tab, setTab] = useState('amp'), [search, setSearch] = useState(''), [ownership, setOwnership] = useState('All');
   const [favorites, setFavorites] = useState(false), [selected, setSelected] = useState(null), [name, setName] = useState('');
   const [catalog, setCatalog] = useState({ assets: [], rigs: [] }), [error, setError] = useState(''), [busy, setBusy] = useState(false);
   const [previewFavorites, setPreviewFavorites] = useState(readFavorites);
+  const [style, setStyle] = useState(''), [gain, setGain] = useState('all'), [speaker, setSpeaker] = useState(''), [pack, setPack] = useState('');
+  const [rigType, setRigType] = useState(''), [sort, setSort] = useState('name');
+  const clearFilters = () => { setSearch(''); setOwnership('All'); setFavorites(false); setStyle(''); setGain('all'); setSpeaker(''); setPack(''); setRigType(''); };
   const panel = useRef(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -36,12 +41,15 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
   }, [revision]);
   const action = async run => {
     if (busy) return; setBusy(true); setError('');
-    try { const result = await run(); if (typeof result === 'string' && result) throw new Error(result); await refresh(); }
+    try { const result = await run(); if (typeof result === 'string' && result) throw new Error(result); if (result === false) throw new Error('Could not complete the library action. Please try again.'); await refresh(); }
     catch (e) { setError(e.message || 'Could not complete the library action.'); }
     finally { setBusy(false); }
   };
   const use = row => action(async () => {
-    if (row.preset) await onPreset(row.name);
+    if (row.starter) {
+      if (native) { const result = await invoke('loadStartingRig', row.id); if (result) return result; }
+      else onPreviewRig(applyStartingPreview(row.id));
+    } else if (row.preset) await onPreset(row.name);
     else if (row.source != null) {
       if (row.source === 4) applyPreset('Natural Nylon'); else setParameter('AMP_SOURCE', row.source);
     } else if (row.kind === 'rig') {
@@ -60,7 +68,7 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
     });
   };
   const favorite = row => action(async () => {
-    if (row.source != null || row.preset) setPreviewFavorites(prev => {
+    if (row.source != null || row.preset || row.starter) setPreviewFavorites(prev => {
       const next = {...prev, [row.id]: !prev[row.id]};
       localStorage.setItem('cassian-factory-favorites', JSON.stringify(next)); return next;
     });
@@ -68,13 +76,15 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
     else writePreviewRigs(previewRigs().map(r => r.id === row.id ? {...r, favorite: !r.favorite} : r));
   });
   const rows = tab === 'rig' ? [
-    ...Object.keys(presets).map(title => ({id: `preset-${title}`, name: title, kind: 'rig', preset: true, ownership: 'Factory', tags: 'starting point'})),
+    ...resolveStartingRigs(catalog.assets, !native),
+    ...Object.keys(presets).map(name => ({id: `preset-${name}`, name, kind: 'rig', preset: true, ownership: 'Factory', styles: [familyOf(name)?.toLowerCase()].filter(Boolean), gain: presets[name].AMP_CLEAN ? 'clean' : 'high-gain', tags: 'control starting point', notes: notes[name]})),
     ...(catalog.rigs || []).map(r => ({...r, kind: 'rig', ownership: 'User'})),
   ] : [...builtins, ...(catalog.assets || [])].filter(r => r.kind === tab);
-  const shown = rows.filter(r => (ownership === 'All' || r.ownership === ownership)
-    && (!favorites || (r.favorite || previewFavorites[r.id]))
-    && `${r.name} ${r.gear || ''} ${r.creator || ''} ${r.tags || ''} ${r.notes || ''}`.toLowerCase().includes(search.toLowerCase()));
-  const detail = selected && rows.find(r => r.id === selected);
+  const categorized = rows.map(catalogRow), starred = r => Boolean(r.favorite || previewFavorites[r.id]);
+  const options = field => [...new Set(categorized.flatMap(r => Array.isArray(r[field]) ? r[field] : [r[field]]).filter(Boolean))].sort((a,b) => a.localeCompare(b));
+  const shown = categorized.filter(r => matchesCatalog(r, {ownership, favorites, search, style, gain, speaker, pack, rigType}, starred(r)))
+    .sort((a,b) => (sort === 'favorites' ? Number(starred(b)) - Number(starred(a)) : 0) || String(a.name || '').localeCompare(String(b.name || '')));
+  const detail = selected && categorized.find(r => r.id === selected);
   return <div className="library-overlay" onKeyDown={e => {
     if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
     if (e.key === 'Tab') {
@@ -87,25 +97,43 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
     <section ref={panel} className="library-panel" role="dialog" aria-modal="true" aria-labelledby="library-title">
       <div className="library-heading"><h2 id="library-title">Your library</h2><button className="text-button" onClick={onClose}>Close library</button></div>
       <div className="library-tabs">{[['amp','Amps'], ['pedal','Pedals'], ['cab','Cabinets'], ['ambience','Ambience'], ['rig','Presets']].map(([id,label]) =>
-        <button className={`chip${tab === id ? ' active' : ''}`} aria-pressed={tab === id} key={id} onClick={() => { setTab(id); setSelected(null); }}>{label}</button>)}</div>
+        <button className={`chip${tab === id ? ' active' : ''}`} aria-pressed={tab === id} key={id} onClick={() => { setTab(id); setSelected(null); setStyle(''); setGain('all'); setSpeaker(''); setPack(''); setRigType(''); }}>{label}</button>)}</div>
       <div className="library-filters">
         <input aria-label="Search library" placeholder="Search gear, creator, tone or genre…" value={search} onChange={e => setSearch(e.target.value)} />
         <select aria-label="Library ownership" value={ownership} onChange={e => setOwnership(e.target.value)}>{['All','Factory','User'].map(x => <option key={x}>{x}</option>)}</select>
         <label><input type="checkbox" checked={favorites} onChange={e => setFavorites(e.target.checked)} /> Favorites</label>
       </div>
+      <div className="library-tone-filters">
+        <label>Style<select aria-label="Library style" value={style} onChange={e => setStyle(e.target.value)}><option value="">All styles</option>{options('styles').map(x => <option key={x} value={x}>{title(x)}</option>)}</select></label>
+        <label>Gain<select aria-label="Library gain" value={gain} onChange={e => setGain(e.target.value)}><option value="all">All gain levels</option>{Object.entries(gainLabels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+        <label>Speaker<select aria-label="Library speaker" value={speaker} onChange={e => setSpeaker(e.target.value)}><option value="">All speakers</option>{options('speaker').map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+        <label>Source pack<select aria-label="Library source pack" value={pack} onChange={e => setPack(e.target.value)}><option value="">All packs</option>{options('pack').map(x => <option key={x} value={x}>{x.replace(/\.zip$/i, '')}</option>)}</select></label>
+        {tab === 'rig' && <label>Rig type<select aria-label="Library rig type" value={rigType} onChange={e => setRigType(e.target.value)}><option value="">All rig types</option><option value="starter">Complete starter rigs</option><option value="saved">Saved rigs</option><option value="controls">Control starting points</option></select></label>}
+        <label>Sort<select aria-label="Library sort" value={sort} onChange={e => setSort(e.target.value)}><option value="name">Name</option><option value="favorites">Favorites first</option></select></label>
+        <button className="text-button quiet" onClick={clearFilters}>Clear filters</button>
+      </div>
+      <p className="library-count" role="status">{shown.length} of {rows.length} {tab === 'rig' ? 'rigs and starting points' : 'sounds'}</p>
       {error && <p className="library-error" role="alert">{error}</p>}
       <div className="library-content"><div className="library-results">
         {shown.map(row => <article key={row.id} className={`library-row${selected === row.id ? ' selected' : ''}`}>
-          <button className="library-info" onClick={() => setSelected(row.id)}><strong>{row.name}</strong><small>{row.ownership}{row.missing ? ' · Missing file' : row.sampleRate > 0 ? ` · ${row.sampleRate / 1000} kHz` : ''}{row.preset ? ' · Starting point' : ''}</small></button>
+          <button className="library-info" onClick={() => setSelected(row.id)}><strong>{row.name}</strong><small>{row.ownership}{row.starter ? ' · Complete starter rig' : row.preset ? ' · Control starting point' : ''}{row.missing ? ' · Missing file' : row.sampleRate > 0 ? ` · ${row.sampleRate / 1000} kHz` : ''}{row.gain ? ` · ${gainLabels[row.gain]}` : ''}{row.speaker ? ` · ${row.speaker}` : ''}</small></button>
           <button className="text-button quiet" aria-label={`Favorite ${row.name}`} aria-pressed={Boolean(row.favorite || previewFavorites[row.id])} disabled={busy} onClick={() => favorite(row)}>☆</button>
           {row.missing ? <button className="text-button" disabled={busy || !native} onClick={() => action(() => invoke('relinkAsset', row.id))}>Relink</button>
-            : <button className="text-button" disabled={busy} onClick={() => use(row)}>Use</button>}
-          {row.kind === 'rig' && !row.preset && <button className="text-button quiet" disabled={busy} aria-label={`Remove rig ${row.name}`} onClick={() => action(async () => {
+            : <button className="text-button" disabled={busy || loading || row.unavailable || row.previewUnavailable} title={row.unavailable ? `Missing: ${row.missingSounds.join(', ')}` : undefined} onClick={() => use(row)}>Use</button>}
+          {row.kind === 'rig' && !row.preset && !row.starter && <button className="text-button quiet" disabled={busy} aria-label={`Remove rig ${row.name}`} onClick={() => action(async () => {
             if (native) await invoke('removeRig', row.id); else writePreviewRigs(previewRigs().filter(r => r.id !== row.id));
           })}>Remove</button>}
         </article>)}
         {!shown.length && <p className="library-empty">No matches. Import your own files or change the filters.</p>}
       </div>{detail && <aside className="library-detail"><h3>{detail.name}</h3><p>{detail.notes || detail.gear || 'Saved rig with amp, pedal, cabinet, routing, and effect settings.'}</p>
+        {detail.amp && <p>Amp: {detail.amp}</p>}
+        {detail.styles.length > 0 && <p>Style: {detail.styles.map(title).join(', ')}</p>}
+        <p>Gain: {gainLabels[detail.gain]}{detail.speaker ? ` · Speaker: ${detail.speaker}` : ''}</p>
+        {detail.pack && <p>Source pack: {detail.pack}</p>}
+        {detail.inferred && <p className="library-note">Some categories are filename/tag hints. Save metadata below to correct them.</p>}
+        {detail.starter && <p>{detail.assets ? 'Loads the exact captures, cabinet and complete board in this recipe.' : 'Loads a complete board with built-in sounds and no external files.'} Save your edited version as a new rig.</p>}
+        {detail.assets && <p>Sounds: {Object.values(detail.assets).map(a => a.name).join(' · ')}</p>}
+        {detail.unavailable && <p className="library-error">Missing sounds: {detail.missingSounds.join(', ')}. Import the matching sound packs to enable this recipe.</p>}
         {detail.creator && <p>Creator: {detail.creator}</p>}
         {detail.inputLevelDbu != null && <p>Capture input calibration: {detail.inputLevelDbu} dBu</p>}
         {detail.rights && <p>{detail.rights}</p>}
@@ -117,6 +145,9 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
           action(() => invoke('editAsset', detail.id, Object.fromEntries(data))); }}>
           <label>Friendly name<input name="name" defaultValue={detail.name} key={`name-${detail.id}`} /></label>
           <label>Tone / genre / gain tags<input name="tags" defaultValue={detail.tags || ''} key={`tags-${detail.id}`} /></label>
+          <label>Styles (comma separated)<input name="styles" defaultValue={detail.styles.join(', ')} key={`styles-${detail.id}`} /></label>
+          <label>Gain<select aria-label="Asset gain" name="gain" defaultValue={detail.gain} key={`gain-${detail.id}`}>{Object.entries(gainLabels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+          <label>Speaker<input name="speaker" defaultValue={detail.speaker} key={`speaker-${detail.id}`} /></label>
           <label>Creator<input name="creator" defaultValue={detail.creator || ''} key={`creator-${detail.id}`} /></label>
           <label>Source URL<input name="sourceURL" defaultValue={detail.sourceURL || ''} key={`url-${detail.id}`} /></label>
           <label>Capture settings / mic / pickup notes<textarea name="notes" defaultValue={detail.notes || ''} key={`notes-${detail.id}`} /></label>
@@ -129,7 +160,7 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
           : <><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRig'))}>Import rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRig'))}>Export current rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRigPack'))}>Import pack</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRigPack'))}>Export pack</button></>}
         <form onSubmit={save}><input aria-label="Rig name" placeholder="Name this rig" value={name} maxLength={80} onChange={e => setName(e.target.value)} /><button className="text-button" disabled={busy || !name.trim()}>Save current rig</button></form>
       </div>
-      <p className="library-note">{native ? 'Shared library keeps managed asset copies. Rig JSON references files; portable ZIP packs include the selected amp, pedal, and cabinet files.' : 'Browser preview: saved rigs contain control settings. Play and import files in the native app.'}</p>
+      <p className="library-note">{tab === 'rig' ? 'Complete starter rigs replace the amp, files, board and scenes. Control starting points change knobs. Input, Master and Play Along settings stay where they are. ' : ''}{native ? 'Shared library keeps managed copies. Rig JSON references files; portable packs include referenced sound files.' : 'Browser preview saves control settings only. Use Cassian for audio and complete boards.'}</p>
     </section>
   </div>;
 }

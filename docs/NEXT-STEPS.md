@@ -2,7 +2,7 @@
 
 Planning checkpoint: 2026-10-06. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Current implementation: steps 1 and 2 are implemented, and steps 3/4 have a first bounded serial runtime/editor, independent controls, two NAM slots, pre/post lanes, reserved deletion slots, replacement, drag/arrow reorder, Undo/Redo, schema-3/scene-3 migrations and deduplicated seven-asset packs. Recorded ambience and safe sound-ZIP intake are also implemented. Legacy rigs retain fixed routing until explicitly converted. See [pedalboards](PEDALBOARD-STATE.md), [October intake](SOUND-INTAKE-OCTOBER.md), and [Play Along/navigation](PLAY-ALONG-NAVIGATION.md). The website remains deferred in [TODO.md](TODO.md).
+Current implementation: steps 1 and 2 are implemented, and steps 3/4 have a first bounded serial runtime/editor, independent controls, two NAM slots, pre/post lanes, reserved deletion slots, replacement, drag/arrow reorder, Undo/Redo, schema-3/scene-3 migrations and deduplicated seven-asset packs. Recorded ambience and safe sound-ZIP intake are also implemented. Legacy rigs retain fixed routing until explicitly converted. See [pedalboards](PEDALBOARD-STATE.md), [October intake](SOUND-INTAKE-OCTOBER.md), and [Play Along/navigation](PLAY-ALONG-NAVIGATION.md). The website remains deferred in [TODO.md](TODO.md). The current increment adds 12 built-in complete rigs, 20 exact-capture recipes, sound discovery filters, automatic packaged-bank intake and video soundtrack WAV export; see [presets/shared sounds](PRESETS-AND-SHARED-SOUNDS.md) and [video audio](VIDEO-AUDIO-EXPORT.md). Public third-party bank distribution awaits per-asset source/permission records.
 
 ## Historical baseline inspected on 2026-10-05
 

@@ -22,7 +22,7 @@ private:
 };
 }
 
-PracticeEngine::PracticeEngine(int frames, juce::File sectionsDirectory) : Thread("Cassian practice disk IO"), sections(std::move(sectionsDirectory)), fifo(juce::jmax(32, frames)), recordingAudio(3, juce::jmax(32, frames))
+PracticeEngine::PracticeEngine(int frames, juce::File sectionsDirectory) : Thread("Cassian practice disk IO"), sections(std::move(sectionsDirectory)), fifo(juce::jmax(32, frames)), recordingAudio(5, juce::jmax(32, frames))
 { gain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(-12.0f)); startThread(); }
 PracticeEngine::~PracticeEngine()
 {
@@ -221,28 +221,31 @@ void PracticeEngine::beginRecording(const juce::File& parent)
         if (failure.isEmpty()) {
             dryWriter = make(folder.getChildFile("Guitar dry.wav"), 1);
             wetWriter = make(folder.getChildFile("Guitar processed.wav"), 2);
-            if (!dryWriter || !wetWriter) failure = "Could not open both recording files.";
+            backingWriter = make(folder.getChildFile("Backing track.wav"), 2);
+            if (!dryWriter || !wetWriter || !backingWriter) failure = "Could not open the recording stems.";
         }
     }
     { const juce::ScopedLock lock(control); takePath = folder.getFullPathName(); error = failure; }
-    if (failure.isNotEmpty()) { dryWriter.reset(); wetWriter.reset(); recordMode.store(0); return; }
+    if (failure.isNotEmpty()) { dryWriter.reset(); wetWriter.reset(); backingWriter.reset(); recordMode.store(0); return; }
     activeTake = folder;
     fifo.reset(); recordedFrames.store(0); recordingFault.store(0);
-    // Only publish the writers after both files and the FIFO are ready.
+    // Only publish the writers after all three stems and the FIFO are ready.
     const juce::ScopedLock lock(control);
     int preparing = 1;
     if (recordMode.compare_exchange_strong(preparing, 2)) startCount();
 }
 void PracticeEngine::drainRecording()
 {
-    if (!dryWriter || !wetWriter) return;
+    if (!dryWriter || !wetWriter || !backingWriter) return;
     const auto write = [&](int start, int size) {
         if (size == 0) return true;
         const float* dry[] {recordingAudio.getReadPointer(0, start)};
         const float* wet[] {recordingAudio.getReadPointer(1, start), recordingAudio.getReadPointer(2, start)};
-        // Attempt both writes so a failure can never be reported as a successful pair.
+        const float* backing[] {recordingAudio.getReadPointer(3, start), recordingAudio.getReadPointer(4, start)};
+        // Attempt every stem write so a partial take cannot be reported as complete.
         const bool a = dryWriter->writeFromFloatArrays(dry, 1, size);
-        const bool b = wetWriter->writeFromFloatArrays(wet, 2, size); return a && b;
+        const bool b = wetWriter->writeFromFloatArrays(wet, 2, size);
+        const bool c = backingWriter->writeFromFloatArrays(backing, 2, size); return a && b && c;
     };
     int a, na, b, nb; fifo.prepareToRead(fifo.getNumReady(), a, na, b, nb);
     const bool first = write(a, na), second = write(b, nb); fifo.finishedRead(na + nb);
@@ -250,7 +253,7 @@ void PracticeEngine::drainRecording()
 }
 void PracticeEngine::finishTake()
 {
-    drainRecording(); dryWriter.reset(); wetWriter.reset();
+    drainRecording(); dryWriter.reset(); wetWriter.reset(); backingWriter.reset();
     if (activeTake == juce::File()) return;
     auto metadata = std::make_unique<juce::DynamicObject>();
     metadata->setProperty("schema", 1); metadata->setProperty("name", activeTake.getFileName());
@@ -341,15 +344,18 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
             }
         }
         if (!guitarAvailable) interrupted();
+        int recordingIndex = -1;
         if (recordMode.load() == 3) {
             if (recordedFrames.load() + written >= frameLimit) { recordingFault.store(3); recordMode.store(4); }
             else if (written >= size1 + size2) { recordingFault.store(1); recordMode.store(4); }
             else {
                 const auto index = written < size1 ? start1 + written : start2 + written - size1;
+                recordingIndex = index;
                 recordingAudio.setSample(0, index, std::isfinite(dry[i]) ? dry[i] : 0);
                 for (int ch = 0; ch < 2; ++ch) {
                     const auto x = output.getSample(juce::jmin(ch, output.getNumChannels() - 1), i);
                     recordingAudio.setSample(ch + 1, index, std::isfinite(x) ? x : 0);
+                    recordingAudio.setSample(ch + 3, index, 0);
                 }
                 ++written;
             }
@@ -375,9 +381,11 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
                         edgeGain = static_cast<float>(.5 - .5 * std::cos(juce::MathConstants<double>::pi * edge));
                     }
                 }
-                for (int ch = 0; ch < output.getNumChannels(); ++ch) {
-                    const auto* samples = source->audio.getReadPointer(juce::jmin(ch, 1));
-                    output.addSample(ch, i, volume * edgeGain * (samples[index] + fraction * (samples[next] - samples[index])));
+                for (int ch = 0; ch < 2; ++ch) {
+                    const auto* samples = source->audio.getReadPointer(ch);
+                    const auto x = volume * edgeGain * (samples[index] + fraction * (samples[next] - samples[index]));
+                    if (ch < output.getNumChannels()) output.addSample(ch, i, x);
+                    if (recordingIndex >= 0) recordingAudio.setSample(ch + 3, recordingIndex, std::isfinite(x) ? x : 0);
                 }
                 position += source->speed / sampleRate;
                 if ((!looping || b <= a || b > end) && position >= end) { position = end; playing.store(false); }

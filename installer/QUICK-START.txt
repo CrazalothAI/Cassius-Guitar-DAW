@@ -6,7 +6,7 @@ The installer places the app in your user profile; administrator access is not r
 FIRST SOUND
 1. Connect your guitar and headphones/speakers to your audio interface.
 2. Open Audio settings in Cassian. Choose your interface, guitar input and outputs.
-3. Select Glass clean or Tight metal from the preset menu. The built-in amps need no additional files.
+3. Select Warm Jazz or Modern Metalcore under Cassian built-in rigs. These need no additional files.
 4. Raise Master gradually. Keep the interface input gain below clipping.
 5. Use your interface's Playback monitoring to avoid doubling the dry guitar.
 
@@ -14,6 +14,10 @@ PRACTICE
 Open Practice to load a backing track, change speed without changing pitch,
 see its waveform, save named loop sections, and record dry/processed guitar takes.
 Open Takes to review, name, favorite and reamp your recordings.
+New takes also save a synchronized backing stem from tracks loaded in Practice.
+In Takes, expand Video soundtrack, choose the take version and balance, then Export for video.
+Import the 48 kHz / 24-bit stereo WAV into Clipchamp alongside your camera video.
+Browser/YouTube playback and metronome/count-in clicks are not recorded into the soundtrack.
 
 YOUR RIG
 Tone shows the full amp head; Board opens all detailed stages below a compact strip.
@@ -41,3 +45,5 @@ of the extracted folder. The editor needs Microsoft's WebView2 Evergreen Runtime
 
 Help and source: https://github.com/CrazalothAI/Cassius
 Third-party notices are installed alongside the app.
+When a licensed sound bank is supplied, keep the Sounds folder beside the portable app.
+The installer places that bank automatically; missing capture recipes name their required files.

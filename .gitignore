@@ -13,3 +13,5 @@ assets/models/*
 !assets/models/.gitkeep
 assets/irs/*
 !assets/irs/.gitkeep
+assets/sound-bank/*
+!assets/sound-bank/.gitkeep

@@ -6,6 +6,7 @@ export default function Takes({ status, onError }) {
   const [takes, setTakes] = useState([]), [selected, setSelected] = useState('');
   const [query, setQuery] = useState(''), [favorites, setFavorites] = useState(false);
   const [name, setName] = useState(''), [favorite, setFavorite] = useState(false), [version, setVersion] = useState('processed');
+  const [includeBacking, setIncludeBacking] = useState(false), [guitarDb, setGuitarDb] = useState(0), [backingDb, setBackingDb] = useState(0);
   const available = native && status.deviceSettingsAvailable;
   const exporting = status.takes?.exporting, recording = (status.practice?.recordMode ?? 0) > 0;
   const review = status.review ?? {}, chosen = takes.find(t => t.id === selected);
@@ -20,6 +21,7 @@ export default function Takes({ status, onError }) {
   }, [available, status.takes?.revision]);
   useEffect(() => {
     setName(chosen?.name ?? ''); setFavorite(!!chosen?.favorite); setVersion('processed');
+    setIncludeBacking(Boolean(chosen?.hasBacking)); setGuitarDb(0); setBackingDb(0);
   }, [selected]);
   const action = async (fn, ...args) => {
     try { const error = await invoke(fn, ...args); if (typeof error === 'string' && error) onError({title: 'Takes', text: error}); }
@@ -38,6 +40,15 @@ export default function Takes({ status, onError }) {
       <div className="practice-timeline"><span>{clock(review.position)}</span><input type="range" aria-label="Take review position" min={0} max={review.duration || 1} step={.01} value={Math.min(review.position || 0, review.duration || 0)} disabled={!review.duration} onChange={e => action('reviewControl', 'seek', Number(e.target.value))}/><span>{clock(review.duration)}</span></div>
       <label className="practice-volume">Review volume<input aria-label="Review volume" type="range" min={-60} max={0} step={1} value={review.level ?? -12} onChange={e => action('reviewControl', 'level', Number(e.target.value))}/><output>{review.level ?? -12} dB</output></label>
       <div className="take-export"><button disabled={exporting || recording || chosen.incomplete} onClick={() => action('reampTake', chosen.id)}>Reamp with current rig</button><button onClick={() => action('revealTake', chosen.id)}>Open take folder</button>{exporting && <><progress aria-label="Reamp progress" value={status.takes?.progress || 0} max={1}/><button onClick={() => action('cancelReamp')}>Cancel export</button></>}</div>
+      <details className="video-export"><summary>Video soundtrack</summary>
+        <p className="practice-note">Export the selected take version as a 48 kHz / 24-bit stereo WAV for your video editor. The export keeps the balance below and reduces peaks only when needed for −1 dBFS headroom.</p>
+        <label className="practice-volume">Guitar balance<input type="range" aria-label="Video guitar balance" min={-60} max={12} step={1} value={guitarDb} onChange={e => setGuitarDb(Number(e.target.value))}/><output>{guitarDb} dB</output></label>
+        <label><input type="checkbox" aria-label="Include recorded backing" checked={includeBacking && Boolean(chosen.hasBacking)} disabled={!chosen.hasBacking} onChange={e => setIncludeBacking(e.target.checked)}/> Include recorded backing</label>
+        {includeBacking && chosen.hasBacking && <label className="practice-volume">Backing balance<input type="range" aria-label="Video backing balance" min={-60} max={12} step={1} value={backingDb} onChange={e => setBackingDb(Number(e.target.value))}/><output>{backingDb} dB</output></label>}
+        <p className="practice-note">New takes include a synchronized backing stem from tracks loaded in Practice. Audio playing in a browser is not recorded. The count-in and metronome stay out of the soundtrack.</p>
+        <button disabled={exporting || recording || chosen.incomplete} onClick={() => action('exportVideoAudio', chosen.id, version, includeBacking && Boolean(chosen.hasBacking), guitarDb, backingDb)}>Export for video</button>
+      </details>
+      {status.takes?.lastExportPath && <p className="practice-note">Video audio saved. <button onClick={() => action('revealVideoExport')}>Show exported audio</button></p>}
       {chosen.incomplete && <p className="practice-error">This recording was interrupted. Check the audio before using it.</p>}
       <p className="practice-note">Review mutes live guitar and pauses the backing track. Reamping creates a new stereo float WAV and rig snapshot, preserving the original files. {chosen.originalRig ? 'Original rig snapshot saved with this take.' : 'No original rig snapshot in this older take.'}</p>
     </div>}</div>

@@ -58,6 +58,9 @@ Source: "{#PackageDir}\QUICK-START.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\SOURCE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\THIRD_PARTY.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
+#ifdef WithSoundBank
+Source: "{#PackageDir}\Sounds\*"; DestDir: "{app}\Sounds"; Flags: ignoreversion recursesubdirs createallsubdirs
+#endif
 #ifdef SmokeTest
 Source: "{#PackageDir}\Cassian.vst3\*"; DestDir: "{app}\VST3\Cassian.vst3"; Components: vst3; Flags: ignoreversion recursesubdirs createallsubdirs
 #else

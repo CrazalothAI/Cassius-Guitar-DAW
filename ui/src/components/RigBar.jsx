@@ -6,7 +6,8 @@ import UtilityDialog from './UtilityDialog.jsx';
 export default function RigBar({status, previewActive, previewEdited, onPreviewRig, onError, onCompare, compare, compareSide, matchCompare, onMatch, amp}) {
   const [saving, setSaving] = useState(false), [name, setName] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState('');
   const activeName = native ? status.activeRigName : previewActive?.name;
-  const saved = native ? status.activeRigSaved : !!previewActive;
+  const starter = native ? status.activeRigStarter : !!previewActive?.starter;
+  const saved = native ? status.activeRigSaved : !!previewActive && !starter;
   const edited = native ? status.activeRigEdited : previewEdited;
   const save = async asNew => {
     if (busy) return;
@@ -25,7 +26,7 @@ export default function RigBar({status, previewActive, previewEdited, onPreviewR
   };
   return <>
     <section className="rig-bar" aria-label="Current complete rig">
-      <div className="rig-title"><span>{activeName ? saved ? 'SAVED RIG' : 'UNSAVED RIG' : 'UNSAVED TONE'}{edited && <em>Edited</em>}</span><strong>{activeName || 'Untitled rig'}</strong><small>{amp}</small></div>
+      <div className="rig-title"><span>{activeName ? saved ? 'SAVED RIG' : starter ? 'STARTER RIG' : 'UNSAVED RIG' : 'UNSAVED TONE'}{edited && <em>Edited</em>}</span><strong>{activeName || 'Untitled rig'}</strong><small>{amp}</small></div>
       <div className="rig-actions"><button className="text-button" aria-label="Save rig" disabled={busy || status.rigLoading} onClick={() => saved ? save(false) : (setError(''), setName(activeName || ''), setSaving(true))}>Save</button><button className="text-button" aria-label="Save rig as" disabled={busy || status.rigLoading} onClick={() => { setError(''); setName(activeName ? `${activeName} copy` : ''); setSaving(true); }}>Save as</button><button className={`chip${compare ? ' active' : ''}`} aria-label="A/B compare" onClick={onCompare}>{compare ? `A/B · ${compareSide}` : 'A/B'}</button><label className="compare-match" title="Approximate matching from similar recent playing"><input type="checkbox" aria-label="Match A/B loudness" disabled={!native} checked={matchCompare} onChange={e => onMatch(e.target.checked)}/> Match level</label></div>
     </section>
     {saving && <UtilityDialog title="Save complete rig" onClose={() => !busy && setSaving(false)}><form className="rig-save-form" onSubmit={e => { e.preventDefault(); if (name.trim()) save(true); }}><label>Rig name<input aria-label="Rig name" maxLength={80} value={name} onChange={e => setName(e.target.value)} disabled={busy}/></label><button disabled={busy || !name.trim()} type="submit">Save complete rig</button></form>{error && <p className="practice-error" role="alert">{error}</p>}<p className="practice-note">{native ? 'Saves the current amp, pedal, cabinets, effects and scenes.' : 'Browser preview saves control settings only. Use the native app for complete rigs.'}</p></UtilityDialog>}

@@ -37,6 +37,30 @@ void runTakeChecks()
     require(root.createDirectory().wasOk(), "Take test directory must create");
     struct Cleanup { juce::File folder, base; ~Cleanup() { if (folder.isAChildOf(base)) folder.deleteRecursively(); } } cleanup {root, base};
     const auto folder = root.getChildFile("Original take"), catalog = root.getChildFile("takes.xml"); makeTake(folder);
+    // Video exports work at common interface rates and keep backing separate
+    // until the export stage. No live Master/Play Along controls enter this mix.
+    for (double rate : {44100., 48000., 96000.}) {
+        const auto videoFolder = root.getChildFile("Video take " + juce::String(rate)); makeTake(videoFolder, static_cast<int>(rate / 10), rate);
+        require(videoFolder.getChildFile("Guitar processed.wav").deleteFile(), "Replace temporary video fixture");
+        write(videoFolder.getChildFile("Guitar processed.wav"),2,static_cast<int>(rate / 10),rate,.25f);
+        write(videoFolder.getChildFile("Backing track.wav"),2,static_cast<int>(rate / 10),rate,.125f);
+        PracticeEngine review; TakeLibrary video({},review); video.importFolder(videoFolder);
+        waitFor([&] {return video.list().size()==1;}); const auto id=video.list()[0]["id"].toString();
+        const auto destination=root.getChildFile("Video " + juce::String(rate) + ".wav");
+        require(video.videoExport(id,"processed",destination,true,0,-6).isEmpty(), "Video mix must queue");
+        waitFor([&] {return !static_cast<bool>(video.status()["exporting"]);}); require(video.status()["error"].toString().isEmpty(), "Video mix must finish");
+        juce::AudioFormatManager formats;formats.registerBasicFormats();std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(destination));
+        require(reader && reader->sampleRate==48000 && reader->bitsPerSample==24 && reader->numChannels==2 && !reader->usesFloatingPointData && reader->lengthInSamples==4800,"Video WAV must be 48k stereo 24-bit PCM with preserved duration");
+        juce::AudioBuffer<float> audio(2,4800);require(reader->read(&audio,0,4800,0,true,true),"Video WAV must decode");
+        const auto expected=.25f+.125f*juce::Decibels::decibelsToGain(-6.f);
+        require(std::abs(audio.getSample(0,3000)-expected)<.002,"Export must mix the requested processed guitar and backing balance");
+        const auto loud=root.getChildFile("Video loud " + juce::String(rate) + ".wav");
+        require(video.videoExport(id,"processed",loud,true,12,12).isEmpty(),"Hot export must queue");waitFor([&]{return !static_cast<bool>(video.status()["exporting"]);});
+        reader.reset(formats.createReaderFor(loud));require(reader && reader->read(&audio,0,4800,0,true,true),"Protected export must decode");
+        require(audio.getMagnitude(0,4800)<.892f && audio.getMagnitude(0,4800)>.88f,"Hot mixed soundtrack must retain -1 dBFS peak headroom");
+        const auto hash=juce::SHA256(destination).toHexString();require(video.videoExport(id,"processed",destination,false,0,0).isNotEmpty() && juce::SHA256(destination).toHexString()==hash,"Video export must never overwrite an existing file");
+        require(video.videoExport(id,"missing",root.getChildFile("no.wav"),false,0,0).isNotEmpty(),"Unknown video take version must reject");
+    }
     // Original snapshots from before board metadata are migrated in the isolated
     // renderer. The original take and its reference document remain untouched.
     const auto oldSnapshot = rig(); auto oldXml = juce::XmlDocument::parse(oldSnapshot["state"].toString());

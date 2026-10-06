@@ -35,7 +35,20 @@ it('exports with the current rig and exposes cancel/progress while busy', async 
 it('blocks review/export during recording and surfaces worker errors', async () => {
   render(<Takes status={{...status, practice: {recordMode: 3}, takes: {...status.takes, error: 'Dry file is missing'}}} onError={vi.fn()}/>); await screen.findByText('Lead take');
   expect(screen.getByRole('button', {name: 'Listen'}).disabled).toBe(true); expect(screen.getByRole('button', {name: 'Reamp with current rig'}).disabled).toBe(true);
+  expect(screen.getByRole('button', {name: 'Export for video'}).disabled).toBe(true);
   expect(screen.getByRole('alert').textContent).toBe('Dry file is missing');
+});
+it('exports the selected take version with independent soundtrack balance', async () => {
+  bridge.entries[0].hasBacking = true;
+  render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Take version'),{target:{value:'v1'}});
+  fireEvent.change(screen.getByLabelText('Video guitar balance'),{target:{value:'3'}});
+  fireEvent.change(screen.getByLabelText('Video backing balance'),{target:{value:'-6'}});
+  fireEvent.click(screen.getByRole('button',{name:'Export for video'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('exportVideoAudio','one','v1',true,3,-6));
+  fireEvent.click(screen.getByLabelText('Include recorded backing'));
+  fireEvent.click(screen.getByRole('button',{name:'Export for video'}));
+  expect(bridge.invoke).toHaveBeenCalledWith('exportVideoAudio','one','v1',false,3,-6);
 });
 it('leaves standalone-only actions unavailable in a DAW', () => {
   render(<Takes status={{...status, deviceSettingsAvailable: false}} onError={vi.fn()}/>);

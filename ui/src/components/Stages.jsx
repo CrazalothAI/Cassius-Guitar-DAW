@@ -200,7 +200,7 @@ export default function Stages({ page, onPage, availablePages = pages, showScene
   const nodes = {
     Input: { detail: gate, value: status.input, lit: fx.GATE_ON >= .5 && native && status.gate > .1 },
     Pedal: { detail: fx.OD_ON >= .5 ? `Overdrive${pedalOn ? ' + NAM' : ''}` : status.pedal ? stripExtension(status.pedal) : 'Empty', value: status.postPedal, lit: pedalOn || fx.OD_ON >= .5, off: !pedalOn && fx.OD_ON < .5 },
-    Amp: { detail: fx.AMP_SOURCE === 4 ? 'Natural DI' : fx.AMP_SOURCE === 2 ? 'Ferrum built-in' : shortAmp(clean, status), value: status.postAmp, lit: native },
+    Amp: { detail: fx.AMP_SOURCE === 4 ? 'Natural DI' : fx.AMP_SOURCE === 2 ? 'Ferrum built-in' : shortAmp(fx.AMP_SOURCE === 1 || (fx.AMP_SOURCE === 0 && clean), status), value: status.postAmp, lit: native },
     Cab: { detail: fullRig ? 'Included in capture' : cabOff ? 'Off' : clean && fx.AMP_SOURCE === 0 ? 'Clean rolloff' : fx.AMP_SOURCE > 0 && fx.CAB_MODE === 2 ? 'Built-in 4×12' : fx.CAB_B_ON >= .5 && status.irB ? status.ir ? 'Dual IR blend' : stripExtension(status.irB) : status.ir ? stripExtension(status.ir) : status.speakerSim ? 'Built-in 4×12' : 'Off', value: status.postCab, lit: native && !cabOff && !(clean && fx.AMP_SOURCE === 0) && (Boolean(status.ir) || (fx.CAB_B_ON >= .5 && Boolean(status.irB)) || status.speakerSim || fx.CAB_MODE === 2) },
     EQ: { detail: fx.EQ_ON >= .5 ? 'Tone shaping' : 'Bypassed', value: status.postEq, lit: fx.EQ_ON >= .5, off: fx.EQ_ON < .5 },
     Effects: { detail: effects, value: status.output, lit: effects !== 'Dry' },

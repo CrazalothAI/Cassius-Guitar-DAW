@@ -155,6 +155,11 @@
 .library-tabs, .library-filters { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
 .library-filters > input { flex: 1; min-width: 100px; }
 .library-filters label { font-size: 12px; white-space: nowrap; }
+.library-tone-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 12px; }
+.library-tone-filters label { display: flex; flex: 1 1 110px; min-width: 0; flex-direction: column; gap: 4px; color: #bdb8ac; font-size: 10px; }
+.library-tone-filters select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.library-tone-filters label:has(select[aria-label="Library source pack"]) { flex-basis: 180px; }
+.library-count { margin: 8px 0 0; color: #a49b8d; font-size: 11px; }
 .library-content { display: flex; gap: 20px; min-height: 120px; overflow-y: auto; margin-top: 16px; }
 .library-results { flex: 1; min-width: 220px; }
 .library-row { display: flex; align-items: center; gap: 8px; border-top: 1px solid #ffffff0c; padding: 9px 0; }
@@ -612,3 +617,5 @@ footer .warn { color: #efb86a; }
 .midi-editor select { min-width: 0; }
 .midi-monitor { font-size: 11px; color: #aaa393; margin-top: 12px; }
 .midi-learning { color: var(--gold); font-size: 11px; }
+.video-export { border-top: 1px solid #353b3a; padding-top: 10px; margin-top: 8px; }
+.video-export summary { cursor: pointer; color: #cdd7d3; font-weight: 600; }

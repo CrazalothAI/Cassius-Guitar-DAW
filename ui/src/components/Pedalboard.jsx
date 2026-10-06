@@ -6,7 +6,7 @@ import Knob from './Knob.jsx';
 import Switch from './Switch.jsx';
 import Scenes from './Scenes.jsx';
 const names = ['Compressor', 'Overdrive', 'Captured pedal', 'EQ', 'Modulation', 'Chorus', 'Delay', 'Reverb', 'Ambience'];
-const choices = { MOD_TYPE: ['Phaser', 'Flanger', 'Tremolo'], MOD_DIVISION: ['Whole', 'Half', 'Quarter', 'Eighth', 'Sixteenth'], DELAY_DIVISION: ['Quarter', 'Eighth', 'Dotted eighth', 'Sixteenth', 'Half', 'Whole'], REVERB_STYLE: ['Room', 'Chamber', 'Hall'] };
+const choices = { MOD_TYPE: ['Phaser', 'Flanger', 'Tremolo'], MOD_DIVISION: ['Whole', 'Half', 'Quarter', 'Eighth', 'Dotted eighth'], DELAY_DIVISION: ['Quarter', 'Eighth', 'Dotted eighth', 'Sixteenth', 'Half', 'Whole'], REVERB_STYLE: ['Room', 'Chamber', 'Hall'] };
 function Control({kind, slot, base}) {
   const id = boardId(kind, slot, base), value = useParameter(id), p = byId[id];
   if (choices[base]) return <label className="slot-choice">{p.label}<select aria-label={p.label} value={Math.round(value)} onChange={e => setParameter(id, Number(e.target.value))}>{choices[base].map((name, index) => <option key={name} value={index}>{name}</option>)}</select></label>;

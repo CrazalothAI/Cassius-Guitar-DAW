@@ -1,0 +1,1626 @@
+{
+  "version": 1,
+  "base": {
+    "AMP_SOURCE": 1,
+    "AMP_CLEAN": 1,
+    "CAPTURE_KIND": 0,
+    "CAB_MODE": 3,
+    "GATE_ON": 0,
+    "CLEAN_COMP": 0,
+    "COMP_MODE": 3,
+    "COMP_MAKEUP": 0,
+    "PEDAL_ON": 0,
+    "OD_ON": 0,
+    "DELAY_MIX": 0,
+    "REVERB_MIX": 0,
+    "CHORUS_MIX": 0,
+    "MOD_ON": 0,
+    "EQ_ON": 0,
+    "CAB_B_ON": 0,
+    "DYN_RES_ON": 0,
+    "CHUG_ATTACK": 0,
+    "THICKEN_ON": 0,
+    "PIEZO_ON": 0
+  },
+  "rigs": [
+    {
+      "id": "factory.natural-nylon",
+      "name": "Natural Nylon",
+      "styles": [
+        "acoustic",
+        "classical"
+      ],
+      "gain": "clean",
+      "amp": "Natural DI",
+      "speaker": "None",
+      "notes": "Neutral path for an actual nylon or acoustic pickup. Gentle room; add a pickup-matched body IR if needed.",
+      "parameters": {
+        "AMP_SOURCE": 4,
+        "AMP_OUT": 4,
+        "REVERB_MIX": 7,
+        "REVERB_SIZE": 25,
+        "REVERB_DAMP": 60
+      },
+      "board": [
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.warm-jazz",
+      "name": "Warm Jazz",
+      "styles": [
+        "jazz",
+        "clean"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Rounded Lumen clean with gentle post-amp compression and a small room for chords and single-note jazz.",
+      "parameters": {
+        "AMP_OUT": 6,
+        "AMP_BASS": 1,
+        "AMP_MID": 1,
+        "AMP_TREBLE": -3,
+        "PRESENCE": -1,
+        "HIGH_CUT": 10000,
+        "CLEAN_COMP": 25,
+        "COMP_THRESH": -26,
+        "COMP_RATIO": 2,
+        "COMP_ATTACK": 25,
+        "COMP_RELEASE": 200,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.glass-chorus",
+      "name": "Glass Chorus",
+      "styles": [
+        "clean",
+        "jazz",
+        "pop"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Clear Lumen clean with stereo chorus, light compression and room. This is Cassian's own clean voice.",
+      "parameters": {
+        "AMP_OUT": 6,
+        "AMP_BASS": -1,
+        "AMP_TREBLE": 1,
+        "CLEAN_COMP": 30,
+        "COMP_THRESH": -26,
+        "COMP_RATIO": 2.5,
+        "COMP_ATTACK": 18,
+        "CHORUS_MIX": 22,
+        "CHORUS_RATE": 0.65,
+        "CHORUS_DEPTH": 35,
+        "REVERB_MIX": 10,
+        "REVERB_SIZE": 35
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "chorus",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.funk-clean",
+      "name": "Funk Clean",
+      "styles": [
+        "clean",
+        "funk",
+        "country"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Dry, articulate clean with quick post-amp compression and restrained room for rhythmic playing.",
+      "parameters": {
+        "AMP_OUT": 6,
+        "AMP_BASS": -2,
+        "AMP_MID": 1,
+        "AMP_TREBLE": 1.5,
+        "CLEAN_COMP": 45,
+        "COMP_THRESH": -26,
+        "COMP_RATIO": 3,
+        "COMP_ATTACK": 12,
+        "COMP_RELEASE": 100,
+        "COMP_MAKEUP": 1,
+        "REVERB_MIX": 5,
+        "REVERB_SIZE": 20
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.gentle-breakup",
+      "name": "Gentle Breakup",
+      "styles": [
+        "blues",
+        "rock"
+      ],
+      "gain": "breakup",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Low-drive pedal into Lumen with soft mids and short room. Reduce pedal Drive for a cleaner edge.",
+      "parameters": {
+        "AMP_OUT": 0,
+        "OD_ON": 1,
+        "OD_DRIVE": 5,
+        "OD_LEVEL": -2,
+        "OD_TONE": 45,
+        "OD_TIGHT": 45,
+        "AMP_MID": 1.5,
+        "AMP_TREBLE": -1,
+        "REVERB_MIX": 9,
+        "REVERB_SIZE": 28
+      },
+      "board": [
+        {
+          "type": "overdrive",
+          "lane": "pre"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.classic-rock",
+      "name": "Classic Rock",
+      "styles": [
+        "rock",
+        "blues"
+      ],
+      "gain": "crunch",
+      "amp": "Ferrum",
+      "speaker": "Built-in 4x12",
+      "notes": "Ferrum's lowest drive setting with forward mids and a small room. Use Gentle Breakup for a softer gain voice.",
+      "parameters": {
+        "AMP_SOURCE": 2,
+        "AMP_CLEAN": 0,
+        "CAB_MODE": 2,
+        "AMP_OUT": 3,
+        "DRIVE_GAIN": 0,
+        "TIGHT": 50,
+        "AMP_BASS": -1,
+        "AMP_MID": 1.5,
+        "HIGH_CUT": 8500,
+        "GATE_ON": 1,
+        "GATE_THRESH": -66,
+        "GATE_RELEASE": 200,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 30
+      },
+      "board": [
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.80s-rock",
+      "name": "80s Rock",
+      "styles": [
+        "rock",
+        "metal"
+      ],
+      "gain": "high-gain",
+      "amp": "Ferrum",
+      "speaker": "Built-in 4x12",
+      "notes": "Mid-forward Ferrum with a touch of stereo chorus, short repeats and room for rhythm and solos.",
+      "parameters": {
+        "AMP_SOURCE": 2,
+        "AMP_CLEAN": 0,
+        "CAB_MODE": 2,
+        "AMP_OUT": 3,
+        "DRIVE_GAIN": 4,
+        "TIGHT": 65,
+        "AMP_BASS": -1,
+        "AMP_MID": 2,
+        "HIGH_CUT": 8500,
+        "GATE_ON": 1,
+        "GATE_THRESH": -64,
+        "CHORUS_MIX": 8,
+        "CHORUS_RATE": 0.5,
+        "DELAY_MIX": 8,
+        "DELAY_TIME": 300,
+        "DELAY_FEEDBACK": 18,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 30
+      },
+      "board": [
+        {
+          "type": "chorus",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.singing-lead",
+      "name": "Singing Lead",
+      "styles": [
+        "lead",
+        "rock"
+      ],
+      "gain": "high-gain",
+      "amp": "Ferrum",
+      "speaker": "Built-in 4x12",
+      "notes": "Sustained Ferrum lead with a light drive pedal, vocal midrange and restrained stereo repeats.",
+      "parameters": {
+        "AMP_SOURCE": 2,
+        "AMP_CLEAN": 0,
+        "CAB_MODE": 2,
+        "AMP_OUT": 3,
+        "DRIVE_GAIN": 6,
+        "TIGHT": 85,
+        "OD_ON": 1,
+        "OD_DRIVE": 8,
+        "OD_LEVEL": -2,
+        "OD_TIGHT": 85,
+        "AMP_MID": 2,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "GATE_THRESH": -65,
+        "GATE_RELEASE": 220,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FOCUS": 1,
+        "EQ_FIZZ": -2,
+        "DELAY_MIX": 12,
+        "DELAY_TIME": 340,
+        "DELAY_WIDTH": 25,
+        "DELAY_FEEDBACK": 24,
+        "REVERB_MIX": 9,
+        "REVERB_SIZE": 35
+      },
+      "board": [
+        {
+          "type": "overdrive",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.neoclassical-lead",
+      "name": "Neoclassical Lead",
+      "styles": [
+        "lead",
+        "classical",
+        "metal"
+      ],
+      "gain": "high-gain",
+      "amp": "Ferrum",
+      "speaker": "Built-in 4x12",
+      "notes": "Focused Ferrum lead for fast runs: tight lows, clear mids, quick repeats and a modest room.",
+      "parameters": {
+        "AMP_SOURCE": 2,
+        "AMP_CLEAN": 0,
+        "CAB_MODE": 2,
+        "AMP_OUT": 3,
+        "DRIVE_GAIN": 4,
+        "TIGHT": 95,
+        "OD_ON": 1,
+        "OD_DRIVE": 4,
+        "OD_LEVEL": -2,
+        "OD_TIGHT": 100,
+        "AMP_BASS": -1,
+        "AMP_MID": 2,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "GATE_THRESH": -66,
+        "GATE_RELEASE": 180,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FOCUS": 1,
+        "EQ_FIZZ": -2.5,
+        "DELAY_MIX": 9,
+        "DELAY_TIME": 250,
+        "DELAY_WIDTH": 15,
+        "DELAY_FEEDBACK": 18,
+        "REVERB_MIX": 7,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "overdrive",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.modern-metalcore",
+      "name": "Modern Metalcore",
+      "styles": [
+        "metal",
+        "metalcore"
+      ],
+      "gain": "high-gain",
+      "amp": "Ferrum",
+      "speaker": "Built-in 4x12",
+      "notes": "Dry Ferrum rhythm with a low-drive boost, controlled mud and fizz, and a responsive gate. Adjust the gate to your pickup noise.",
+      "parameters": {
+        "AMP_SOURCE": 2,
+        "AMP_CLEAN": 0,
+        "CAB_MODE": 2,
+        "AMP_OUT": 3,
+        "DRIVE_GAIN": 4,
+        "TIGHT": 100,
+        "OD_ON": 1,
+        "OD_DRIVE": 0,
+        "OD_LEVEL": 1,
+        "OD_TONE": 45,
+        "OD_TIGHT": 110,
+        "AMP_BASS": -1,
+        "AMP_MID": 1,
+        "HIGH_CUT": 7000,
+        "GATE_ON": 1,
+        "GATE_THRESH": -60,
+        "GATE_RELEASE": 100,
+        "EQ_ON": 1,
+        "EQ_BODY": -1,
+        "EQ_MUD": -3,
+        "EQ_FOCUS": 1,
+        "EQ_FIZZ": -3
+      },
+      "board": [
+        {
+          "type": "overdrive",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.thrash-rhythm",
+      "name": "Thrash Rhythm",
+      "styles": [
+        "metal",
+        "thrash"
+      ],
+      "gain": "high-gain",
+      "amp": "Ferrum",
+      "speaker": "Built-in 4x12",
+      "notes": "Firm Ferrum rhythm with lean lows, an upper-mid push and very little ambience.",
+      "parameters": {
+        "AMP_SOURCE": 2,
+        "AMP_CLEAN": 0,
+        "CAB_MODE": 2,
+        "AMP_OUT": 3,
+        "DRIVE_GAIN": 3,
+        "TIGHT": 95,
+        "AMP_BASS": -1,
+        "AMP_MID": 1,
+        "PRESENCE": 0.5,
+        "HIGH_CUT": 7800,
+        "GATE_ON": 1,
+        "GATE_THRESH": -62,
+        "GATE_RELEASE": 120,
+        "EQ_ON": 1,
+        "EQ_MUD": -2.5,
+        "EQ_FOCUS": 1.5,
+        "EQ_FIZZ": -3,
+        "REVERB_MIX": 3,
+        "REVERB_SIZE": 20
+      },
+      "board": [
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.ambient-clean",
+      "name": "Ambient Clean",
+      "styles": [
+        "clean",
+        "ambient"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Lumen with light compression, wide chorus, spacious repeats and a hall. Reduce Delay and Reverb mix for a drier variation.",
+      "parameters": {
+        "AMP_OUT": 6,
+        "CLEAN_COMP": 20,
+        "COMP_THRESH": -28,
+        "COMP_RATIO": 2,
+        "COMP_ATTACK": 25,
+        "CHORUS_MIX": 14,
+        "CHORUS_RATE": 0.4,
+        "CHORUS_DEPTH": 45,
+        "DELAY_MIX": 22,
+        "DELAY_TIME": 450,
+        "DELAY_WIDTH": 45,
+        "DELAY_FEEDBACK": 30,
+        "REVERB_MIX": 25,
+        "REVERB_SIZE": 70,
+        "REVERB_STYLE": 2,
+        "REVERB_DAMP": 65,
+        "REVERB_PREDELAY": 22
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "pre"
+        },
+        {
+          "type": "chorus",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    }
+  ],
+  "captureRigs": [
+    {
+      "id": "factory.capture-red2-tight",
+      "name": "5153 Red-II Tight",
+      "styles": [
+        "metal",
+        "metalcore"
+      ],
+      "gain": "high-gain",
+      "amp": "APP-5153-Ivory-Red-II",
+      "speaker": "Mesa Oversized SM57 VR2 5150 Power - jp_is_out_of_tune",
+      "notes": "Red-II selected explicitly for harder distortion. Fortin TS-9 capture into the Mesa cabinet; dry, gated rhythm.",
+      "assets": {
+        "model": {
+          "id": "amp:16dc0a3d0adc1395784f5b1695b28f35f778797d9191ea8e932312a255c4814c",
+          "name": "APP-5153-Ivory-Red-II"
+        },
+        "ir": {
+          "id": "cab:ab5bb462534ddbc3e857a830b559b733bc77512df6f84153392ccff1a306e02d",
+          "name": "Mesa Oversized SM57 VR2 5150 Power - jp_is_out_of_tune"
+        },
+        "pedal": {
+          "id": "pedal:289638aaa7a6c50c783ceac6f4077b3d741b686690a3575c16c810d014746139",
+          "name": "Fortin_TS9_1"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 5.88,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -60,
+        "GATE_RELEASE": 120,
+        "TIGHT": 85,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-red2-metalcore",
+      "name": "5153 Red-II Metalcore",
+      "styles": [
+        "metal",
+        "metalcore"
+      ],
+      "gain": "high-gain",
+      "amp": "APP-5153-Ivory-Red-II",
+      "speaker": "TF ORANGE 4X12 V30 57 3 - Enhanced",
+      "notes": "Red-II with the zero-gain Tube Screamer capture and Orange SM57 cabinet. Start here for tight modern rhythm.",
+      "assets": {
+        "model": {
+          "id": "amp:16dc0a3d0adc1395784f5b1695b28f35f778797d9191ea8e932312a255c4814c",
+          "name": "APP-5153-Ivory-Red-II"
+        },
+        "ir": {
+          "id": "cab:35eb3800a9345f03e2374cd4a36f7ab0e991f99e8a841320babdeadec5a0098e",
+          "name": "TF ORANGE 4X12 V30 57 3 - Enhanced"
+        },
+        "pedal": {
+          "id": "pedal:c3846b028640ae5697c18ed8528ad7df369a4808c822fc1a52cddd162674d6b1",
+          "name": "Tube Screamer Gain=0"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 2.82,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -60,
+        "GATE_RELEASE": 120,
+        "TIGHT": 100,
+        "EQ_ON": 1,
+        "EQ_MUD": -3,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-red1-lead",
+      "name": "5153 Red-I Singing Lead",
+      "styles": [
+        "lead",
+        "rock",
+        "metal"
+      ],
+      "gain": "high-gain",
+      "amp": "APP-5153-Ivory-Red-I",
+      "speaker": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30",
+      "notes": "The separate Red-I capture with SD-1 boost, a warmer cabinet blend and restrained repeats.",
+      "assets": {
+        "model": {
+          "id": "amp:200c09f29624f896048880ad635a28da5b508e89623cba034d82b43cfa19ce97",
+          "name": "APP-5153-Ivory-Red-I"
+        },
+        "ir": {
+          "id": "cab:584a6f8789cf0431f702271e9f268dd0c3066c573ad89d53e92e92cc1d982db6",
+          "name": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30"
+        },
+        "pedal": {
+          "id": "pedal:69accda72f8e876bf5a475499cacd42cce32092b38c508e074e204b3765a5100",
+          "name": "APP-SD1-Boost-I"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 2.85,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 1,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -66,
+        "GATE_RELEASE": 220,
+        "TIGHT": 85,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1,
+        "DELAY_MIX": 12,
+        "DELAY_TIME": 300,
+        "DELAY_FEEDBACK": 22,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 30
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-red2-classical",
+      "name": "5153 Red-II Neoclassical",
+      "styles": [
+        "lead",
+        "classical",
+        "metal"
+      ],
+      "gain": "high-gain",
+      "amp": "APP-5153-Ivory-Red-II",
+      "speaker": "Mesa Oversized SM57 VR2 5150 Power - jp_is_out_of_tune",
+      "notes": "Red-II with SD-1 Boost-II, lean lows and short repeats for fast runs. Gate release preserves note decay.",
+      "assets": {
+        "model": {
+          "id": "amp:16dc0a3d0adc1395784f5b1695b28f35f778797d9191ea8e932312a255c4814c",
+          "name": "APP-5153-Ivory-Red-II"
+        },
+        "ir": {
+          "id": "cab:ab5bb462534ddbc3e857a830b559b733bc77512df6f84153392ccff1a306e02d",
+          "name": "Mesa Oversized SM57 VR2 5150 Power - jp_is_out_of_tune"
+        },
+        "pedal": {
+          "id": "pedal:c9a36138ac12a9fe67b26ffeee149076f4d960395a813178294dd1d5e897a931",
+          "name": "APP-SD1-Boost-II"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 6.35,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 1,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -66,
+        "GATE_RELEASE": 220,
+        "TIGHT": 85,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1,
+        "DELAY_MIX": 9,
+        "DELAY_TIME": 240,
+        "DELAY_FEEDBACK": 18,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 30
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-red3-rhythm",
+      "name": "5153 Red-III Rhythm",
+      "styles": [
+        "metal"
+      ],
+      "gain": "high-gain",
+      "amp": "APP-5153-Ivory-Red-III",
+      "speaker": "TF ORANGE 4X12 V30 57 3 - Enhanced",
+      "notes": "An additional Red-III capture with no drive pedal, for a contrasting rhythm voice.",
+      "assets": {
+        "model": {
+          "id": "amp:94219dc0446aab63c7b00b1551eb55059c0f9feee5d2429ac2cb5735fcea4e62",
+          "name": "APP-5153-Ivory-Red-III"
+        },
+        "ir": {
+          "id": "cab:35eb3800a9345f03e2374cd4a36f7ab0e991f99e8a841320babdeadec5a0098e",
+          "name": "TF ORANGE 4X12 V30 57 3 - Enhanced"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 2.24,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -60,
+        "GATE_RELEASE": 120,
+        "TIGHT": 85,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1
+      },
+      "board": [
+        {
+          "type": "eq",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-jcm-crunch",
+      "name": "British 800 Crunch",
+      "styles": [
+        "rock",
+        "blues"
+      ],
+      "gain": "crunch",
+      "amp": "Jcm800",
+      "speaker": "Included in capture",
+      "notes": "JCM800 plus V30 1960 capture. No second cabinet and no Blue-channel substitution.",
+      "assets": {
+        "model": {
+          "id": "amp:3787fff1312938f9d91253ef8180e0ec814b2d442a17f40c8b61ae676bdadd23",
+          "name": "Jcm800"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -9.75,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 9000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "REVERB_MIX": 7,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-jcm-80s",
+      "name": "British 800 80s Lead",
+      "styles": [
+        "rock",
+        "lead",
+        "metal"
+      ],
+      "gain": "high-gain",
+      "amp": "Jcm800",
+      "speaker": "Included in capture",
+      "notes": "JCM800 full rig with SD-1 boost, subtle chorus and short solo repeats.",
+      "assets": {
+        "model": {
+          "id": "amp:3787fff1312938f9d91253ef8180e0ec814b2d442a17f40c8b61ae676bdadd23",
+          "name": "Jcm800"
+        },
+        "pedal": {
+          "id": "pedal:69accda72f8e876bf5a475499cacd42cce32092b38c508e074e204b3765a5100",
+          "name": "APP-SD1-Boost-I"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -9.45,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 1,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -66,
+        "GATE_RELEASE": 220,
+        "TIGHT": 85,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1,
+        "DELAY_MIX": 12,
+        "DELAY_TIME": 300,
+        "DELAY_FEEDBACK": 22,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 30,
+        "CHORUS_MIX": 7,
+        "CHORUS_RATE": 0.45
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "chorus",
+          "lane": "post"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-brit50",
+      "name": "Brit 50 Plexi Crunch",
+      "styles": [
+        "rock",
+        "blues"
+      ],
+      "gain": "crunch",
+      "amp": "BRIT50 Plexi Crunch Bal2 CAB",
+      "speaker": "Included in capture",
+      "notes": "Brit 50 Plexi Crunch Bal2 CAB capture. The filename specifies CAB; this recipe explicitly treats it as a full rig. Confirm by audition.",
+      "assets": {
+        "model": {
+          "id": "amp:372c59c62bce8e9796a4389956cfbca0fdffd0e574e5e690c11983f1e0ce65a0",
+          "name": "BRIT50 Plexi Crunch Bal2 CAB"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -11.91,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 9000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "REVERB_MIX": 7,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-super-edge",
+      "name": "American Super Edge",
+      "styles": [
+        "blues",
+        "country",
+        "rock"
+      ],
+      "gain": "breakup",
+      "amp": "FNDR BFSR VB Edge WRM2 CAB FREE",
+      "speaker": "Included in capture",
+      "notes": "Super Reverb edge-of-breakup capture, with its own cabinet. Pick softly or lower your guitar volume for cleaner response.",
+      "assets": {
+        "model": {
+          "id": "amp:68664c8a190254e4df4cc1838f773a7694a6f3a476f83d5e8044e41107d0d44a",
+          "name": "FNDR BFSR VB Edge WRM2 CAB FREE"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -2.72,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 12000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-super-klon",
+      "name": "American Klon Blues",
+      "styles": [
+        "blues",
+        "rock"
+      ],
+      "gain": "drive",
+      "amp": "FNDR BFSR VB Edge WRM2 CAB FREE",
+      "speaker": "Included in capture",
+      "notes": "Zero-gain Klon capture into the Super Reverb full rig for a different blues response.",
+      "assets": {
+        "model": {
+          "id": "amp:68664c8a190254e4df4cc1838f773a7694a6f3a476f83d5e8044e41107d0d44a",
+          "name": "FNDR BFSR VB Edge WRM2 CAB FREE"
+        },
+        "pedal": {
+          "id": "pedal:e7f447f8f6372af6fa8a20454c25f0e793913c25bad5c8f4768905e043cdc25f",
+          "name": "Klon Gain=0"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -4.03,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 9000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-super-timmy",
+      "name": "American Timmy Drive",
+      "styles": [
+        "blues",
+        "rock"
+      ],
+      "gain": "drive",
+      "amp": "FNDR BFSR VB Edge WRM2 CAB FREE",
+      "speaker": "Included in capture",
+      "notes": "Timmy Gain=5 capture into the American full rig. Drive is fixed by the selected capture; Input/Output adjust its operating level.",
+      "assets": {
+        "model": {
+          "id": "amp:68664c8a190254e4df4cc1838f773a7694a6f3a476f83d5e8044e41107d0d44a",
+          "name": "FNDR BFSR VB Edge WRM2 CAB FREE"
+        },
+        "pedal": {
+          "id": "pedal:c06cd1ba8e9df1d85bedb3c9bb55837a9733891babb945099e111242cc6936dc",
+          "name": "Timmy Gain=5"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -8.15,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 9000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": -3,
+        "REVERB_MIX": 7,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-green-studio",
+      "name": "5153 Green-I Studio",
+      "styles": [
+        "clean",
+        "funk",
+        "country"
+      ],
+      "gain": "clean",
+      "amp": "APP-5153-Ivory-Green-I",
+      "speaker": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30",
+      "notes": "Green-I capture with the warmer Orange blend, light post compression and room. No gate choking clean decays.",
+      "assets": {
+        "model": {
+          "id": "amp:b6d498ec4d14c43e9bede786f706ee1debbc4a29c52fc3891d0072b586a44e49",
+          "name": "APP-5153-Ivory-Green-I"
+        },
+        "ir": {
+          "id": "cab:584a6f8789cf0431f702271e9f268dd0c3066c573ad89d53e92e92cc1d982db6",
+          "name": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 1,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 12,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 14000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "CLEAN_COMP": 22,
+        "COMP_THRESH": -26,
+        "COMP_MAKEUP": 0,
+        "REVERB_MIX": 7,
+        "REVERB_SIZE": 25,
+        "CAB_A_LEVEL": 4.59
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-green-chorus",
+      "name": "5153 Green-II Chorus",
+      "styles": [
+        "clean",
+        "jazz",
+        "pop"
+      ],
+      "gain": "clean",
+      "amp": "APP-5153-Ivory-Green-II",
+      "speaker": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30",
+      "notes": "A distinct Green-II capture with stereo chorus and light room, rather than bypassing the head to the old built-in clean.",
+      "assets": {
+        "model": {
+          "id": "amp:d7717aee8d53a67229846932f91a0f1c9031f633c879d4153c9ce633bd5916fb",
+          "name": "APP-5153-Ivory-Green-II"
+        },
+        "ir": {
+          "id": "cab:584a6f8789cf0431f702271e9f268dd0c3066c573ad89d53e92e92cc1d982db6",
+          "name": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 1,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 12,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 14000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "CHORUS_MIX": 20,
+        "CHORUS_RATE": 0.6,
+        "CHORUS_DEPTH": 35,
+        "REVERB_MIX": 9,
+        "REVERB_SIZE": 30,
+        "CAB_A_LEVEL": 2.18
+      },
+      "board": [
+        {
+          "type": "chorus",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-green-spring",
+      "name": "5153 Green-I Spring",
+      "styles": [
+        "clean",
+        "country",
+        "blues"
+      ],
+      "gain": "clean",
+      "amp": "APP-5153-Ivory-Green-I",
+      "speaker": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30",
+      "notes": "Green-I with the recorded RV-6 spring response. Its decay and timing are captured; Blend controls the amount.",
+      "assets": {
+        "model": {
+          "id": "amp:b6d498ec4d14c43e9bede786f706ee1debbc4a29c52fc3891d0072b586a44e49",
+          "name": "APP-5153-Ivory-Green-I"
+        },
+        "ir": {
+          "id": "cab:584a6f8789cf0431f702271e9f268dd0c3066c573ad89d53e92e92cc1d982db6",
+          "name": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30"
+        },
+        "ambience": {
+          "id": "ambience:b443b43302bd9310245946508eddb26cf3ae7ee70e91fddf961a1c4c969f6c1f",
+          "name": "1 Rv-6 Spring Reverb"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 1,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 10.23,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 14000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "BOARD_AMBIENCE_0_AMBIENCE_MIX": 14
+      },
+      "board": [
+        {
+          "type": "ambience",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-mesa-classic",
+      "name": "Rectifier Classic Heavy",
+      "styles": [
+        "metal"
+      ],
+      "gain": "high-gain",
+      "amp": "90sDualRec-FullRig-Red-Modn-Classic",
+      "speaker": "Included in capture",
+      "notes": "Classic full-rig Rectifier capture. Cabinet Auto avoids doubling its captured speaker.",
+      "assets": {
+        "model": {
+          "id": "amp:2a2946ae3010331426b13dab99c483adb672aa452a2c704e5f45e58484099cdf",
+          "name": "90sDualRec-FullRig-Red-Modn-Classic"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -4.89,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -60,
+        "GATE_RELEASE": 120,
+        "TIGHT": 85,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1
+      },
+      "board": [
+        {
+          "type": "eq",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-mesa-808",
+      "name": "Rectifier 808 Rhythm",
+      "styles": [
+        "metal",
+        "thrash"
+      ],
+      "gain": "high-gain",
+      "amp": "90sDualRec-FullRig-Red-Modn-SweetSpot+808",
+      "speaker": "Included in capture",
+      "notes": "Full rig with the 808 already captured. No additional drive pedal is stacked on it.",
+      "assets": {
+        "model": {
+          "id": "amp:81724f66c7db8348029a3fb09ed3f81a24ae0a35c882a0dc7c4c271811d67715",
+          "name": "90sDualRec-FullRig-Red-Modn-SweetSpot+808"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 0,
+        "CAPTURE_KIND": 3,
+        "CAB_MODE": 0,
+        "AMP_OUT": -6.07,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "GATE_THRESH": -60,
+        "GATE_RELEASE": 120,
+        "TIGHT": 85,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FIZZ": -2,
+        "EQ_FOCUS": 1
+      },
+      "board": [
+        {
+          "type": "eq",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-rat",
+      "name": "Rat Alternative",
+      "styles": [
+        "rock"
+      ],
+      "gain": "drive",
+      "amp": "Lumen",
+      "speaker": "TF ORANGE 4X12 V30 57 3 - Enhanced",
+      "notes": "Rat Mid capture into Lumen and an Orange cabinet for an alternative distortion texture.",
+      "assets": {
+        "ir": {
+          "id": "cab:35eb3800a9345f03e2374cd4a36f7ab0e991f99e8a841320babdeadec5a0098e",
+          "name": "TF ORANGE 4X12 V30 57 3 - Enhanced"
+        },
+        "pedal": {
+          "id": "pedal:15ae1c0dd556d4798c3c7815f97a12e3d216f36255d5d952fb8bab09dc11b093",
+          "name": "Rat Mid"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 1,
+        "AMP_CLEAN": 1,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": -2.03,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 9000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "REVERB_MIX": 7,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-muff",
+      "name": "Russian Fuzz Wall",
+      "styles": [
+        "rock",
+        "ambient"
+      ],
+      "gain": "fuzz",
+      "amp": "Lumen",
+      "speaker": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30",
+      "notes": "Green Russian Muff capture with warm cabinet and recorded Flint ambience. A separate fuzz voice, rather than a high-gain amp alias.",
+      "assets": {
+        "ir": {
+          "id": "cab:584a6f8789cf0431f702271e9f268dd0c3066c573ad89d53e92e92cc1d982db6",
+          "name": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30"
+        },
+        "pedal": {
+          "id": "pedal:6b775627a3e3d7790b2dfa8345ac5bbfad5c2490853c1f0bdf04a14926cb3a10",
+          "name": "Big Muff Green Russian"
+        },
+        "ambience": {
+          "id": "ambience:a77effdb32b07f06be387056e6c44a8f1a97b6e8b787395bc17b9851b9bd23ae",
+          "name": "Flint 70 Mix 100 decay 50 color 100"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 1,
+        "AMP_CLEAN": 1,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": -8.45,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 9000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": -4,
+        "DELAY_MIX": 10,
+        "DELAY_FEEDBACK": 20,
+        "BOARD_AMBIENCE_0_AMBIENCE_MIX": 14
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "ambience",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-guvnor",
+      "name": "Guvnor Rock Drive",
+      "styles": [
+        "rock"
+      ],
+      "gain": "drive",
+      "amp": "Lumen",
+      "speaker": "TF ORANGE 4X12 V30 57 3 - Enhanced",
+      "notes": "Guvnor capture into Lumen and Orange SM57 cabinet for pedal-driven British rock.",
+      "assets": {
+        "ir": {
+          "id": "cab:35eb3800a9345f03e2374cd4a36f7ab0e991f99e8a841320babdeadec5a0098e",
+          "name": "TF ORANGE 4X12 V30 57 3 - Enhanced"
+        },
+        "pedal": {
+          "id": "pedal:dac312c423bb5c4244c63ba66724b08c2e3e3230e8310ae6df0b17a0b5f8f48e",
+          "name": "Guv'nor High Gain"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 1,
+        "AMP_CLEAN": 1,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 2.37,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 9000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 1,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": -3,
+        "REVERB_MIX": 8,
+        "REVERB_SIZE": 25
+      },
+      "board": [
+        {
+          "type": "neural-pedal",
+          "lane": "pre"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.capture-ambient",
+      "name": "Green Ambient Plate",
+      "styles": [
+        "clean",
+        "ambient"
+      ],
+      "gain": "clean",
+      "amp": "APP-5153-Ivory-Green-I",
+      "speaker": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30",
+      "notes": "Green-I clean with stereo chorus, adjustable delay and captured plate reverb. No extra algorithmic reverb stacked on the response.",
+      "assets": {
+        "model": {
+          "id": "amp:b6d498ec4d14c43e9bede786f706ee1debbc4a29c52fc3891d0072b586a44e49",
+          "name": "APP-5153-Ivory-Green-I"
+        },
+        "ir": {
+          "id": "cab:584a6f8789cf0431f702271e9f268dd0c3066c573ad89d53e92e92cc1d982db6",
+          "name": "TF ORANGE 4X12 V30 - 421 U5 M160 70-30"
+        },
+        "ambience": {
+          "id": "ambience:d7466e7d66ee7808976164dc5ddf61b8ac8bed29d622927eb539c92d119cd09a",
+          "name": "4 Rv-6 Plate Reverb"
+        }
+      },
+      "parameters": {
+        "AMP_SOURCE": 3,
+        "AMP_CLEAN": 1,
+        "CAPTURE_KIND": 1,
+        "CAB_MODE": 1,
+        "AMP_OUT": 5.09,
+        "DRIVE_GAIN": 0,
+        "AMP_BASS": 0,
+        "AMP_MID": 0,
+        "AMP_TREBLE": 0,
+        "HIGH_CUT": 12000,
+        "GATE_ON": 0,
+        "PEDAL_ON": 0,
+        "PEDAL_INPUT": 0,
+        "PEDAL_OUTPUT": 0,
+        "CHORUS_MIX": 12,
+        "CHORUS_RATE": 0.4,
+        "DELAY_MIX": 18,
+        "DELAY_FEEDBACK": 28,
+        "DELAY_TIME": 420,
+        "BOARD_AMBIENCE_0_AMBIENCE_MIX": 14
+      },
+      "board": [
+        {
+          "type": "chorus",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "ambience",
+          "lane": "post"
+        }
+      ]
+    }
+  ],
+  "levelReference": "Output trims checked with synthetic guitar signals at 48 kHz. Capture inputs remain unchanged. Real playing and perceptual loudness still require audition."
+}

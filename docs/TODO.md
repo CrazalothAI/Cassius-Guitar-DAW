@@ -11,6 +11,11 @@
 - [x] Add recorded ambience responses and safe sound-ZIP intake; validate/import the October user packs.
 - [x] Measure a demanding actual-capture board at 128/256/512 samples and optimize long-response convolution; see [October intake](SOUND-INTAKE-OCTOBER.md).
 - [ ] Audition complete genre rigs and validate sustained live interface / DAW use.
+- [x] Add 12 complete built-in rigs and 20 exact-capture recipes; remove blanket Red-I/Blue-I preset routing and add structured sound-library filters.
+- [x] Prepare and verify a relocated 103-file shared bank and installer/portable bank support.
+- [ ] Obtain per-asset redistribution grants and ship the approved bank in the GitHub release; private supplied sounds are not publicly cleared.
+- [x] Record synchronized backing stems and export selected takes/reamps as 48 kHz / 24-bit stereo audio for video editing.
+- [ ] Verify a real exported take with camera footage in Clipchamp.
 - Validation and remaining limits: [Play Along and navigation](PLAY-ALONG-NAVIGATION.md).
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).
 - Follow the implementation order in [NEXT-STEPS.md](NEXT-STEPS.md) for pedalboards, sounds, curated rigs and real-use validation.

@@ -63,6 +63,7 @@ void TakeLibrary::importTake(const juce::File& folder)
       take.setProperty("path", path, nullptr); take.setProperty("frames", dry->lengthInSamples, nullptr); take.setProperty("sampleRate", dry->sampleRate, nullptr);
       take.setProperty("created", metadata["created"].toString().isNotEmpty() ? metadata["created"].toString() : folder.getCreationTime().toISO8601(true), nullptr);
       take.setProperty("incomplete", static_cast<bool>(metadata["incomplete"]), nullptr); take.setProperty("originalRig", folder.getChildFile("Original rig.json").existsAsFile(), nullptr);
+      take.setProperty("hasBacking", folder.getChildFile("Backing track.wav").existsAsFile(), nullptr);
       ++revision; }
     persist(id);
 }
@@ -160,8 +161,9 @@ void TakeLibrary::run()
             }
             else if (job.type == "preview") playReview(job);
             else if (job.type == "reamp") exportReamp(job);
+            else if (job.type == "video") exportVideoAudio(job);
         } catch (const std::exception& e) { const juce::ScopedLock guard(lock); error = e.what(); }
-        if (job.type == "reamp") { exporting.store(false); const juce::ScopedLock guard(lock); activeId.clear(); }
+        if (job.type == "reamp" || job.type == "video") { exporting.store(false); const juce::ScopedLock guard(lock); activeId.clear(); }
     }
 }
 juce::var TakeLibrary::list()
@@ -178,7 +180,7 @@ juce::var TakeLibrary::list()
 juce::var TakeLibrary::status()
 {
     auto o = std::make_unique<juce::DynamicObject>();
-    { const juce::ScopedLock guard(lock); o->setProperty("error", error); o->setProperty("activeId", activeId); o->setProperty("reviewId", reviewId); }
+    { const juce::ScopedLock guard(lock); o->setProperty("error", error); o->setProperty("activeId", activeId); o->setProperty("reviewId", reviewId); o->setProperty("lastExportPath", lastExportPath); }
     o->setProperty("revision", static_cast<int>(revision.load())); o->setProperty("exporting", exporting.load()); o->setProperty("progress", progress.load()); return juce::var(o.release());
 }
 juce::String TakeLibrary::reveal(const juce::String& id)

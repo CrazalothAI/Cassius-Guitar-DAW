@@ -166,9 +166,11 @@ void runPracticeChecks()
         const juce::File take(e.status()["takePath"].toString());
         const auto dry = read(take.getChildFile("Guitar dry.wav"), 1, captured);
         const auto wet = read(take.getChildFile("Guitar processed.wav"), 2, captured);
+        const auto backing = read(take.getChildFile("Backing track.wav"), 2, captured);
         for (int i = 0; i < captured; ++i) {
             require(dry.getSample(0, i) == .125f, "Dry take must preserve raw input before any processing");
             require(wet.getSample(0, i) == 1.25f && wet.getSample(1, i) == -2.5f, "Processed float take must exclude backing/click and preserve headroom");
+            require(std::abs(backing.getSample(0,i)-.4f)<.000001 && std::abs(backing.getSample(1,i)+.2f)<.000001,"Backing stem must align with guitar after count-in and exclude click/guitar");
         }
         // The next take uses a new directory; stop can cancel its count-in.
         require(e.record(folder).isEmpty(), "Next take must re-arm after draining");

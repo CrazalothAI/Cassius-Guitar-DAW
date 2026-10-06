@@ -73,7 +73,7 @@ private:
     std::atomic<int> recordingFault {0};
     juce::AbstractFifo fifo;
     juce::AudioBuffer<float> recordingAudio;
-    std::unique_ptr<juce::AudioFormatWriter> dryWriter, wetWriter;
+    std::unique_ptr<juce::AudioFormatWriter> dryWriter, wetWriter, backingWriter;
     std::atomic<double> recordingRate {48000};
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PracticeEngine)
 };

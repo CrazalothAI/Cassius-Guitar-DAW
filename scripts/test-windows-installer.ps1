@@ -1,5 +1,7 @@
 param(
-    [string]$Standalone = 'build/AmpSuite_artefacts/Release/Standalone/Cassian.exe'
+    [string]$Standalone = 'build/AmpSuite_artefacts/Release/Standalone/Cassian.exe',
+    [string]$SoundBank = 'assets/sound-bank',
+    [switch]$AllowDevelopmentSounds
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -19,7 +21,7 @@ function Assert([bool]$condition, [string]$message) {
 }
 New-Item -ItemType Directory -Force -Path $testRoot | Out-Null
 try {
-    & "$PSScriptRoot/package-windows.ps1" -Standalone $Standalone -SmokeTest -SkipRootCopy -OutputDirectory $output -AppVersion '0.0.1'
+    & "$PSScriptRoot/package-windows.ps1" -Standalone $Standalone -SmokeTest -SkipRootCopy -OutputDirectory $output -AppVersion '0.0.1' -SoundBank $SoundBank -AllowDevelopmentSounds:$AllowDevelopmentSounds
     $setup = Join-Path $output 'Cassian-Setup-Smoke.exe'
     $installArgs = @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/TASKS=""', '/COMPONENTS="app,vst3"', "/DIR=`"$installDir`"")
     RunInstaller $setup ($installArgs + "/LOG=`"$(Join-Path $testRoot 'install.log')`"")
@@ -29,11 +31,21 @@ try {
     Assert (Test-Path -LiteralPath (Join-Path $installDir 'VST3/Cassian.vst3/Contents/x86_64-win/Cassian.vst3')) 'Optional VST3 was not installed.'
     $shortcut = Join-Path $installDir 'Cassian Test.lnk'
     Assert (Test-Path -LiteralPath $shortcut) 'App shortcut is missing.'
+    $bankPath = if ([IO.Path]::IsPathRooted($SoundBank)) { $SoundBank } else { Join-Path $projectRoot $SoundBank }
+    if (Test-Path -LiteralPath (Join-Path $bankPath 'manifest.json')) {
+        $manifest = Get-Content -LiteralPath (Join-Path $bankPath 'manifest.json') -Raw | ConvertFrom-Json
+        Assert (Test-Path -LiteralPath (Join-Path $installDir 'Sounds/manifest.json')) 'Installer omitted the sound bank.'
+        foreach ($asset in $manifest.assets) {
+            $ext = if ($asset.kind -in @('amp','pedal')) { '.nam' } else { '.wav' }
+            $relative = "Sounds/assets/$($asset.kind)/$($asset.id.Split(':')[1])$ext"
+            Assert ((Get-FileHash -LiteralPath (Join-Path $installDir $relative)).Hash.ToLowerInvariant() -eq $asset.id.Split(':')[1]) 'Installed sound differs from the packaged sound.'
+        }
+    }
     $shell = New-Object -ComObject WScript.Shell
     Assert ($shell.CreateShortcut($shortcut).TargetPath -eq $installedExe) 'Shortcut does not point at the app.'
     $sentinel = Join-Path $installDir 'user-data.txt'
     [IO.File]::WriteAllText($sentinel, 'preserve user data')
-    & "$PSScriptRoot/package-windows.ps1" -Standalone $Standalone -SmokeTest -SkipRootCopy -OutputDirectory $output
+    & "$PSScriptRoot/package-windows.ps1" -Standalone $Standalone -SmokeTest -SkipRootCopy -OutputDirectory $output -SoundBank $SoundBank -AllowDevelopmentSounds:$AllowDevelopmentSounds
     RunInstaller $setup ($installArgs + "/LOG=`"$(Join-Path $testRoot 'upgrade.log')`"")
     Assert ((Get-FileHash -LiteralPath $installedExe).Hash -eq (Get-FileHash -LiteralPath $exe).Hash) 'Upgrade did not retain the correct executable.'
     Assert ([IO.File]::ReadAllText($sentinel) -eq 'preserve user data') 'Upgrade changed user data.'

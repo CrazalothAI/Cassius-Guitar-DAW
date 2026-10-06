@@ -13,6 +13,7 @@ private:
     void chooseImports(const juce::String& kind);
     void choosePractice(bool recording);
     void chooseTakeFolder();
+    void chooseVideoAudio(const juce::String&, const juce::String&, bool, float, float);
     AmpSuiteAudioProcessor& processor;
     // Destruction order: chooser, attachments, browser, relays.
     std::vector<std::unique_ptr<juce::WebSliderRelay>> relays;
