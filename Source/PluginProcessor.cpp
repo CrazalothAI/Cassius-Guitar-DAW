@@ -1,17 +1,18 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "SoundPack.h"
 #include <cstdlib>
 
 static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
 {
     const auto schema = rig["schema"];
-    if ((!schema.isInt() && !schema.isInt64()) || (static_cast<juce::int64>(schema) != 1 && static_cast<juce::int64>(schema) != 2)
+    if ((!schema.isInt() && !schema.isInt64()) || (static_cast<juce::int64>(schema) < 1 || static_cast<juce::int64>(schema) > 3)
         || !rig["state"].isString() || rig["state"].toString().length() > 4 * 1024 * 1024)
         return "Unsupported Cassian rig format.";
     auto xml = juce::XmlDocument::parse(rig["state"].toString());
     if (!xml || !xml->hasTagName("AmpSuiteState")) return "Invalid rig state.";
     state = juce::ValueTree::fromXml(*xml);
-    if (static_cast<int>(schema) == 2 && !state.getChildWithName("PEDALBOARD").isValid()) return "Incomplete rig pedalboard state.";
+    if (static_cast<int>(schema) >= 2 && !state.getChildWithName("PEDALBOARD").isValid()) return "Incomplete rig pedalboard state.";
     if (const auto failure = PedalboardState::migrate(state); failure.isNotEmpty()) return failure;
     if (const auto failure = PerformanceScenes::migrate(state); failure.isNotEmpty()) return failure;
     juce::StringArray ids;
@@ -22,8 +23,8 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
         if (child.hasType("PARAM")) {
             const auto id = child["id"].toString();
             if (ids.contains(id)) return "Duplicate rig parameter.";
-            if (static_cast<int>(schema) == 2) {
-                bool known = false; for (const auto& definition : Params::definitions) if (id == definition.id) { known = true; break; }
+            if (static_cast<int>(schema) >= 2) {
+                bool known = false; BoardParams::each([&](const auto& definition) { if (id == definition.id) known = true; });
                 if (!known) return "Unsupported rig parameter.";
             }
             ids.add(id);
@@ -48,7 +49,8 @@ static juce::String readRig(const juce::var& rig, juce::ValueTree& state)
         if (definition.unit[0] == 0 && amount != std::floor(amount))
             return "Invalid rig routing choice.";
     }
-    return {};
+    if (static_cast<int>(schema) < 3 && PedalboardState::serial(state)) return "Serial boards require rig schema 3.";
+    return BoardParams::addDefaults(state, static_cast<int>(schema) == 3);
 }
 
 AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File libraryRoot)
@@ -57,7 +59,7 @@ AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File li
                                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
       Thread("AmpSuite asset loader"), takes(sharedLibrary ? libraryRoot.getChildFile("takes.xml") : juce::File(), takeReview),
       practice(262144, sharedLibrary ? libraryRoot.getChildFile("practice") : juce::File()),
-      apvts(*this, nullptr, "AmpSuiteState", Params::layout()), sharedStore(sharedLibrary ? libraryRoot : juce::File())
+      apvts(*this, nullptr, "AmpSuiteState", BoardParams::layout()), sharedStore(sharedLibrary ? libraryRoot : juce::File())
 {
     for (size_t i = 0; i < parameters.size(); ++i)
         parameters[i] = apvts.getRawParameterValue(Params::definitions[i].id);
@@ -125,7 +127,7 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     cleanCompressor.prepare({rate, static_cast<juce::uint32>(maxBlock), 1}); cleanCompressor.reset();
     cleanCompressor.setThreshold(value(Params::compThreshold)); cleanCompressor.setRatio(value(Params::compRatio));
     cleanCompressor.setAttack(value(Params::compAttack)); cleanCompressor.setRelease(value(Params::compRelease));
-    compressionMix.reset(rate, 0.03); compressionMix.setCurrentAndTargetValue(value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
+    compressionMix.reset(rate, 0.03); compressionMix.setCurrentAndTargetValue(!serialBoard && value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
     highCutoff.reset(rate, 0.03); highCutoff.setCurrentAndTargetValue(value(Params::highCut));
     stereoWidth.reset(rate, 0.05); stereoWidth.setCurrentAndTargetValue(value(Params::delayWidth) / 100);
     cleanBlend.reset(rate, 0.03); cleanBlend.setCurrentAndTargetValue(value(Params::clean) >= 0.5f ? 1.0f : 0.0f);
@@ -152,6 +154,8 @@ void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSi
     limiter.prepare(spec); limiter.setThreshold(-0.5f); limiter.setRelease(60);
     if (model) model->prepare(rate, maxBlock);
     if (pedal) pedal->prepare(rate, maxBlock);
+    if (pedal1) pedal1->prepare(rate, maxBlock);
+    serialBoard = PedalboardState::serial(apvts.state) ? std::make_unique<SerialPedalboard>(apvts.copyState(), apvts, spec) : nullptr;
     reportedRate.store(rate); reportedBlock.store(hostBlock); reportedChannels.store(getTotalNumOutputChannels());
     prePedalPeak.store(0); postPedalPeak.store(0); postAmpPeak.store(0); postCabPeak.store(0);
     postEqPeak.store(0);
@@ -337,8 +341,10 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     }
     gateLevel.store(gateEnvelope[static_cast<size_t>(buffer.getNumSamples() - 1)]);
 
-    preCompressor.configure(compressorSettings(value(Params::compMode) == 1));
-    float* guitarChannels[] {mono}; preCompressor.process(guitarChannels, 1, buffer.getNumSamples());
+    if (!serialBoard) {
+        preCompressor.configure(compressorSettings(value(Params::compMode) == 1));
+        float* guitarChannels[] {mono}; preCompressor.process(guitarChannels, 1, buffer.getNumSamples());
+    }
     cab->configure(cabinetSettings());
 
     // 4. Dynamic 200-400 Hz Resonance Suppression Notch
@@ -351,8 +357,13 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     for (int i = 0; i < buffer.getNumSamples(); ++i)
         subSynthAudio[static_cast<size_t>(i)] = subSynth.processSample(mono[i], trackedPitch);
 
-    overdrive.configure({value(Params::odOn) >= .5f, value(Params::odDrive), value(Params::odTone), value(Params::odLevel), value(Params::odTight)});
-    overdrive.process(mono, buffer.getNumSamples());
+    if (serialBoard) {
+        float* channel[] {mono}; juce::AudioBuffer<float> pre(channel, 1, buffer.getNumSamples());
+        NamWrapper* captures[] {pedal.get(), pedal1.get()}; serialBoard->process(pre, true, static_cast<float>(metronomeBpm.load()), captures);
+    } else {
+        overdrive.configure({value(Params::odOn) >= .5f, value(Params::odDrive), value(Params::odTone), value(Params::odLevel), value(Params::odTight)});
+        overdrive.process(mono, buffer.getNumSamples());
+    }
     if (activeAmpSource > 0) processUniversalAmp(buffer);
     else
     {
@@ -360,7 +371,7 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     driveGain.setTargetValue(juce::Decibels::decibelsToGain(value(Params::drive)));
     cleanBlend.setTargetValue(value(Params::clean) >= 0.5f ? 1.0f : 0.0f);
     tightCutoff.setTargetValue(value(Params::tight));
-    compressionMix.setTargetValue(value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
+    compressionMix.setTargetValue(!serialBoard && value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
     // A channel that is fully faded out is not computed: on Clean the captures
     // and cabinet rest, on Metal the clean preamp does. Crossfades run both.
     const bool cleanAudible = cleanBlend.getCurrentValue() > 0 || cleanBlend.getTargetValue() > 0;
@@ -399,7 +410,7 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     if (metalAudible) noiseShield.process(mono, dryInput.data(), buffer.getNumSamples(), value(Params::gate), value(Params::gateOn) >= 0.5f);
     prePedalPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
     pedalBlend.setTargetValue(value(Params::pedalOn) >= .5f && value(Params::clean) < .5f ? 1.0f : 0.0f);
-    if (metalAudible && pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
+    if (!serialBoard && metalAudible && pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
     {
         for (int i = 0; i < buffer.getNumSamples(); ++i) pedalAudio[static_cast<size_t>(i)] = mono[i] * pedalInputGain.getNextValue();
         pedal->process(pedalAudio.data(), buffer.getNumSamples());
@@ -438,8 +449,10 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
     }
     }
 
-    postCompressor.configure(compressorSettings(value(Params::compMode) == 2));
-    postCompressor.process(buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+    if (!serialBoard) {
+        postCompressor.configure(compressorSettings(value(Params::compMode) == 2));
+        postCompressor.process(buffer.getArrayOfWritePointers(), buffer.getNumChannels(), buffer.getNumSamples());
+    }
     reportedCompression.store(juce::jmax(preCompressor.reductionDb(), postCompressor.reductionDb()), std::memory_order_relaxed);
 
     // Blend parallel sub-synthesis layer (bypasses pre-gain distortion)
@@ -481,6 +494,10 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
             sample *= gateEnvelope[static_cast<size_t>(i)];
         }
     }
+    if (serialBoard) {
+        NamWrapper* captures[] {pedal.get(), pedal1.get()}; serialBoard->process(buffer, false, static_cast<float>(metronomeBpm.load()), captures);
+        postEqPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
+    } else {
     pedalEq.configure({value(Params::eqOn) >= .5f, value(Params::eqBody), value(Params::eqMud), value(Params::eqFocus), value(Params::eqFizz)});
     pedalEq.process(buffer);
     postEqPeak.store(buffer.getMagnitude(0, 0, buffer.getNumSamples()));
@@ -528,6 +545,8 @@ void AmpSuiteAudioProcessor::processChunk(juce::AudioBuffer<float>& buffer)
             buffer.setSample(ch, i, buffer.getSample(ch, i) * dry + roomChunk.getSample(ch, i));
     }
 
+    } // Fixed compatibility effects.
+
     // Sub-sample micro-timing delay for stereo double-tracking
     microDelay.configure(value(Params::microDelay));
     if (buffer.getNumChannels() >= 2)
@@ -550,7 +569,7 @@ void AmpSuiteAudioProcessor::processUniversalAmp(juce::AudioBuffer<float>& buffe
     const bool lumen = activeAmpSource == 1, ferrum = activeAmpSource == 2, natural = activeAmpSource == 4;
     driveGain.setTargetValue(juce::Decibels::decibelsToGain(value(Params::drive)));
     tightCutoff.setTargetValue(value(Params::tight));
-    compressionMix.setTargetValue(value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
+    compressionMix.setTargetValue(!serialBoard && value(Params::compMode) == 0 ? value(Params::cleanComp) / 100 : 0);
     for (int i = 0; i < size; ++i)
     {
         const auto gain = driveGain.getNextValue(), cutoff = tightCutoff.getNextValue();
@@ -568,7 +587,7 @@ void AmpSuiteAudioProcessor::processUniversalAmp(juce::AudioBuffer<float>& buffe
     if (ferrum) noiseShield.process(mono, dryInput.data(), size, value(Params::gate), value(Params::gateOn) >= .5f);
     prePedalPeak.store(buffer.getMagnitude(0, 0, size));
     pedalBlend.setTargetValue(value(Params::pedalOn) >= .5f ? 1.0f : 0.0f);
-    if (pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
+    if (!serialBoard && pedal && (pedalBlend.isSmoothing() || pedalBlend.getTargetValue() > 0))
     {
         for (int i = 0; i < size; ++i) pedalAudio[static_cast<size_t>(i)] = mono[i] * pedalInputGain.getNextValue();
         pedal->process(pedalAudio.data(), size);
@@ -735,15 +754,22 @@ void AmpSuiteAudioProcessor::run()
         {
             if (threadShouldExit()) break;
             const auto& file = item.first; const auto& kind = item.second;
+            if (kind == "pack") {
+                const auto result = SoundPack::read(file, [&](auto asset) {
+                    sharedStore.manage(asset);
+                    if (static_cast<bool>(asset["managed"])) asset.setProperty("aliases", "[]", nullptr);
+                    const juce::ScopedLock lock(requestLock); library.upsert(asset);
+                }); imported += result.imported; errors.addArray(result.errors); continue;
+            }
             try {
-                if (!file.existsAsFile() || !file.hasFileExtension(kind == "cab" ? "wav" : "nam"))
+                if (!file.existsAsFile() || !file.hasFileExtension((kind == "cab" || kind == "ambience") ? "wav" : "nam"))
                     throw std::runtime_error("Invalid asset file");
                 // Validate imports off the audio thread without changing the playing rig.
-                if (kind != "cab") { NamWrapper validation(file); }
+                if (kind != "cab" && kind != "ambience") { NamWrapper validation(file); }
                 else {
                     std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(file));
-                    if (!reader || reader->lengthInSamples <= 0 || reader->numChannels == 0 || reader->numChannels > 2 || reader->lengthInSamples > reader->sampleRate * 10)
-                        throw std::runtime_error("Choose a mono/stereo WAV impulse response up to 10 seconds");
+                    if (!reader || reader->lengthInSamples <= 0 || reader->numChannels == 0 || reader->numChannels > 2 || reader->lengthInSamples > reader->sampleRate * (kind == "ambience" ? 30 : 10))
+                        throw std::runtime_error(kind == "ambience" ? "Choose a mono/stereo ambience response up to 30 seconds" : "Choose a mono/stereo cabinet response up to 10 seconds");
                 }
                 const auto asset = AssetLibrary::describe(file, kind);
                 sharedStore.manage(asset);
@@ -785,11 +811,12 @@ juce::var AmpSuiteAudioProcessor::status()
         result->setProperty("libraryRevision", library.revision);
         result->setProperty("modelId", library.idForPath("amp", desiredModel));
         result->setProperty("rigLoading", sceneAssetsLoading());
+        result->setProperty("board", boardStatus());
         result->setProperty("activeRigId", activeRig.id); result->setProperty("activeRigName", activeRig.name);
         const bool saved = library.find(activeRig.id).hasType("RIG");
         result->setProperty("activeRigSaved", saved);
-        result->setProperty("activeRigEdited", activeRig.edited(apvts, {desiredModel, desiredIr, desiredPedal, desiredIrB},
-            {library.idForPath("amp", desiredModel), library.idForPath("cab", desiredIr), library.idForPath("pedal", desiredPedal), library.idForPath("cab", desiredIrB)}, scenes.save()) || (!saved && activeRig.name.isNotEmpty()));
+        result->setProperty("activeRigEdited", activeRig.edited(apvts, {desiredModel, desiredIr, desiredPedal, desiredIrB, desiredPedal1, desiredAmbience, desiredAmbience1},
+            {library.idForPath("amp", desiredModel), library.idForPath("cab", desiredIr), library.idForPath("pedal", desiredPedal), library.idForPath("cab", desiredIrB), library.idForPath("pedal", desiredPedal1), library.idForPath("ambience", desiredAmbience), library.idForPath("ambience", desiredAmbience1)}, scenes.save()) || (!saved && activeRig.name.isNotEmpty()));
     }
     {
         // UI polling must never hold the DSP lock: the callback would emit silence.
@@ -882,7 +909,10 @@ juce::ValueTree AmpSuiteAudioProcessor::copyRigState(bool includeSavedRigs)
         state.setProperty("modelId", library.idForPath("amp", desiredModel), nullptr);
         state.setProperty("irId", library.idForPath("cab", desiredIr), nullptr);
         state.setProperty("pedalId", library.idForPath("pedal", desiredPedal), nullptr);
-        for (const auto* stage : {"model", "ir", "pedal", "irB"}) {
+        state.setProperty("ambiencePath", desiredAmbience, nullptr); state.setProperty("ambienceId", library.idForPath("ambience", desiredAmbience), nullptr);
+        state.setProperty("ambience1Path", desiredAmbience1, nullptr); state.setProperty("ambience1Id", library.idForPath("ambience", desiredAmbience1), nullptr);
+        state.setProperty("pedal1Path", desiredPedal1, nullptr); state.setProperty("pedal1Id", library.idForPath("pedal", desiredPedal1), nullptr);
+        for (const auto* stage : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"}) {
             const auto reference = library.find(state[juce::String(stage) + "Id"].toString());
             if (reference.isValid() && static_cast<bool>(reference["managed"]) && AssetLibrary::exists(reference["path"].toString()))
                 state.setProperty(juce::String(stage) + "Path", reference["path"], nullptr);
@@ -909,6 +939,16 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
     for (const auto& child : state) if (child.hasType("SCENES") && ++sceneBanks > 1) failure = "Duplicate scene bank.";
     if (failure.isEmpty()) failure = PerformanceScenes::validateBoards(state.getChildWithName("SCENES"));
     if (failure.isNotEmpty()) { message = "Session not restored: " + failure; return; }
+    bool completeFixed = PedalboardState::serial(apvts.state);
+    for (const auto& p : Params::definitions) if (!state.getChildWithProperty("id", p.id).isValid()) completeFixed = false;
+    if (PedalboardState::serial(state) || (completeFixed && PerformanceScenes::migrate(state).isEmpty())) {
+        if (!PedalboardState::serial(state)) BoardParams::addDefaults(state, false);
+        auto rig = std::make_unique<juce::DynamicObject>(); rig->setProperty("schema", 3); rig->setProperty("state", state.toXmlString());
+        const auto result = applyRig(juce::var(rig.release()), false);
+        if (result.isNotEmpty()) message = "Session not restored: " + result;
+        return;
+    }
+    if (const auto result = BoardParams::addDefaults(state, false); result.isNotEmpty()) { message = "Session not restored: " + result; return; }
     // Malformed old scene banks still clear/report their own error as before.
     // Valid banks are upgraded on this isolated tree, without rewriting files.
     PerformanceScenes::migrate(state);
@@ -924,7 +964,7 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
         const juce::ScopedLock lock(requestLock);
         library.merge(state.getChildWithName("LIBRARY"));
         activeRig.refreshSavedBaseline(library.find(activeRig.id));
-        for (const auto& stage : {"model", "ir", "pedal", "irB"})
+        for (const auto& stage : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"})
         {
             const auto key = juce::String(stage) + "Path";
             const auto reference = library.find(state[juce::String(stage) + "Id"].toString());
@@ -944,6 +984,9 @@ void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
             state.addChild(parameter, -1, nullptr);
         }
     }
+    std::unique_ptr<SerialPedalboard> retiredBoard; std::unique_ptr<NamWrapper> retiredPedal;
+    { const juce::ScopedLock audioGuard(dspLock); retiredBoard.swap(serialBoard); retiredPedal.swap(pedal1); }
+    desiredPedal1.clear(); pedal1Path.clear(); desiredAmbience.clear(); ambiencePath.clear(); desiredAmbience1.clear(); ambience1Path.clear(); boardUndo.clear(); boardRedo.clear(); pendingBoardBefore = {}; pendingScene = -1;
     apvts.replaceState(state);
     { const juce::ScopedLock lock(requestLock);
       ++requestGeneration; pendingRig = {}; rigLoading.store(false); rigSwapReady.store(false);
@@ -978,7 +1021,7 @@ juce::String AmpSuiteAudioProcessor::handleMidiAction(const MidiControl::Mapping
 bool AmpSuiteAudioProcessor::sceneAssetsLoading() const
 {
     return rigLoading.load() || modelPending || pedalPending || irPending || irBPending
-        || desiredModel != modelPath || desiredPedal != pedalPath || desiredIr != irPath || desiredIrB != irBPath;
+        || desiredModel != modelPath || desiredPedal != pedalPath || desiredIr != irPath || desiredIrB != irBPath || desiredPedal1 != pedal1Path || desiredAmbience != ambiencePath || desiredAmbience1 != ambience1Path;
 }
 juce::String AmpSuiteAudioProcessor::storeScene(int slot, const juce::String& name)
 {
@@ -990,7 +1033,12 @@ juce::String AmpSuiteAudioProcessor::recallScene(int slot)
 {
     const juce::ScopedLock guard(requestLock);
     if (sceneAssetsLoading()) return "Finish loading the rig before recalling a scene.";
-    return scenes.recall(slot, apvts);
+    auto state = copyRigState(false);
+    if (const auto failure = scenes.applySnapshot(slot, state); failure.isNotEmpty()) return failure;
+    if (PedalboardState::equal(state, apvts.state) || (!PedalboardState::serial(state) && !PedalboardState::serial(apvts.state))) return scenes.recall(slot, apvts);
+    auto rig = std::make_unique<juce::DynamicObject>(); rig->setProperty("schema", 3); rig->setProperty("state", state.toXmlString());
+    if (const auto failure = applyRig(juce::var(rig.release())); failure.isNotEmpty()) return failure;
+    pendingScene = slot; return {};
 }
 juce::String AmpSuiteAudioProcessor::clearScene(int slot)
 {
@@ -1077,7 +1125,7 @@ juce::String AmpSuiteAudioProcessor::validateRigDocument(const juce::var& rig) {
 juce::String AmpSuiteAudioProcessor::migrateRigDocument(const juce::var& rig, juce::ValueTree& state) { return readRig(rig, state); }
 void AmpSuiteAudioProcessor::importAssets(const juce::Array<juce::File>& files, const juce::String& kind)
 {
-    if (kind != "amp" && kind != "pedal" && kind != "cab") return;
+    if (kind != "amp" && kind != "pedal" && kind != "cab" && kind != "ambience" && kind != "pack") return;
     const juce::ScopedLock lock(requestLock);
     for (const auto& file : files) pendingImports.emplace_back(file, kind);
     if (!files.isEmpty()) message = "Importing library files...";
@@ -1087,7 +1135,7 @@ juce::var AmpSuiteAudioProcessor::getRig()
 {
     {
         const juce::ScopedLock lock(requestLock);
-        if (rigLoading.load() || desiredModel != modelPath || desiredIr != irPath || desiredIrB != irBPath || desiredPedal != pedalPath)
+        if (rigLoading.load() || desiredModel != modelPath || desiredIr != irPath || desiredIrB != irBPath || desiredPedal != pedalPath || desiredPedal1 != pedal1Path || desiredAmbience != ambiencePath || desiredAmbience1 != ambience1Path)
         {
             auto result = std::make_unique<juce::DynamicObject>(); result->setProperty("error", "Finish loading or relinking the assets before saving/comparing this rig.");
             return juce::var(result.release());
@@ -1098,7 +1146,7 @@ juce::var AmpSuiteAudioProcessor::getRig()
     if (const auto failure = PedalboardState::validate(state); failure.isNotEmpty()) {
         result->setProperty("error", failure); return juce::var(result.release());
     }
-    result->setProperty("schema", 2); result->setProperty("state", state.createXml()->toString());
+    result->setProperty("schema", 3); result->setProperty("state", state.createXml()->toString());
     const auto guitar = guitarPower.load(), input = inputPower.load();
     if (guitar > 1e-6f && input > 1e-6f) {
         result->setProperty("guitarRmsDb", 10 * std::log10(guitar)); result->setProperty("inputRmsDb", 10 * std::log10(input));
@@ -1122,7 +1170,7 @@ juce::String AmpSuiteAudioProcessor::applyRig(const juce::var& rig, bool preserv
     // the current rig untouched, rather than playing new settings through old files.
     {
         const juce::ScopedLock lock(requestLock);
-        for (const auto& stage : {"model", "ir", "pedal", "irB"})
+        for (const auto& stage : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"})
         {
             const auto key = juce::String(stage) + "Path";
             auto path = state[key].toString();
@@ -1135,15 +1183,16 @@ juce::String AmpSuiteAudioProcessor::applyRig(const juce::var& rig, bool preserv
                 if (!juce::File::isAbsolutePath(path) || !juce::File(path).existsAsFile()) return "Missing " + juce::String(stage) + " asset. Relink it in the Library first.";
                 state.setProperty(key, path, nullptr);
             }
-            if (!juce::File(path).hasFileExtension((juce::String(stage) == "ir" || juce::String(stage) == "irB") ? "wav" : "nam")) return "Invalid asset format in rig.";
+            if (!juce::File(path).hasFileExtension((juce::String(stage) == "ir" || juce::String(stage) == "irB" || juce::String(stage).startsWith("ambience")) ? "wav" : "nam")) return "Invalid asset format in rig.";
             const auto id = state[juce::String(stage) + "Id"].toString();
-            const auto kind = juce::String(stage) == "model" ? "amp" : (juce::String(stage) == "ir" || juce::String(stage) == "irB") ? "cab" : "pedal";
+            const auto kind = juce::String(stage).startsWith("ambience") ? "ambience" : juce::String(stage) == "model" ? "amp" : (juce::String(stage) == "ir" || juce::String(stage) == "irB") ? "cab" : "pedal";
             if (id.isNotEmpty() && id != juce::String(kind) + ":" + juce::SHA256(juce::File(path)).toHexString())
                 return "The " + juce::String(stage) + " file has changed. Relink the original asset or import the changed file as a new asset.";
         }
     }
     {
         const juce::ScopedLock lock(requestLock);
+        pendingBoardBefore = {}; pendingScene = -1;
         pendingRig = state; pendingRigPreservesGlobals = preserveGlobals; ++requestGeneration;
         for (auto& sequence : stageRequestGeneration) ++sequence;
         modelPending = irPending = pedalPending = irBPending = false; rigLoading.store(true);
@@ -1159,7 +1208,7 @@ juce::String AmpSuiteAudioProcessor::saveRig(const juce::String& name)
     const juce::ScopedLock lock(requestLock);
     juce::ValueTree entry("RIG");
     entry.setProperty("id", juce::Uuid().toString(), nullptr); entry.setProperty("name", title, nullptr);
-    entry.setProperty("schema", 2, nullptr);
+    entry.setProperty("schema", 3, nullptr);
     entry.setProperty("state", rig["state"], nullptr); entry.setProperty("favorite", false, nullptr);
     library.tree.addChild(entry, -1, nullptr); ++library.revision;
     const auto error = persistLibrary();
@@ -1173,7 +1222,7 @@ juce::String AmpSuiteAudioProcessor::updateActiveRig()
     const juce::ScopedLock lock(requestLock); auto entry = library.find(activeRig.id);
     if (!entry.hasType("RIG")) return "Save this tone as a new complete rig first.";
     const auto previous = entry["state"], previousSchema = entry["schema"]; const bool hadSchema = entry.hasProperty("schema");
-    entry.setProperty("state", snapshot["state"], nullptr); entry.setProperty("schema", 2, nullptr); ++library.revision;
+    entry.setProperty("state", snapshot["state"], nullptr); entry.setProperty("schema", 3, nullptr); ++library.revision;
     const auto error = persistLibrary();
     if (error.isEmpty()) activeRig.set(activeRig.id, entry["name"].toString(), juce::ValueTree::fromXml(*juce::XmlDocument::parse(snapshot["state"].toString())));
     else { entry.setProperty("state", previous, nullptr); if (hadSchema) entry.setProperty("schema", previousSchema, nullptr); else entry.removeProperty("schema", nullptr); }
@@ -1184,11 +1233,14 @@ juce::String AmpSuiteAudioProcessor::loadRig(const juce::String& id)
     juce::var state; int schema = 1;
     { const juce::ScopedLock lock(requestLock); const auto rig = library.find(id); if (!rig.hasType("RIG")) return "Rig not found.";
       if (rig.hasProperty("schema")) {
-          const auto stored = rig["schema"].toString(); if (stored != "1" && stored != "2") return "Unsupported saved rig format.";
-          schema = stored == "2" ? 2 : 1;
+          const auto stored = rig["schema"].toString(); if (stored != "1" && stored != "2" && stored != "3") return "Unsupported saved rig format.";
+          schema = stored.getIntValue();
       }
       const auto xml = juce::XmlDocument::parse(rig["state"].toString()); if (!xml) return "Invalid saved rig.";
-      auto document = juce::ValueTree::fromXml(*xml); ActiveRig identity; identity.set(id, rig["name"].toString(), document);
+      auto document = juce::ValueTree::fromXml(*xml);
+      auto saved = std::make_unique<juce::DynamicObject>(); saved->setProperty("schema", schema); saved->setProperty("state", document.toXmlString());
+      if (const auto failure = readRig(juce::var(saved.release()), document); failure.isNotEmpty()) return failure;
+      ActiveRig identity; identity.set(id, rig["name"].toString(), document);
       const auto old = document.getChildWithName("ACTIVE_RIG"); if (old.isValid()) document.removeChild(old, nullptr);
       document.addChild(identity.save(), -1, nullptr); state = document.createXml()->toString(); }
     auto rig = std::make_unique<juce::DynamicObject>(); rig->setProperty("schema", schema); rig->setProperty("state", state);
@@ -1202,7 +1254,7 @@ juce::String AmpSuiteAudioProcessor::importRig(const juce::String& name, const j
     for (int i = imported.getNumChildren(); --i >= 0;) if (!imported.getChild(i).hasType("ASSET")) imported.removeChild(i, nullptr);
     const juce::ScopedLock lock(requestLock); library.merge(imported);
     juce::ValueTree entry("RIG"); entry.setProperty("id", juce::Uuid().toString(), nullptr);
-    entry.setProperty("schema", 2, nullptr);
+    entry.setProperty("schema", 3, nullptr);
     entry.setProperty("name", name.trim().substring(0, 80), nullptr); entry.setProperty("state", state.createXml()->toString(), nullptr);
     library.tree.addChild(entry, -1, nullptr); ++library.revision;
     return persistLibrary();
@@ -1227,7 +1279,26 @@ bool AmpSuiteAudioProcessor::selectAsset(const juce::String& id, bool cabinetB)
     if (!asset.hasType("ASSET") || !juce::File(asset["path"].toString()).existsAsFile()) return false;
     const auto kind = asset["kind"].toString(); const juce::File file(asset["path"].toString());
     if (kind == "amp") { requestFile(true, file); setParameterValue("CAPTURE_KIND", static_cast<float>(asset["captureKind"])); setParameterValue("AMP_SOURCE", 3); }
-    else if (kind == "pedal") { requestPedal(file); setParameterValue("PEDAL_ON", 1); }
+    else if (kind == "pedal") {
+        const juce::ScopedLock guard(requestLock);
+        if (PedalboardState::serial(apvts.state)) {
+            for (const auto& row : apvts.state.getChildWithName("PEDALBOARD")) if (PedalboardState::kind(row) == 2 && static_cast<int>(row["deleted"]) == 0) {
+                auto args = std::make_unique<juce::DynamicObject>(); args->setProperty("id", row["id"]); args->setProperty("assetId", id); args->setProperty("enable", true);
+                return boardCommand("capture", juce::var(args.release())).isEmpty();
+            }
+            return false;
+        }
+        requestPedal(file); setParameterValue("PEDAL_ON", 1);
+    }
+    else if (kind == "ambience") {
+        const juce::ScopedLock guard(requestLock);
+        if (!PedalboardState::serial(apvts.state)) return false;
+        for (const auto& row : apvts.state.getChildWithName("PEDALBOARD")) if (PedalboardState::kind(row) == 8 && static_cast<int>(row["deleted"]) == 0) {
+            auto args = std::make_unique<juce::DynamicObject>(); args->setProperty("id", row["id"]); args->setProperty("assetId", id);
+            return boardCommand("capture", juce::var(args.release())).isEmpty();
+        }
+        return false;
+    }
     else if (kind == "cab") { if (cabinetB) { requestCabB(file); setParameterValue("CAB_B_ON", 1); } else requestFile(false, file); setParameterValue("CAB_MODE", 1); }
     else return false;
     return true;
@@ -1243,10 +1314,22 @@ juce::String AmpSuiteAudioProcessor::relinkAsset(const juce::String& id, const j
     const bool activeCab = kind == "cab" && library.idForPath(kind, desiredIr) == id;
     const bool activeCabB = kind == "cab" && library.idForPath(kind, desiredIrB) == id;
     const bool activePedal = kind == "pedal" && library.idForPath(kind, desiredPedal) == id;
+    const bool activePedal1 = kind == "pedal" && library.idForPath(kind, desiredPedal1) == id;
+    const bool activeAmbience = kind == "ambience" && library.idForPath(kind, desiredAmbience) == id;
+    const bool activeAmbience1 = kind == "ambience" && library.idForPath(kind, desiredAmbience1) == id;
     AssetLibrary::rememberPath(asset, file.getFullPathName());
     try { sharedStore.manage(asset); } catch (const std::exception& e) { return e.what(); }
     library.upsert(asset);
     if (const auto error = persistLibrary(); error.isNotEmpty()) return error;
+    if (activePedal1 || activeAmbience || activeAmbience1) {
+        auto state = copyRigState(false);
+        if (activePedal) state.setProperty("pedalPath", asset["path"], nullptr);
+        if (activePedal1) state.setProperty("pedal1Path", asset["path"], nullptr);
+        if (activeAmbience) state.setProperty("ambiencePath", asset["path"], nullptr);
+        if (activeAmbience1) state.setProperty("ambience1Path", asset["path"], nullptr);
+        auto rig = std::make_unique<juce::DynamicObject>(); rig->setProperty("schema", 3); rig->setProperty("state", state.toXmlString());
+        return applyRig(juce::var(rig.release()));
+    }
     if (activeAmp || activeCab || activeCabB || activePedal) { ++requestGeneration; pendingRig = {}; rigLoading.store(false); rigSwapReady.store(false); }
     if (activeAmp) ++stageRequestGeneration[0];
     if (activeCab) ++stageRequestGeneration[1];

@@ -6,8 +6,11 @@
 - [x] Simplify navigation: Tone, Board, Practice and Takes; compact practice/take amp strip; saved rig identity and direct saving.
 - [x] Add the compatibility foundation for pedalboards: bounded identities, fixed automation bindings, schema-2 exports, legacy migrations and rejected-recall protection.
 - [x] Inventory existing sound files and document calibration, routing, coverage gaps and redistribution evidence.
-- [ ] Complete independent block parameters/assets, ordered pre/post lanes, automation slot reuse rules and broader pack traversal.
-- [ ] Build the serial audio runtime and editor with duplication, reordering, bypass, undo/redo and keyboard alternatives.
+- [x] Complete independent block parameters/assets, ordered pre/post lanes, reserved automation slots and broader pack traversal.
+- [x] Build the first serial audio runtime/editor with duplication/replacement, drag/arrow reordering, bypass and undo/redo.
+- [x] Add recorded ambience responses and safe sound-ZIP intake; validate/import the October user packs.
+- [x] Measure a demanding actual-capture board at 128/256/512 samples and optimize long-response convolution; see [October intake](SOUND-INTAKE-OCTOBER.md).
+- [ ] Audition complete genre rigs and validate sustained live interface / DAW use.
 - Validation and remaining limits: [Play Along and navigation](PLAY-ALONG-NAVIGATION.md).
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).
 - Follow the implementation order in [NEXT-STEPS.md](NEXT-STEPS.md) for pedalboards, sounds, curated rigs and real-use validation.

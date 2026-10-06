@@ -51,12 +51,12 @@ public:
         const auto source = juce::File(asset["path"].toString());
         const auto id = asset["id"].toString(), kind = asset["kind"].toString();
         const auto hash = id.fromFirstOccurrenceOf(":", false, false);
-        if ((kind != "amp" && kind != "pedal" && kind != "cab") || hash.length() != 64 || hash.removeCharacters("0123456789abcdef").isNotEmpty())
+        if ((kind != "amp" && kind != "pedal" && kind != "cab" && kind != "ambience") || hash.length() != 64 || hash.removeCharacters("0123456789abcdef").isNotEmpty())
             throw std::runtime_error("Invalid managed asset identity");
         Guard guard(mutex);
         const auto folder = directory.getChildFile("assets").getChildFile(kind);
         if (folder.createDirectory().failed()) throw std::runtime_error("Could not create managed asset storage");
-        const auto target = folder.getChildFile(hash + (kind == "cab" ? ".wav" : ".nam"));
+        const auto target = folder.getChildFile(hash + ((kind == "cab" || kind == "ambience") ? ".wav" : ".nam"));
         if (target.existsAsFile()) {
             if (juce::SHA256(target).toHexString() != hash) throw std::runtime_error("Managed asset content has changed; relink the original file");
         } else {

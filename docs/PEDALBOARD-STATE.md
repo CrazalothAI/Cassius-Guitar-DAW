@@ -1,64 +1,45 @@
-# Pedalboard state foundation
+# Pedalboards and state compatibility
 
-Implementation checkpoint: 2026-10-05. This milestone establishes a versioned description of the existing effects, their stable identities, and their automation bindings. It does not change their audio order or enable additional effect instances. The full serial editor and audio runtime remain a subsequent milestone.
+Implementation checkpoint: 2026-10-06. Cassian supports the original fixed chain and an explicitly enabled serial board. Automatic migration preserves the fixed audio path; conversion is a user action.
 
-## Supported document
+## Editing a serial board
 
-New external rig documents use integer `schema: 2` with an `AmpSuiteState` XML string. All 87 current parameter rows and one supported pedalboard are required. Schema 1 remains accepted and receives the established defaults for missing controls after the first 41. Missing board metadata migrates only for legacy documents; a present invalid board never falls back to the old chain. Fractional/wrapping schema numbers and unknown schema-2 parameters reject.
+In **Board**, choose **Enable serial editing**. Pedals appear in **Before amp** and **After cabinet** lanes. Select a pedal to edit its controls, assign captured files, duplicate, replace, remove or move between lanes. Drag cards or use the accessible arrow buttons to reorder. Bypass ramps over 30 ms; the bypassed signal is exactly dry after the ramp settles. Output trim belongs to each instance.
 
-New saved library entries also retain `schema=2`; entries without a schema property are legacy. Native sessions retain their binary XML wrapper and sparse legacy parameter handling. Scene banks write JSON version 2 with each occupied slot's validated board XML; version-1 banks inherit the shared rig identities during migration.
+The runtime supports compressor, built-in overdrive, captured NAM pedal, EQ, modulation, chorus, delay, reverb and recorded ambience. Overdrive and NAM pedals are restricted to the mono pre-amp lane. Other effects can run mono before the amp or stereo after the cabinet. One amp and the existing parallel cabinet A/B stage remain shared.
 
-The `AmpSuiteState` XML document can contain one `PEDALBOARD` child. Its only properties are `version=1` and `runtime="legacy-fixed-v1"`. It contains exactly the following eight ordered `BLOCK` children:
+There are two kind-qualified automation slots per type, with at most 16 reserved blocks across the board. Removal creates a tombstone and does not release the slot. Replacement reserves a new identity/slot. Reordering never changes parameter identity. If both slots for a type are reserved, Undo can restore a removed pedal; choose another saved rig to start another board. This prevents old automation from silently controlling a newly added effect.
 
-| Type | Initial identity | Fixed anchor | Existing parameter binding |
-| --- | --- | --- | --- |
-| `compressor` | `legacy.compressor` | `compressor-mode` | `COMP_MODE`, `COMP_*`, `CLEAN_COMP` |
-| `overdrive` | `legacy.overdrive` | `pre-amp` | `OD_*` |
-| `neural-pedal` | `legacy.neural-pedal` | `amp-pedal` | `PEDAL_ON`, `PEDAL_INPUT`, `PEDAL_OUTPUT` |
-| `eq` | `legacy.eq` | `post-eq` | `EQ_*` |
-| `modulation` | `legacy.modulation` | `post-modulation` | `MOD_*` |
-| `chorus` | `legacy.chorus` | `post-chorus` | `CHORUS_*` |
-| `delay` | `legacy.delay` | `post-delay` | `DELAY_*` |
-| `reverb` | `legacy.reverb` | `post-reverb` | `REVERB_*` |
+Undo/Redo keeps the latest 32 structural edits and capture assignments in this processor instance. It restores pedal controls, topology and pedal/ambience files, retaining the current amp, cabinets, scenes and listening settings. Ordinary knob gestures use host automation and are not added to this structural history. Loading another complete rig resets the history; it is not persisted across app restarts.
 
-Every block has exactly `id`, `type`, `automationSlot`, `anchor`, and `trimDb`. The neural pedal additionally requires `assetKey="pedal"`, referring to the existing top-level `pedalId`/`pedalPath` reference. `automationSlot` is integer zero; it is qualified by block type and binds that block to its existing parameters. `trimDb` is finite zero; a separate output trim is not implemented. IDs contain 1–64 ASCII letters, digits, periods, underscores, or hyphens and must be unique within the board.
+Conversion moves the neural pedal ahead of the amp's drive/tight processing and turns embedded clean compression into an ordinary pedal. Compressor Off remains bypassed. The serial reverb has unity dry output at zero mix instead of the fixed chain's legacy doubled dry level. Conversion can therefore change sound and level; Undo restores the fixed routing. Built-in starting presets change their existing controls without removing independent duplicate pedals; use a saved complete rig to recall exact topology and files.
 
-The APVTS parameter rows remain the sole source of effect settings and bypass. Blocks do not duplicate parameter values or bypass properties. For chorus, delay and reverb, the existing mix controls determine their contribution; the board does not invent new switches. Existing parameter IDs, ranges and host indices remain unchanged.
+## Document and automation contracts
 
-Missing board state means this fixed legacy board. Migration adds it once with deterministic identities, leaving parameters and asset paths intact. Already valid identities are preserved, including identities different from the deterministic defaults. Equality compares the effective board, so an old document without a board equals its default migration. XML reads turn numeric attributes into strings; validation accepts the exact serialized integer spellings `1` and `0`, while rejecting booleans, fractional values and integer overflow.
+New external documents and saved library rigs write integer `schema: 3` and `AmpSuiteState` XML. All 159 PARAM rows are required: the original 87 IDs and host indices are unchanged, and 72 append-only controls follow them. Slot 0 reuses its original kind's parameters; slot 1 uses IDs such as `BOARD_EQ_1_EQ_FOCUS`. Types lacking an existing switch gain kind-qualified ON controls; every slot has a `BOARD_<TYPE>_<SLOT>_TRIM`. Ambience has new slot-qualified mix controls.
 
-## Audio compatibility
+Schema 1 still requires its original first 41 controls and defaults later ones. Schema 2 requires the original complete controls and a fixed board. Both default missing independent controls. Native sparse fixed sessions retain historical handling. New serial sessions validate a complete isolated document and prepare the graph before replacing the live state. Present invalid/future boards never fall back to fixed routing.
 
-The anchors describe compatibility bindings, not a freely reorderable signal chain. The compressor's mode remains significant: mode 0 is compression inside the Lumen/legacy clean algorithm, mode 1 processes mono input before the amp, mode 2 processes the output after the cabinet, and mode 3 turns the compressor off. Migration does not convert the embedded clean compressor into a pre or post pedal.
+The original `PEDALBOARD version=1 runtime="legacy-fixed-v1"` retains exactly its eight bindings and all prior field validation. Its deterministic IDs are `legacy.<type>`, slots are zero, trimDb is zero, and the neural assetKey is `pedal`. Missing board metadata in legacy documents migrates to this description without changing audio.
 
-The built-in overdrive precedes the selected amp algorithm. The neural pedal remains inside the amp processing path after its existing drive/tight processing. Legacy clean routing retains its original neural-pedal bypass behavior; explicit amp selection retains its current pedal behavior. EQ remains after amp output, tone controls, high cut and the second gate-envelope pass. Modulation, chorus, delay and reverb retain their original order and effect histories.
+Serial boards use `version=2 runtime="serial-v1"`. Each BLOCK has exactly `id`, `type`, `automationSlot`, `lane` and `deleted`, with no children. IDs are unique 1–64 character ASCII identities; type/slot pairs remain unique including tombstones. Slots are integers 0/1, lanes pre/post, and deleted is 0/1. Validation rejects duplicate trees, unknown types/properties, unsupported channel placement, oversized state, invalid IDs, fractional/wrapping integers and duplicate automation bindings. XML's exact numeric strings are accepted. PARAM rows remain authoritative for values/bypass/trim.
 
-The amp, cabinet, input gain, hum removal, gate, resonance, parallel sub layer, amp tone controls and stereo micro-delay retain their existing processing. Cabinet A/B can generate stereo after the mono amp path. Current NAM processing accepts mono input and mono output, so this foundation does not permit placing a neural pedal after stereo cabinets or effects. A future implementation must explicitly support or reject channel conversions.
+## Files, scenes, packs and audio
 
-Recording and offline reamping use the existing guitar path. External backing tracks, metronome, listening-only Guitar balance/Mix focus, Master and final output protection remain outside this board description.
+Top-level model/ir/irB references retain the amp and cabinets. pedal/pedal1 identify separate recurrent NAM engines, even when the files have identical content. ambience/ambience1 identify independent convolution responses. Their stable IDs, managed paths and all seven file references travel through rigs, A/B, native sessions, takes and portable packs. Managed copies preserve original capture names for filename-based compatibility detection. Relinking verifies content hashes and rebuilds affected independent slots.
 
-## Validation and recall
+Scenes write JSON version 3 with complete tone parameters and their board XML. Version 1 inherits the shared rig's identities; version 2 defaults new controls. Files remain shared per slot across scenes. Same-topology recall changes parameters without resetting histories. Different topology prepares/replaces the graph; the recalled scene remains selected. Input calibration, Master, metronome and Play Along listening settings stay global.
 
-Board validation rejects unsupported versions/runtimes, duplicate board children, missing or extra blocks, reordered types, duplicate or invalid identities, unknown properties, nested children, changed anchors, nonzero slots, nonzero or invalid trim, and additional asset references. The serialized board is limited to 16 KiB. Unsupported state is rejected before recall changes the active tone, assets, scene bank or saved-rig identity; it is never silently interpreted as a different audio graph.
+Portable packs contain one validated document and up to seven deduplicated assets, at most 64 MB per asset and 452 MB expanded total. Invalid board state rejects before extraction or destination replacement. Existing take snapshots and original WAVs are not rewritten by reamping. A pack containing third-party files does not grant redistribution permission.
 
-The shared state helper is used at rig and session boundaries. Stored scenes, complete rigs, A/B, take snapshots and schema-1 packs retain this description through their surrounding state machinery. A missing description migrates on read; existing take files do not need rewriting. Schema-1 packs still reference only the existing amp, pedal and cabinet A/B assets. This milestone does not expand their asset limits or authorize redistribution of captures.
+Graph construction, model preparation, WAV reads and long convolution construction occur off the audio callback. Processing uses cached atomic parameter pointers and bounded scratch buffers. Fully bypassed captured pedals stop running their recurrent engines after the fade; delay/reverb receive silence to drain tails. Publication follows the existing guitar fade and guarded swap. Serial topology changes restart effect tails; independent old-scene tails and gapless switching are not implemented. Returning to the fixed path clears frozen fixed delay/reverb buffers. Host tail reporting is 60 seconds to allow two serial 30-second responses.
 
-Pack import and export use the same isolated validated/migrated tree as rig recall. New packs contain a schema-2 document and retain the four-asset bound; an unsupported board rejects before extraction or destination replacement. Original take documents remain byte-identical when used for a reamp. A reamp keeps its supplied reference snapshot alongside the newly rendered audio rather than rewriting the original.
+Recorded ambience preserves file length, channel timing and amplitude: no automatic trim or normalization. Blend interpolates between dry and the captured response, and trim adjusts its level. Captured decay/repeats are fixed; Size, tempo sync and arbitrary repeat feedback are not recreated from an IR. Adjustable delay/reverb remain separate block types.
 
-## Future serial runtime and automation
+The metronome, backing buses, listening-only Guitar balance/Focus, Master and output protection remain outside the recorded/reamped guitar board.
 
-The intended serial board budget is at most 16 effect blocks across pre/post lanes, with one amp and the existing cabinet stage. The current runtime still contains eight singleton effect bindings and at most one active neural pedal plus the amp capture; no claim is made about additional NAM instances or CPU headroom.
+## Verification and limits
 
-Persistent block identity must be separate from order and from automation slot. A later serial runtime will assign stable, kind-qualified slots with an explicit namespace, such as `BOARD_EQ_01_FOCUS`; this is a design example, not an exposed parameter today. Reordering a block must preserve its automation binding. Duplicating it must allocate a new identity and slot. Deleting, replacing or reusing slots must have an explicit policy so old host automation cannot silently begin controlling another effect. The existing legacy parameter IDs remain supported through the slot-zero bindings.
+Native tests cover independent controls, order-dependent audio, exact settled bypass, kind-slot reservation, reorder/replacement, Undo/Redo, scene topology recall, native restore at an alternate host rate, atomic invalid recall, two independent NAM slots and deduplicated portable round-trip. Synthetic stereo ambience verifies captured timing/gain. Existing legacy migration comparisons remain sample-identical, and Play Along recording isolation remains covered.
 
-Before enabling the editor, implement independent DSP instances, validated asset traversal and pack deduplication, bounded buffers and channel rules, worker-thread graph preparation, safe transitions and undo/redo. Then verify audible order changes, stereo preservation, automation recall, old state migration and measured performance with real captures.
-
-`tests/PedalboardStateTests.cpp` verifies deterministic/idempotent migration, preservation of existing tone data and block identities, XML round trips, effective legacy equality, and rejection without document mutation. Integration tests cover the surrounding rig/session/scene/pack/take paths.
-
-## Verification
-
-The Windows Release build and all four native CTest entries pass. The 113 existing UI tests pass; this milestone adds no UI or audio-routing control. Focused board checks cover malformed/future/duplicate state, fractional/wrapping schemas, incomplete schema-2 documents, sparse legacy host states, first-41-control rigs, saved identities/baselines, scene v1/v2, old/new packs and rejected destination replacement. Old take snapshots reamp without rewriting `Original rig.json` or original WAVs.
-
-Audio comparisons are sample-identical between legacy and migrated documents: all five amp source choices with all four compressor modes at 48 kHz, plus Lumen/post compression at 44.1 and 96 kHz. Built-in overdrive, a fixture neural pedal, EQ, modulation, chorus, delay, reverb and micro-delay run during the comparisons. Existing tests continue to cover dual cabinets, uninterrupted scene delay history, Play Along recording isolation, MIDI and protected output. The fixtures are synthetic inputs/example NAMs; this does not establish live guitar listening quality or performance of a future multi-instance board.
-
-Release standalone/VST3 and the local Windows app/setup/portable packages are rebuilt for this source milestone. Packaging does not publish or merge it. Fresh-PC installation, Linux, real DAW hosts, sustained interface use, additional NAM block budgets and a curated redistributable sound library remain unverified.
+The optional supplied-pack manifest validates all 65 October files without embedding them in test fixtures or releases. `CASSIAN_ACTUAL_SOUND_LIBRARY` adds a demanding board with the supplied JCM800, two independent Klon engines, a 20-second ambience response and six other effect types. It reports offline guitar processing at 48 kHz / 128, 256 and 512 samples, including blocks exceeding their time budget. Timing is diagnostic evidence, not a guarantee for every capture or live interface. For heavy boards, try 256/512 samples and monitor the app's dropout/overrun alerts. Real guitar auditions, sustained device tests, Linux and real DAW automation/session workflows remain release checks. Packaging is local and does not publish or merge this branch.

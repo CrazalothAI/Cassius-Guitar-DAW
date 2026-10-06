@@ -1,10 +1,10 @@
 # Cassian next steps
 
-Planning checkpoint: 2026-10-05. This is an implementation handoff, not an instruction to publish or merge the current branch.
+Planning checkpoint: 2026-10-06. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Implementation checkpoint, 2026-10-05: steps 1 and 2 are implemented in the development checkout. The compatibility portion of step 3 now adds bounded pedal identities, fixed automation bindings, schema-2 exports and migration/rollback checks; see [pedalboard state](PEDALBOARD-STATE.md). The existing DSP order remains fixed. [Sound intake](SOUND-INTAKE.md) records 42 unique NAM captures and 13 WAV responses, calibration/routing evidence, coverage gaps and unknown redistribution rights. See [Play Along and navigation](PLAY-ALONG-NAVIGATION.md) for the previous milestone. The verified baseline below records the earlier inspection. The website is deferred in [TODO.md](TODO.md).
+Current implementation: steps 1 and 2 are implemented, and steps 3/4 have a first bounded serial runtime/editor, independent controls, two NAM slots, pre/post lanes, reserved deletion slots, replacement, drag/arrow reorder, Undo/Redo, schema-3/scene-3 migrations and deduplicated seven-asset packs. Recorded ambience and safe sound-ZIP intake are also implemented. Legacy rigs retain fixed routing until explicitly converted. See [pedalboards](PEDALBOARD-STATE.md), [October intake](SOUND-INTAKE-OCTOBER.md), and [Play Along/navigation](PLAY-ALONG-NAVIGATION.md). The website remains deferred in [TODO.md](TODO.md).
 
-## Verified baseline
+## Historical baseline inspected on 2026-10-05
 
 - Current checkout: `codex/guitar-mix-focus`, committed HEAD `ab08c87` (Windows installer and named practice sections), plus existing uncommitted Play Along / GuitarMix work.
 - Remote `main` was checked directly and remains `c5e6586`, eight commits behind this branch. Local feature work is not yet represented by the main-branch download.
@@ -36,8 +36,8 @@ Implementation checkpoint, 2026-10-05: steps 1 and 2 are implemented in the deve
 
 ## Verification limits and reproducibility
 
-The earlier GuitarMix/output-warning coverage gap is closed by step 1. The current native suite also verifies board validation, migrations, atomic rejected recall and exact old/new guitar-path output; full serial graphs, additional captured blocks, live hardware and real DAW automation still require their own verification.
+The earlier GuitarMix/output-warning coverage gap is closed by step 1. The current native suite also verifies board validation/migration, independent serial controls and order-dependent audio, exact settled bypass, atomic rejected recall, scene/session recall and multiple captured blocks. Optional owner-library tests validate all October files and report a demanding actual-NAM board at 128/256/512 samples. Live hardware and real DAW automation still require their own verification.
 
 MSBuild initially failed because its child environment contained conflicting `Path`/`PATH` keys. The native-test rebuild succeeded with a process-local normalized `Path` key and worker reuse disabled; no system environment setting was changed. The standard Vite development launch also hit sandbox directory-access errors; visual inspection used the successfully built production preview instead. These are local tool-environment observations, not established product defects.
 
-Recommended next coding task: finish the multi-instance portion of step 3, then implement step 4. Add bounded independent parameter/asset state and ordered pre/post lanes, define slot deletion/replacement/reuse rules, implement validated asset traversal/deduplicated packs and measure actual neural-block budgets before enabling serial graph editing. Preserve the fixed compatibility adapter and existing parameter IDs. Continue real guitar auditions and clean/jazz/nylon sound sourcing from the intake document.
+Recommended next coding task: audition complete rigs using the supplied clean/breakup, drive, British amp, contrasting cabinet and ambience choices. Extend the demanding real-NAM benchmark with sustained interface/DAW evidence, then improve sound-library discovery and curate level-consistent genre starting rigs with documented asset rights. Keep parallel amps, harmonizers and gapless scene tails for their later milestone.

@@ -1,6 +1,7 @@
 #pragma once
 #include <juce_audio_formats/juce_audio_formats.h>
 #include <juce_cryptography/juce_cryptography.h>
+#include <juce_data_structures/juce_data_structures.h>
 
 // Called on the asset loader/control threads, never in the audio callback.
 class AssetLibrary
@@ -92,7 +93,7 @@ public:
             if (child["id"].toString().isEmpty()) continue;
             if (child.hasType("ASSET")) {
                 const auto kind = child["kind"].toString(), id = child["id"].toString();
-                if ((kind != "amp" && kind != "pedal" && kind != "cab") || !id.startsWith(kind + ":")
+                if ((kind != "amp" && kind != "pedal" && kind != "cab" && kind != "ambience") || !id.startsWith(kind + ":")
                     || id.length() != kind.length() + 65
                     || id.substring(kind.length() + 1).removeCharacters("0123456789abcdef").isNotEmpty()) continue;
             }

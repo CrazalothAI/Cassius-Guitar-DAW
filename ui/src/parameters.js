@@ -94,6 +94,29 @@ export const parameters = [
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));
 
+export const boardTypes = ['compressor', 'overdrive', 'neural-pedal', 'eq', 'modulation', 'chorus', 'delay', 'reverb', 'ambience'];
+export const boardControls = [
+  ['CLEAN_COMP', 'COMP_THRESH', 'COMP_RATIO', 'COMP_ATTACK', 'COMP_RELEASE', 'COMP_MAKEUP'],
+  ['OD_ON', 'OD_DRIVE', 'OD_TONE', 'OD_LEVEL', 'OD_TIGHT'],
+  ['PEDAL_ON', 'PEDAL_INPUT', 'PEDAL_OUTPUT'], ['EQ_ON', 'EQ_BODY', 'EQ_MUD', 'EQ_FOCUS', 'EQ_FIZZ'],
+  ['MOD_ON', 'MOD_TYPE', 'MOD_RATE', 'MOD_DEPTH', 'MOD_MIX', 'MOD_FEEDBACK', 'MOD_STEREO', 'MOD_SYNC', 'MOD_DIVISION'],
+  ['CHORUS_MIX', 'CHORUS_RATE', 'CHORUS_DEPTH'], ['DELAY_TIME', 'DELAY_MIX', 'DELAY_WIDTH', 'DELAY_FEEDBACK', 'DELAY_SYNC', 'DELAY_DIVISION'],
+  ['REVERB_MIX', 'REVERB_SIZE', 'REVERB_STYLE', 'REVERB_DAMP', 'REVERB_PREDELAY'], ['AMBIENCE_MIX'],
+];
+export const boardPrefix = (kind, slot) => `BOARD_${boardTypes[kind].replaceAll('-', '_').toUpperCase()}_${slot}_`;
+export const boardId = (kind, slot, id) => slot === 0 && kind !== 8 ? id : boardPrefix(kind, slot) + id;
+export const boardOnId = (kind, slot) => boardControls[kind][0].endsWith('_ON') ? boardId(kind, slot, boardControls[kind][0]) : boardPrefix(kind, slot) + 'ON';
+export const boardParameters = boardTypes.flatMap((type, kind) => [0, 1].flatMap(slot => {
+  const rows = [];
+  if (!boardControls[kind][0].endsWith('_ON')) rows.push({id: boardOnId(kind, slot), label: 'Enabled', min: 0, max: 1, initial: 1, unit: '', step: 1, centre: 0, skew: 1});
+  rows.push({id: boardPrefix(kind, slot) + 'TRIM', label: 'Output trim', min: -24, max: 12, initial: 0, unit: 'dB', step: .1, centre: 0, skew: 1});
+  if (kind === 8) rows.push({id: boardId(kind, slot, 'AMBIENCE_MIX'), label: 'Blend', min: 0, max: 100, initial: 25, unit: '%', step: 1, centre: 0, skew: 1});
+  if (slot === 1 && kind !== 8) rows.push(...boardControls[kind].map(id => ({...byId[id], id: boardId(kind, slot, id)})));
+  return rows;
+}));
+boardParameters.forEach(p => { byId[p.id] = p; });
+export const allParameters = [...parameters, ...boardParameters];
+
 // Range ends that mean "off": the DSP bypasses Tight at 20 Hz and High cut at 20 kHz, and
 // the gate and the character effects switch off when their knob is fully down.
 const offAt = { TIGHT: 'min', HIGH_CUT: 'max', CAB_LOW_CUT: 'min', CAB_HIGH_CUT: 'max', GATE_THRESH: 'min', DYN_RES_AMOUNT: 'min', THICKEN_MIX: 'min', PIEZO_BLEND: 'min' };

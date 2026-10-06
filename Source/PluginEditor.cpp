@@ -24,9 +24,10 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("getLibrary", [this](const auto&, auto complete) { complete(processor.getLibrary()); })
         .withNativeFunction("importAssets", [this](const auto& args, auto complete) {
             const auto kind = args.size() == 1 ? args[0].toString() : juce::String();
-            const bool valid = kind == "amp" || kind == "pedal" || kind == "cab";
+            const bool valid = kind == "amp" || kind == "pedal" || kind == "cab" || kind == "ambience" || kind == "pack";
             if (valid) chooseImports(kind); complete(valid);
         })
+        .withNativeFunction("boardCommand", [this](const auto& args, auto complete) { complete(args.size() == 2 && args[0].isString() ? processor.boardCommand(args[0].toString(), args[1]) : juce::String("Invalid board request.")); })
         .withNativeFunction("getRig", [this](const auto&, auto complete) { complete(processor.getRig()); })
         .withNativeFunction("storeScene", [this](const auto& args, auto complete) { complete(args.size() == 2 && args[0].isInt() && args[1].isString() ? processor.storeScene(static_cast<int>(args[0]), args[1].toString()) : juce::String("Invalid scene request.")); })
         .withNativeFunction("recallScene", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isInt() ? processor.recallScene(static_cast<int>(args[0])) : juce::String("Invalid scene request.")); })
@@ -145,15 +146,16 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("getStatus", [this](const auto&, auto complete) {
             auto status = processor.status(); if (processor.midiInputs) status.getDynamicObject()->setProperty("midiInputs", processor.midiInputs()); complete(status);
         });
-    for (const auto& parameter : Params::definitions)
+    juce::StringArray relayIds; BoardParams::each([&](const auto& p) { relayIds.add(p.id); });
+    for (const auto& id : relayIds)
     {
-        relays.push_back(std::make_unique<juce::WebSliderRelay>(parameter.id));
+        relays.push_back(std::make_unique<juce::WebSliderRelay>(id));
         options = options.withOptionsFrom(*relays.back());
     }
     webView = std::make_unique<juce::WebBrowserComponent>(options);
     for (size_t i = 0; i < relays.size(); ++i)
         attachments.push_back(std::make_unique<juce::WebSliderParameterAttachment>(
-            *processor.apvts.getParameter(Params::definitions[i].id), *relays[i], nullptr));
+            *processor.apvts.getParameter(relayIds[static_cast<int>(i)]), *relays[i], nullptr));
     addAndMakeVisible(*webView);
     webView->goToURL(juce::WebBrowserComponent::getResourceProviderRoot());
     setResizable(true, true); setResizeLimits(860, 620, 1800, 1200); setSize(1100, 760);
@@ -256,7 +258,7 @@ void AmpSuiteAudioProcessorEditor::chooseRigFile(bool save, bool pack)
 void AmpSuiteAudioProcessorEditor::chooseRelink(const juce::String& id)
 {
     if (chooser) return;
-    chooser = std::make_unique<juce::FileChooser>("Locate the original asset", juce::File(), id.startsWith("cab:") ? "*.wav" : "*.nam");
+    chooser = std::make_unique<juce::FileChooser>("Locate the original asset", juce::File(), (id.startsWith("cab:") || id.startsWith("ambience:")) ? "*.wav" : "*.nam");
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
         [safe, id](const juce::FileChooser& dialog)
@@ -274,7 +276,7 @@ void AmpSuiteAudioProcessorEditor::chooseRelink(const juce::String& id)
 void AmpSuiteAudioProcessorEditor::chooseImports(const juce::String& kind)
 {
     if (chooser) return;
-    chooser = std::make_unique<juce::FileChooser>("Add files to your " + kind + " library", juce::File(), kind == "cab" ? "*.wav" : "*.nam");
+    chooser = std::make_unique<juce::FileChooser>("Add files to your " + kind + " library", juce::File(), kind == "pack" ? "*.zip" : (kind == "cab" || kind == "ambience") ? "*.wav" : "*.nam");
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles | juce::FileBrowserComponent::canSelectMultipleItems,
         [safe, kind](const juce::FileChooser& dialog) {

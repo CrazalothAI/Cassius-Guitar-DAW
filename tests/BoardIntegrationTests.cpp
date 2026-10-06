@@ -52,8 +52,8 @@ void runBoardIntegrationChecks(const juce::File& fixture)
 {
     AmpSuiteAudioProcessor p(false); p.prepareToPlay(48000, 128);
     const auto initial = p.getRig(); const auto state = unwrap(initial);
-    require(static_cast<int>(initial["schema"]) == 2 && state.getChildWithName("PEDALBOARD").isValid(), "New snapshots must use rig schema 2 and contain a board");
-    require(p.getParameters().size() == 87, "Board metadata must not add, remove or shift the 87 legacy host parameters");
+    require(static_cast<int>(initial["schema"]) == 3 && state.getChildWithName("PEDALBOARD").isValid(), "New snapshots must use rig schema 3 and contain a board");
+    require(p.getParameters().size() == 87 + static_cast<int>(BoardParams::definitions().size()), "Independent controls must append after the 87 legacy host parameters");
     for (size_t i = 0; i < Params::definitions.size(); ++i) {
         auto* parameter = dynamic_cast<juce::AudioProcessorParameterWithID*>(p.getParameters()[static_cast<int>(i)]);
         require(parameter && parameter->paramID == Params::definitions[i].id, "Existing automation positions must retain their parameter IDs");
@@ -97,7 +97,7 @@ void runBoardIntegrationChecks(const juce::File& fixture)
     p.getStateInformation(session); const auto catalogXml = juce::AudioProcessor::getXmlFromBinary(session.getData(), static_cast<int>(session.getSize()));
     require(catalogXml != nullptr, "Saved catalog session must decode"); auto corruptCatalog = juce::ValueTree::fromXml(*catalogXml);
     auto entry = corruptCatalog.getChildWithName("LIBRARY").getChildWithProperty("id", savedId);
-    require(entry.hasType("RIG") && entry["schema"].toString() == "2", "Saved entries must retain the strict rig format");
+    require(entry.hasType("RIG") && entry["schema"].toString() == "3", "Saved entries must retain the strict rig format");
     auto incomplete = unwrap(baseline); stripBoard(incomplete); entry.setProperty("state", incomplete.toXmlString(), nullptr);
     juce::AudioProcessor::copyXmlToBinary(*corruptCatalog.createXml(), session);
     AmpSuiteAudioProcessor catalogReader(false); catalogReader.setStateInformation(session.getData(), static_cast<int>(session.getSize())); settle(catalogReader);
@@ -128,7 +128,7 @@ void runBoardIntegrationChecks(const juce::File& fixture)
     require(importer.exportRigPack(destination.getFile()).isEmpty(), "Migrated packs must export with the new rig format");
     juce::ZipFile archive(destination.getFile()); std::unique_ptr<juce::InputStream> document(archive.createStreamForEntry(0));
     const auto exported = juce::JSON::parse(document->readEntireStreamAsString());
-    require(static_cast<int>(exported["schema"]) == 2 && PedalboardState::equal(state, unwrap(exported)), "Pack document must preserve its versioned board");
+    require(static_cast<int>(exported["schema"]) == 3 && PedalboardState::equal(state, unwrap(exported)), "Pack document must preserve its versioned board");
     portable.getFile().deleteFile(); pack(portable.getFile(), wrap(invalid));
     const auto fileCount = folder.root.findChildFiles(juce::File::findFiles, true).size();
     require(!importer.importRigPack(portable.getFile()).isEmpty() && importer.getLibrary()["rigs"].size() == 1 && folder.root.findChildFiles(juce::File::findFiles, true).size() == fileCount, "Unsupported pack boards must not create files or rigs");

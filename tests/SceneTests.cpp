@@ -89,7 +89,7 @@ void runSceneChecks()
     set(identities, "OD_DRIVE", 37);
     require(identities.storeScene(0, "Identity").isEmpty(), "Scene must store a custom stable identity");
     const auto identityBank = juce::JSON::parse(identities.scenes.save()["json"].toString());
-    require(static_cast<int>(identityBank["version"]) == 2 && sceneBoard(identityBank, 0).getChild(1)["id"].toString() == "owner.overdrive.1", "New scene format must preserve stable block identities");
+    require(static_cast<int>(identityBank["version"]) == 3 && sceneBoard(identityBank, 0).getChild(1)["id"].toString() == "owner.overdrive.1", "New scene format must preserve stable block identities");
     currentBoard.getChild(1).setProperty("id", "owner.overdrive.2", nullptr);
     require(static_cast<bool>(identities.scenes.status(identities.apvts)["edited"]), "Changing a block identity must mark the active scene edited");
     require(identities.recallScene(0).isEmpty() && identities.apvts.state.getChildWithName("PEDALBOARD").getChild(1)["id"].toString() == "owner.overdrive.1", "Scene recall must restore its stable identity");
@@ -97,7 +97,7 @@ void runSceneChecks()
     auto oldSceneRig = unwrap(identities.getRig()); makeLegacyBank(oldSceneRig);
     require(identities.applyRig(wrap(oldSceneRig)).isEmpty(), "Version1 bank must migrate through complete rig recall"); settle(identities);
     const auto migratedBank = juce::JSON::parse(identities.scenes.save()["json"].toString());
-    require(static_cast<int>(migratedBank["version"]) == 2 && sceneBoard(migratedBank, 0).getChild(1)["id"].toString() == "owner.overdrive.1", "Legacy scene migration must inherit shared rig identities");
+    require(static_cast<int>(migratedBank["version"]) == 3 && sceneBoard(migratedBank, 0).getChild(1)["id"].toString() == "owner.overdrive.1", "Legacy scene migration must inherit shared rig identities");
     require(identities.recallScene(0).isEmpty() && get(identities, "OD_DRIVE") == 37, "Migrated scene must retain its original control values");
     auto noBoardSceneRig = unwrap(identities.getRig()); makeLegacyBank(noBoardSceneRig);
     noBoardSceneRig.removeChild(noBoardSceneRig.getChildWithName("PEDALBOARD"), nullptr);

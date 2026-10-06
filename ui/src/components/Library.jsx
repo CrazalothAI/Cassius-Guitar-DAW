@@ -47,7 +47,8 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
     } else if (row.kind === 'rig') {
       if (native) { const result = await invoke('loadRig', row.id); if (result) return result; }
       else { restoreSnapshot(row.parameters); onPreviewRig(row); }
-    } else if (!await invoke('selectAsset', row.id)) return 'Asset is missing. Relink the original file first.';
+    } else if (row.kind === 'ambience') return 'Add an Ambience pedal in Board, then select this response there.';
+    else if (!await invoke('selectAsset', row.id)) return row.kind === 'pedal' ? 'Could not select this pedal. Relink a missing file or add a Captured pedal in Board.' : 'Asset is missing. Relink the original file first.';
     onClose();
   });
   const save = e => {
@@ -85,7 +86,7 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
   }}>
     <section ref={panel} className="library-panel" role="dialog" aria-modal="true" aria-labelledby="library-title">
       <div className="library-heading"><h2 id="library-title">Your library</h2><button className="text-button" onClick={onClose}>Close library</button></div>
-      <div className="library-tabs">{[['amp','Amps'], ['pedal','Pedals'], ['cab','Cabinets'], ['rig','Presets']].map(([id,label]) =>
+      <div className="library-tabs">{[['amp','Amps'], ['pedal','Pedals'], ['cab','Cabinets'], ['ambience','Ambience'], ['rig','Presets']].map(([id,label]) =>
         <button className={`chip${tab === id ? ' active' : ''}`} aria-pressed={tab === id} key={id} onClick={() => { setTab(id); setSelected(null); }}>{label}</button>)}</div>
       <div className="library-filters">
         <input aria-label="Search library" placeholder="Search gear, creator, tone or genre…" value={search} onChange={e => setSearch(e.target.value)} />
@@ -123,7 +124,8 @@ export default function Library({ revision, onClose, onPreset = applyPreset, onP
         </form>}
       </aside>}</div>
       <div className="library-footer">
-        {tab !== 'rig' ? <button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importAssets', tab))}>Import {tab === 'cab' ? 'WAV IRs' : 'NAM files'}</button>
+        <button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importAssets', 'pack'))}>Import sound ZIPs</button>
+        {tab !== 'rig' ? <button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importAssets', tab))}>Import {(tab === 'cab' || tab === 'ambience') ? 'WAV IRs' : 'NAM files'}</button>
           : <><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRig'))}>Import rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRig'))}>Export current rig</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importRigPack'))}>Import pack</button><button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('exportRigPack'))}>Export pack</button></>}
         <form onSubmit={save}><input aria-label="Rig name" placeholder="Name this rig" value={name} maxLength={80} onChange={e => setName(e.target.value)} /><button className="text-button" disabled={busy || !name.trim()}>Save current rig</button></form>
       </div>

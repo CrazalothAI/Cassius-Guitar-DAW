@@ -1,12 +1,12 @@
 #include "PluginProcessor.h"
 
 namespace {
-juce::String assetKind(const juce::String& stage) { return stage == "model" ? "amp" : (stage == "ir" || stage == "irB") ? "cab" : "pedal"; }
+juce::String assetKind(const juce::String& stage) { return stage.startsWith("ambience") ? "ambience" : stage == "model" ? "amp" : (stage == "ir" || stage == "irB") ? "cab" : "pedal"; }
 juce::String entryName(const juce::String& id, const juce::String& kind) {
     const auto hash = id.fromFirstOccurrenceOf(":", false, false);
     if (!id.startsWith(kind + ":") || hash.length() != 64 || hash.removeCharacters("0123456789abcdef").isNotEmpty())
         throw std::runtime_error("Invalid rig asset identity");
-    return "assets/" + kind + "/" + hash + (kind == "cab" ? ".wav" : ".nam");
+    return "assets/" + kind + "/" + hash + ((kind == "cab" || kind == "ambience") ? ".wav" : ".nam");
 }
 }
 
@@ -18,7 +18,7 @@ juce::String AmpSuiteAudioProcessor::exportRigPack(const juce::File& destination
         juce::ValueTree state;
         if (const auto failure = migrateRigDocument(rig, state); failure.isNotEmpty()) return failure;
         juce::ZipFile::Builder builder; juce::StringArray ids;
-        for (const auto* label : {"model", "ir", "pedal", "irB"}) {
+        for (const auto* label : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"}) {
             const juce::String stage(label), path = state[stage + "Path"].toString();
             if (path.isEmpty()) continue;
             const auto id = state[stage + "Id"].toString(), kind = assetKind(stage), entry = entryName(id, kind);
@@ -36,7 +36,7 @@ juce::String AmpSuiteAudioProcessor::exportRigPack(const juce::File& destination
                 item.removeProperty("aliases", nullptr);
             }
         }
-        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 2); object->setProperty("state", state.createXml()->toString());
+        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 3); object->setProperty("state", state.createXml()->toString());
         juce::TemporaryFile document(".json");
         if (!document.getFile().replaceWithText(juce::JSON::toString(juce::var(object.release())))) return "Could not write the pack document";
         builder.addFile(document.getFile(), 6, "rig.cassian.json");
@@ -54,9 +54,9 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
 {
     try {
         if (!sharedStore.enabled()) return "Portable packs require managed library storage";
-        if (!source.existsAsFile() || source.getSize() > 272 * 1024 * 1024) return "Rig pack is missing or too large";
+        if (!source.existsAsFile() || source.getSize() > 464 * 1024 * 1024) return "Rig pack is missing or too large";
         juce::ZipFile archive(source); const int count = archive.getNumEntries();
-        if (count < 1 || count > 5) return "Choose a Cassian rig pack containing one rig and up to four assets";
+        if (count < 1 || count > 8) return "Choose a Cassian rig pack containing one rig and up to seven assets";
         juce::StringArray entries; juce::int64 total = 0;
         for (int i = 0; i < count; ++i) {
             const auto* entry = archive.getEntry(i);
@@ -64,7 +64,7 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
                 return "Invalid or oversized rig pack entry";
             total += entry->uncompressedSize; entries.add(entry->filename);
         }
-        if (total > 260 * 1024 * 1024) return "Expanded rig pack is too large";
+        if (total > 452 * 1024 * 1024) return "Expanded rig pack is too large";
         const int docIndex = entries.indexOf("rig.cassian.json");
         if (docIndex < 0 || archive.getEntry(docIndex)->uncompressedSize > 4 * 1024 * 1024) return "Rig pack has no valid document";
         std::unique_ptr<juce::InputStream> document(archive.createStreamForEntry(docIndex));
@@ -75,7 +75,7 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
         if (const auto failure = migrateRigDocument(rig, state); failure.isNotEmpty()) return failure;
         juce::StringArray expected {"rig.cassian.json"};
         auto catalog = state.getChildWithName("LIBRARY"); if (!catalog.isValid()) { catalog = juce::ValueTree("LIBRARY"); state.addChild(catalog, -1, nullptr); }
-        for (const auto* label : {"model", "ir", "pedal", "irB"}) {
+        for (const auto* label : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"}) {
             const juce::String stage(label); const auto path = state[stage + "Path"].toString(); if (path.isEmpty()) continue;
             const auto id = state[stage + "Id"].toString(), kind = assetKind(stage), name = entryName(id, kind);
             const int index = entries.indexOf(name);
@@ -83,7 +83,7 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
             expected.addIfNotAlreadyThere(name);
         }
         if (expected.size() != entries.size()) return "Unexpected files in the rig pack";
-        for (const auto* label : {"model", "ir", "pedal", "irB"}) {
+        for (const auto* label : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"}) {
             const juce::String stage(label); if (state[stage + "Path"].toString().isEmpty()) continue;
             const auto id = state[stage + "Id"].toString(), kind = assetKind(stage), name = entryName(id, kind);
             const auto target = sharedStore.root().getChildFile(name);
@@ -97,11 +97,11 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
             }
             if (id != kind + ":" + juce::SHA256(temporary.getFile()).toHexString()) return "Rig pack asset checksum failed";
             // Confirm it is a supported capture/IR before committing the file.
-            if (kind != "cab") { NamWrapper check(temporary.getFile()); }
+            if (kind != "cab" && kind != "ambience") { NamWrapper check(temporary.getFile()); }
             else {
                 juce::AudioFormatManager formats; formats.registerBasicFormats();
                 std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(temporary.getFile().createInputStream()));
-                if (!reader || reader->numChannels == 0 || reader->numChannels > 2 || reader->lengthInSamples <= 0 || reader->lengthInSamples > reader->sampleRate * 10)
+                if (!reader || reader->numChannels == 0 || reader->numChannels > 2 || reader->lengthInSamples <= 0 || reader->lengthInSamples > reader->sampleRate * (kind == "ambience" ? 30 : 10))
                     return "Rig pack contains an unsupported IR";
             }
             if (target.existsAsFile()) { if (juce::SHA256(target).toHexString() != id.fromFirstOccurrenceOf(":", false, false)) return "Managed asset has changed; relink it first"; }
@@ -111,7 +111,7 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
             if (!asset.isValid()) { asset = AssetLibrary::describe(target, kind); catalog.addChild(asset, -1, nullptr); }
             AssetLibrary::rememberPath(asset, target.getFullPathName()); asset.setProperty("managed", true, nullptr);
         }
-        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 2); object->setProperty("state", state.createXml()->toString());
+        auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 3); object->setProperty("state", state.createXml()->toString());
         return importRig(source.getFileNameWithoutExtension().replace(".cassian", ""), juce::var(object.release()));
     } catch (const std::exception& e) { return e.what(); }
 }

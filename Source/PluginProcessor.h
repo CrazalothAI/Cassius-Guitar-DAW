@@ -22,6 +22,7 @@
 #include "dsp/GuitarMix.h"
 #include "dsp/StereoChorus.h"
 #include "dsp/ModulationPedal.h"
+#include "dsp/SerialPedalboard.h"
 #include "DeviceHooks.h"
 #include "AssetLibrary.h"
 #include "LibraryStore.h"
@@ -46,7 +47,7 @@ public:
     const juce::String getName() const override { return "Cassian"; }
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
-    double getTailLengthSeconds() const override { return 12; }
+    double getTailLengthSeconds() const override { return 60; } // Two serial 30-second ambience responses.
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
     void setCurrentProgram(int) override {}
@@ -83,6 +84,8 @@ public:
     juce::String storeScene(int slot, const juce::String& name);
     juce::String recallScene(int slot);
     juce::String clearScene(int slot);
+    juce::String boardCommand(const juce::String& action, const juce::var& args);
+    juce::var boardStatus();
     PerformanceScenes scenes;
     MidiControl midiControl;
     // The take store stays alive while the recorder finishes during destruction.
@@ -106,6 +109,11 @@ private:
     juce::String persistLibrary(const juce::StringArray& removed = {});
     juce::String assetSourceName(const juce::ValueTree& asset, const juce::ValueTree& incoming = {});
     void prepareCompleteRig(juce::ValueTree state, bool preserveGlobals, juce::uint64 generation);
+    std::vector<juce::ValueTree> boardUndo, boardRedo;
+    juce::ValueTree pendingBoardBefore;
+    juce::String pendingBoardAction;
+    juce::uint64 pendingBoardGeneration = 0;
+    int pendingScene = -1;
     std::array<std::atomic<float>*, Params::definitions.size()> parameters {};
     juce::CriticalSection dspLock, requestLock;
     AssetLibrary library;
@@ -118,6 +126,8 @@ private:
     bool modelPending = false, irPending = false, irBPending = false;
     juce::String desiredIrB, irBPath;
     juce::String desiredPedal, pedalPath;
+    juce::String desiredPedal1, pedal1Path;
+    juce::String desiredAmbience, ambiencePath, desiredAmbience1, ambience1Path;
     bool pedalPending = false;
     juce::ValueTree pendingRig;
     bool pendingRigPreservesGlobals = true;
@@ -129,6 +139,8 @@ private:
     std::atomic<int> reportedChannels {2};
     std::unique_ptr<NamWrapper> model;
     std::unique_ptr<NamWrapper> pedal;
+    std::unique_ptr<NamWrapper> pedal1;
+    std::unique_ptr<SerialPedalboard> serialBoard;
     std::unique_ptr<DualCab> cab = std::make_unique<DualCab>();
     StudioCompressor preCompressor, postCompressor;
     Overdrive overdrive;

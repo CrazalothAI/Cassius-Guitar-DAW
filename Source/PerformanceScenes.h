@@ -11,7 +11,7 @@ public:
     static juce::var capture(juce::AudioProcessorValueTreeState& state)
     {
         auto o = std::make_unique<juce::DynamicObject>();
-        for (const auto& p : Params::definitions) if (!global(p.id)) o->setProperty(p.id, state.getRawParameterValue(p.id)->load());
+        for (const auto& p : allDefinitions()) if (!global(p.id)) o->setProperty(p.id, state.getRawParameterValue(p.id)->load());
         return juce::var(o.release());
     }
     static juce::String validate(const juce::ValueTree& tree)
@@ -66,8 +66,8 @@ public:
             if (x.isVoid() != y.isVoid()) return false;
             if (x.isVoid()) continue;
             if (x["name"].toString() != y["name"].toString()) return false;
-            for (const auto& p : Params::definitions) if (!global(p.id)
-                && std::abs(static_cast<float>(x["parameters"][p.id]) - static_cast<float>(y["parameters"][p.id])) > .0001f) return false;
+            for (const auto& p : allDefinitions()) if (!global(p.id)
+                && std::abs(static_cast<float>(x["parameters"][p.id.toRawUTF8()]) - static_cast<float>(y["parameters"][p.id.toRawUTF8()])) > .0001f) return false;
             juce::ValueTree first, second;
             if (readBoard(x["board"], first).isNotEmpty() || readBoard(y["board"], second).isNotEmpty()
                 || !PedalboardState::equal(holder(first), holder(second))) return false;
@@ -77,7 +77,7 @@ public:
     juce::String store(int slot, const juce::String& name, juce::AudioProcessorValueTreeState& state)
     {
         if (!validSlot(slot)) return "Choose one of the four scenes.";
-        const auto title = name.trim(); if (title.isEmpty() || title.length() > 48) return "Give the scene a name of 1–48 characters.";
+        const auto title = name.trim(); if (title.isEmpty() || title.length() > 48) return "Give the scene a name of 1 to 48 characters.";
         if (const auto failure = PedalboardState::validate(state.state); failure.isNotEmpty()) return failure;
         auto board = state.state.getChildWithName("PEDALBOARD"); if (!board.isValid()) board = PedalboardState::legacy();
         auto o = std::make_unique<juce::DynamicObject>(); o->setProperty("name", title); o->setProperty("parameters", capture(state));
@@ -97,9 +97,9 @@ public:
         if (saved.isVoid()) return "This scene is empty. Store the current tone first.";
         juce::ValueTree board;
         if (const auto failure = readBoard(saved["board"], board); failure.isNotEmpty()) return failure;
-        for (const auto& p : Params::definitions) if (!global(p.id)) {
+        for (const auto& p : allDefinitions()) if (!global(p.id)) {
             auto* parameter = state.getParameter(p.id);
-            parameter->beginChangeGesture(); parameter->setValueNotifyingHost(parameter->convertTo0to1(static_cast<float>(saved["parameters"][p.id]))); parameter->endChangeGesture();
+            parameter->beginChangeGesture(); parameter->setValueNotifyingHost(parameter->convertTo0to1(static_cast<float>(saved["parameters"][p.id.toRawUTF8()]))); parameter->endChangeGesture();
         }
         // Metadata changes do not reset any DSP objects or running effect tails.
         state.state.removeChild(state.state.getChildWithName("PEDALBOARD"), nullptr);
@@ -113,7 +113,7 @@ public:
         const juce::ScopedLock guard(lock); juce::ValueTree tree("SCENES");
         auto o = std::make_unique<juce::DynamicObject>(); juce::Array<juce::var> rows;
         for (const auto& slot : slots) rows.add(slot);
-        o->setProperty("version", 2); o->setProperty("slots", rows); tree.setProperty("json", juce::JSON::toString(juce::var(o.release())), nullptr); return tree;
+        o->setProperty("version", 3); o->setProperty("slots", rows); tree.setProperty("json", juce::JSON::toString(juce::var(o.release())), nullptr); return tree;
     }
     juce::String restore(const juce::ValueTree& tree)
     {
@@ -128,7 +128,7 @@ public:
         auto o = std::make_unique<juce::DynamicObject>(); juce::Array<juce::var> rows;
         for (const auto& slot : slots) { auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("name", slot["name"]); row->setProperty("stored", slot.isObject()); rows.add(juce::var(row.release())); }
         bool edited = false;
-        if (validSlot(active)) for (const auto& p : Params::definitions) if (!global(p.id) && std::abs(static_cast<float>(current[p.id]) - static_cast<float>(slots[static_cast<size_t>(active)]["parameters"][p.id])) > .005f) { edited = true; break; }
+        if (validSlot(active)) for (const auto& p : allDefinitions()) if (!global(p.id) && std::abs(static_cast<float>(current[p.id.toRawUTF8()]) - static_cast<float>(slots[static_cast<size_t>(active)]["parameters"][p.id.toRawUTF8()])) > .005f) { edited = true; break; }
         if (validSlot(active) && !edited) {
             juce::ValueTree board;
             edited = readBoard(slots[static_cast<size_t>(active)]["board"], board).isNotEmpty()
@@ -136,7 +136,20 @@ public:
         }
         o->setProperty("slots", rows); o->setProperty("active", active); o->setProperty("edited", edited); o->setProperty("revision", revision); o->setProperty("error", error); return juce::var(o.release());
     }
+    juce::String applySnapshot(int slot, juce::ValueTree& state) {
+        if (!validSlot(slot)) return "Choose one of the four scenes.";
+        const juce::ScopedLock guard(lock); const auto saved = slots[static_cast<size_t>(slot)];
+        if (!saved.isObject()) return "This scene is empty. Store the current tone first.";
+        juce::ValueTree board; if (const auto failure = readBoard(saved["board"], board); failure.isNotEmpty()) return failure;
+        state.removeChild(state.getChildWithName("PEDALBOARD"), nullptr); state.addChild(board, -1, nullptr);
+        for (const auto& p : allDefinitions()) if (!global(p.id)) state.getChildWithProperty("id", p.id).setProperty("value", saved["parameters"][p.id.toRawUTF8()], nullptr);
+        return {};
+    }
+    void markActive(int slot) { const juce::ScopedLock guard(lock); active = slot; ++revision; }
 private:
+    static const std::vector<BoardParams::Definition>& allDefinitions() {
+        static const auto rows = [] { std::vector<BoardParams::Definition> result; BoardParams::each([&](const auto& p) { result.push_back({p.id, p.name, p.min, p.max, p.initial, p.unit, p.centre}); }); return result; }(); return rows;
+    }
     static bool validSlot(int i) { return i >= 0 && i < 4; }
     static juce::ValueTree holder(const juce::ValueTree& board)
     {
@@ -156,21 +169,21 @@ private:
         if (!tree.isValid()) return {}; // Legacy rigs/sessions have an empty bank.
         if (!tree.hasType("SCENES") || !tree["json"].isString() || tree["json"].toString().length() > 65536) return "Invalid scene bank.";
         parsed = juce::JSON::parse(tree["json"].toString());
-        if (!parsed.isObject() || !parsed["version"].isInt() || (static_cast<int>(parsed["version"]) != 1 && static_cast<int>(parsed["version"]) != 2) || !parsed["slots"].isArray() || parsed["slots"].size() != 4) return "Unsupported scene bank.";
+        if (!parsed.isObject() || !parsed["version"].isInt() || (static_cast<int>(parsed["version"]) < 1 || static_cast<int>(parsed["version"]) > 3) || !parsed["slots"].isArray() || parsed["slots"].size() != 4) return "Unsupported scene bank.";
         const bool legacy = static_cast<int>(parsed["version"]) == 1;
         for (auto& slot : *parsed["slots"].getArray()) {
             if (slot.isVoid()) continue;
             if (!slot.isObject() || !slot["name"].isString() || slot["name"].toString().trim().isEmpty() || slot["name"].toString().length() > 48 || !slot["parameters"].isObject()) return "Invalid saved scene.";
             const auto values = slot["parameters"];
             for (const auto& key : values.getDynamicObject()->getProperties()) {
-                bool known = false; for (const auto& p : Params::definitions) if (key.name.toString() == p.id && !global(p.id)) { known = true; break; }
+                bool known = false; for (const auto& p : allDefinitions()) if (key.name.toString() == p.id && !global(p.id)) { known = true; break; }
                 if (!known) return "Scene contains an unsupported or global parameter.";
             }
-            for (size_t i = 0; i < Params::definitions.size(); ++i) {
-                const auto& p = Params::definitions[i]; if (global(p.id)) continue;
+            for (size_t i = 0; i < allDefinitions().size(); ++i) {
+                const auto& p = allDefinitions()[i]; if (global(p.id)) continue;
                 // Future additions default without changing these original scene controls.
-                if (!values.hasProperty(p.id) && i >= 85) values.getDynamicObject()->setProperty(p.id, p.initial);
-                const auto v = values[p.id]; const double x = static_cast<double>(v);
+                if (!values.hasProperty(p.id) && i >= 85 && static_cast<int>(parsed["version"]) < 3) values.getDynamicObject()->setProperty(p.id, p.initial);
+                const auto v = values[p.id.toRawUTF8()]; const double x = static_cast<double>(v);
                 // JSON shortens float endpoints (e.g. 0.05f). Validate at the
                 // native parameter's precision so its own minimum round-trips.
                 const auto amount = static_cast<float>(x);
@@ -184,7 +197,7 @@ private:
             if (const auto failure = PedalboardState::validate(holder(board)); failure.isNotEmpty()) return failure;
             slot.getDynamicObject()->setProperty("board", board.toXmlString());
         }
-        parsed.getDynamicObject()->setProperty("version", 2);
+        parsed.getDynamicObject()->setProperty("version", 3);
         return {};
     }
     juce::CriticalSection lock;

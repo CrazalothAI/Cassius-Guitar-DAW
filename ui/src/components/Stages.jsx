@@ -108,12 +108,12 @@ function Amp({ clean, status, load, remove }) {
     </div>
     <div className="control-groups">
       <Group title="Voice"><Knob id="AMP_OUT" small />{!clean && <Knob id="TIGHT" small />}<Knob id="PRESENCE" small /><Knob id="HIGH_CUT" small /></Group>
-      <Group title="Compressor" status={status.compressionDb > .1 && values.COMP_MODE > 0 && values.COMP_MODE < 3 ? <span className="telemetry-tag">−{status.compressionDb.toFixed(1)} dB</span> : null}>
+      {!status.board?.serial && <Group title="Compressor" status={status.compressionDb > .1 && values.COMP_MODE > 0 && values.COMP_MODE < 3 ? <span className="telemetry-tag">−{status.compressionDb.toFixed(1)} dB</span> : null}>
         <Choice id="COMP_MODE" label="Compressor routing" options={['Lumen only · legacy', 'Pre-amp · all sources', 'Post-cab · all sources', 'Off']} />
         <Knob id="CLEAN_COMP" small muted={!compressionActive} /><Knob id="COMP_THRESH" small muted={!compressionActive} />
         <Knob id="COMP_RATIO" small muted={!compressionActive} /><Knob id="COMP_ATTACK" small muted={!compressionActive} />
         <Knob id="COMP_RELEASE" small muted={!compressionActive} /><Knob id="COMP_MAKEUP" small muted={!compressionActive} />
-      </Group>
+      </Group>}
     </div>
   </div>;
 }

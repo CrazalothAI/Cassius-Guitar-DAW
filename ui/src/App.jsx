@@ -3,6 +3,7 @@ import AmpHead from './components/AmpHead.jsx';
 import MetronomePanel, { MetronomeButton } from './components/Metronome.jsx';
 import PresetBrowser from './components/PresetBrowser.jsx';
 import Stages from './components/Stages.jsx';
+import Pedalboard from './components/Pedalboard.jsx';
 import Library from './components/Library.jsx';
 import Practice from './components/Practice.jsx';
 import PlayAlong from './components/PlayAlong.jsx';
@@ -194,7 +195,8 @@ export default function App() {
       }}>{destinations.map(destination => <button key={destination} role="tab" id={`view-${destination}`} aria-controls="workspace-content" aria-selected={view === destination} tabIndex={view === destination ? 0 : -1} onClick={() => navigate(destination)}>{destination}</button>)}</div><div className="workspace-tools"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Mix'); }}>Mix</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Performance'); }}>Performance</button></div></div>
       <div className={`workspace-content view-${view.toLowerCase()}`} role="tabpanel" id="workspace-content" aria-labelledby={`view-${view}`}>
         {view === 'Tone' ? <AmpHead clean={clean} tunerOpen={tunerOpen} status={status}/> : <CompactAmp clean={clean} tunerOpen={tunerOpen} status={status}/>}
-        {view === 'Practice' ? <Practice status={status} onError={setNotice} onTakes={() => navigate('Takes')}/> : view === 'Takes' ? <section className="takes-workspace" aria-label="Take library"><div className="practice-heading"><h2>Your take library</h2><button className="text-button" onClick={() => navigate('Practice')}>Record a take</button></div><Takes status={status} onError={setNotice}/></section> : <Stages page={view === 'Tone' ? tonePage : page} onPage={view === 'Tone' ? setTonePage : setPage} availablePages={view === 'Tone' ? ['Amp', 'Cab'] : undefined} showScenes={view === 'Board'} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice}/>}
+        {view === 'Board' && !status.board?.serial && <Pedalboard status={status} onError={setNotice}/>}
+        {view === 'Practice' ? <Practice status={status} onError={setNotice} onTakes={() => navigate('Takes')}/> : view === 'Takes' ? <section className="takes-workspace" aria-label="Take library"><div className="practice-heading"><h2>Your take library</h2><button className="text-button" onClick={() => navigate('Practice')}>Record a take</button></div><Takes status={status} onError={setNotice}/></section> : view === 'Board' && status.board?.serial ? <Pedalboard status={status} onError={setNotice}/> : <Stages page={view === 'Tone' ? tonePage : page} onPage={view === 'Tone' ? setTonePage : setPage} availablePages={view === 'Tone' ? ['Amp', 'Cab'] : undefined} showScenes={view === 'Board'} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice}/>}
       </div>
     </main>
     {libraryOpen && <Library revision={status.libraryRevision} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive}/>}
