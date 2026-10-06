@@ -11,6 +11,9 @@ $installDir = Join-Path $testRoot 'app'
 $output = Join-Path $testRoot 'output'
 $exe = if ([IO.Path]::IsPathRooted($Standalone)) { $Standalone } else { Join-Path $projectRoot $Standalone }
 $uninstaller = Join-Path $installDir 'unins000.exe'
+. "$PSScriptRoot/ReleaseVersion.ps1"
+$version = Get-CassianVersion $projectRoot
+$registration = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{239BAD5F-8A9D-4E14-BB81-CE61624D444E}_is1'
 function RunInstaller([string]$program, [string[]]$arguments) {
     $process = Start-Process -FilePath $program -ArgumentList $arguments -WindowStyle Hidden -PassThru
     if (!$process.WaitForExit(120000)) { throw "Installer did not finish; inspect $testRoot before retrying." }
@@ -28,6 +31,7 @@ try {
     $installedExe = Join-Path $installDir 'Cassian.exe'
     Assert (Test-Path -LiteralPath $installedExe) 'Installed app is missing.'
     Assert ((Get-FileHash -LiteralPath $installedExe).Hash -eq (Get-FileHash -LiteralPath $exe).Hash) 'Installed executable differs from the built app.'
+    Assert ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq '0.0.1') 'Initial installer registration has the wrong version.'
     Assert (Test-Path -LiteralPath (Join-Path $installDir 'VST3/Cassian.vst3/Contents/x86_64-win/Cassian.vst3')) 'Optional VST3 was not installed.'
     $shortcut = Join-Path $installDir 'Cassian Test.lnk'
     Assert (Test-Path -LiteralPath $shortcut) 'App shortcut is missing.'
@@ -48,9 +52,11 @@ try {
     & "$PSScriptRoot/package-windows.ps1" -Standalone $Standalone -SmokeTest -SkipRootCopy -OutputDirectory $output -SoundBank $SoundBank -AllowDevelopmentSounds:$AllowDevelopmentSounds
     RunInstaller $setup ($installArgs + "/LOG=`"$(Join-Path $testRoot 'upgrade.log')`"")
     Assert ((Get-FileHash -LiteralPath $installedExe).Hash -eq (Get-FileHash -LiteralPath $exe).Hash) 'Upgrade did not retain the correct executable.'
+    Assert ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq $version) 'Upgrade did not register the current version.'
     Assert ([IO.File]::ReadAllText($sentinel) -eq 'preserve user data') 'Upgrade changed user data.'
     RunInstaller $uninstaller @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/LOG=`"$(Join-Path $testRoot 'uninstall.log')`"")
     Assert (!(Test-Path -LiteralPath $installedExe)) 'Uninstall left the app executable.'
+    Assert (!(Test-Path -LiteralPath $registration)) 'Uninstall left the isolated registration.'
     Assert (!(Test-Path -LiteralPath $shortcut)) 'Uninstall left the shortcut.'
     Assert (!(Test-Path -LiteralPath (Join-Path $installDir 'VST3'))) 'Uninstall left the optional VST3.'
     Assert ([IO.File]::ReadAllText($sentinel) -eq 'preserve user data') 'Uninstall deleted user data.'

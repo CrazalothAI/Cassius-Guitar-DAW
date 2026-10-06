@@ -43,7 +43,7 @@ PORTABLE DOWNLOAD
 If using Cassian-Windows.zip, extract all files first, then open Cassian.exe at the top
 of the extracted folder. The editor needs Microsoft's WebView2 Evergreen Runtime.
 
-Help and source: https://github.com/CrazalothAI/Cassius
+Help and source: https://github.com/CrazalothAI/Cassius-Guitar-DAW
 Third-party notices are installed alongside the app.
 When a licensed sound bank is supplied, keep the Sounds folder beside the portable app.
 The installer places that bank automatically; missing capture recipes name their required files.

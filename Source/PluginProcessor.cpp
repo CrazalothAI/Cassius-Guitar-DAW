@@ -795,6 +795,7 @@ void AmpSuiteAudioProcessor::run()
 juce::var AmpSuiteAudioProcessor::status()
 {
     auto result = std::make_unique<juce::DynamicObject>();
+    result->setProperty("appVersion", JucePlugin_VersionString);
     result->setProperty("practice", practice.status());
     result->setProperty("takes", takes.status());
     result->setProperty("review", takeReview.status());

@@ -64,10 +64,11 @@ describe('editor connected to the audio engine', () => {
     fireEvent.click(within(dialog).getByRole('button', {name: 'Clear filters'})); expect(within(dialog).getByText('Ferrum')).toBeTruthy();
   });
   it('shows authoritative rig identity, saves in place, and keeps failed Save As open for retry', async () => {
-    engine.status = {...engine.status, activeRigId: 'lead', activeRigName: 'Quiet lead', activeRigSaved: true, activeRigEdited: true, model: 'Ivory red'};
+    engine.status = {...engine.status, activeRigId: 'lead', activeRigName: 'Quiet lead', activeRigSaved: true, activeRigEdited: true, model: 'Ivory red', appVersion: '1.2.3'};
     render(<App/>);
     const bar = within(screen.getByRole('region', {name: 'Current complete rig'}));
     await bar.findByText('Quiet lead'); expect(bar.getByText('Edited')).toBeTruthy();
+    expect(screen.getByLabelText('Cassian version').textContent).toBe('v1.2.3');
     fireEvent.click(bar.getByRole('button', {name: 'Save rig'}));
     await waitFor(() => expect(engine.calls).toContainEqual(['updateActiveRig']));
     engine.status = {...engine.status, activeRigEdited: false};

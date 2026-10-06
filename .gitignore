@@ -7,6 +7,10 @@ ui/dist/
 /Cassian.exe
 /Cassian-Setup.exe
 /Cassian-Windows.zip
+/Cassian-*-Setup.exe
+/Cassian-*-Windows.zip
+/Cassian-Build.json
+/SHA256SUMS.txt
 *.user
 Testing/Temporary/
 assets/models/*

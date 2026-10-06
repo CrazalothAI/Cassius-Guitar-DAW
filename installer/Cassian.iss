@@ -5,7 +5,7 @@
   #define OutputDir ".."
 #endif
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #error AppVersion must come from the Cassian package version.
 #endif
 
 [Setup]
@@ -20,8 +20,8 @@ OutputBaseFilename=Cassian-Setup
 #endif
 AppVersion={#AppVersion}
 AppPublisher=Cassian
-AppPublisherURL=https://github.com/CrazalothAI/Cassius
-AppSupportURL=https://github.com/CrazalothAI/Cassius/issues
+AppPublisherURL=https://github.com/CrazalothAI/Cassius-Guitar-DAW
+AppSupportURL=https://github.com/CrazalothAI/Cassius-Guitar-DAW/issues
 DefaultDirName={localappdata}\Programs\Cassian
 DefaultGroupName=Cassian
 PrivilegesRequired=lowest

@@ -16,6 +16,8 @@
 - [ ] Obtain per-asset redistribution grants and ship the approved bank in the GitHub release; private supplied sounds are not publicly cleared.
 - [x] Record synchronized backing stems and export selected takes/reamps as 48 kHz / 24-bit stereo audio for video editing.
 - [ ] Verify a real exported take with camera footage in Clipchamp.
+- [x] Unify app/plugin/editor/installer versions; add versioned download copies, checksums, build metadata and installer registration checks.
+- [ ] Sign and validate a versioned preview on a fresh PC; complete sustained interface and real DAW checks before a paid release.
 - Validation and remaining limits: [Play Along and navigation](PLAY-ALONG-NAVIGATION.md).
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).
 - Follow the implementation order in [NEXT-STEPS.md](NEXT-STEPS.md) for pedalboards, sounds, curated rigs and real-use validation.

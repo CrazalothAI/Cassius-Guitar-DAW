@@ -39,7 +39,7 @@ class CassianApplication final : public juce::JUCEApplication
 {
 public:
     const juce::String getApplicationName() override { return "Cassian"; }
-    const juce::String getApplicationVersion() override { return "0.1.0"; }
+    const juce::String getApplicationVersion() override { return JucePlugin_VersionString; }
     bool moreThanOneInstanceAllowed() override { return false; }
     void initialise(const juce::String& commandLine) override
     {

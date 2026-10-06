@@ -16,6 +16,14 @@ jobs:
         working-directory: ui
       - run: npm test
         working-directory: ui
+      - name: Read release version
+        id: version
+        shell: pwsh
+        run: |
+          . ./scripts/ReleaseVersion.ps1
+          $version = Get-CassianVersion $PWD
+          if ($env:GITHUB_REF_TYPE -eq 'tag' -and $env:GITHUB_REF_NAME -ne "v$version") { throw 'Release tag must match the app version.' }
+          "value=$version" >> $env:GITHUB_OUTPUT
       - shell: pwsh
         run: ./scripts/setup-webview2.ps1
       - shell: pwsh
@@ -23,9 +31,11 @@ jobs:
       - run: cmake --preset windows
       - run: cmake --build --preset release --parallel 2
       - run: ctest --preset release
+      - shell: pwsh
+        run: ./scripts/test-release-version.ps1
       - name: Build Windows installer and portable download
         shell: pwsh
-        run: ./scripts/package-windows.ps1
+        run: ./scripts/package-windows.ps1 -Release
       - name: Test installation, upgrade and uninstall
         shell: pwsh
         run: ./scripts/test-windows-installer.ps1
@@ -36,6 +46,10 @@ jobs:
           path: |
             Cassian-Setup.exe
             Cassian-Windows.zip
+            Cassian-*-Setup.exe
+            Cassian-*-Windows.zip
+            Cassian-Build.json
+            SHA256SUMS.txt
       # Every push to main replaces the "latest" pre-release, so the newest
       # Cassian.exe and VST3 are always one click away on the Releases page.
       - name: Publish latest build
@@ -43,8 +57,22 @@ jobs:
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+          CASSIAN_VERSION: ${{ steps.version.outputs.value }}
         run: |
           gh release view latest *> $null
           if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
-          $notes = "Built from ${{ github.sha }}.`n`nDownload Cassian-Setup.exe and run it to install Cassian, shortcuts and the optional VST3 plugin. Setup installs Microsoft WebView2 if needed (internet required for that step).`n`nFor portable use, extract Cassian-Windows.zip and run Cassian.exe at the top of the folder. The GitHub source ZIP is for developers."
-          gh release create latest Cassian-Setup.exe Cassian-Windows.zip --prerelease --title "Latest Windows download" --target ${{ github.sha }} --notes $notes
+          $notes = "Cassian $env:CASSIAN_VERSION preview. Built from ${{ github.sha }}.`n`nDownload Cassian-Setup.exe and run it to install Cassian, shortcuts and the optional VST3 plugin. Setup installs Microsoft WebView2 if needed (internet required for that step).`n`nFor portable use, extract Cassian-Windows.zip and run Cassian.exe at the top of the folder. The GitHub source ZIP is for developers.`n`nVersioned copies, SHA256SUMS.txt and Cassian-Build.json identify this download. Third-party capture files await redistribution clearance."
+          $notes | Set-Content -LiteralPath release-notes.txt -Encoding utf8
+          $assets = @('Cassian-Setup.exe','Cassian-Windows.zip',"Cassian-$env:CASSIAN_VERSION-Setup.exe","Cassian-$env:CASSIAN_VERSION-Windows.zip",'Cassian-Build.json','SHA256SUMS.txt')
+          gh release create latest @assets --prerelease --title "Latest Windows download" --target ${{ github.sha }} --notes-file release-notes.txt
+      - name: Publish versioned preview
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CASSIAN_VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          $notes = "Cassian $env:CASSIAN_VERSION preview, built from ${{ github.sha }}. Download the versioned Setup.exe for installation or Windows.zip for portable use. SHA256SUMS.txt and Cassian-Build.json accompany these files. Live hardware, signing and third-party sound clearance remain release checks."
+          $notes | Set-Content -LiteralPath release-notes.txt -Encoding utf8
+          $assets = @("Cassian-$env:CASSIAN_VERSION-Setup.exe","Cassian-$env:CASSIAN_VERSION-Windows.zip",'Cassian-Build.json','SHA256SUMS.txt')
+          gh release create $env:GITHUB_REF_NAME @assets --verify-tag --prerelease --title "Cassian $env:CASSIAN_VERSION preview" --notes-file release-notes.txt

@@ -19,6 +19,7 @@ import { applyPreset, matchPreset, presets } from './presets.js';
 import { allParameters } from './parameters.js';
 import { applyStartingPreview, resolveStartingRigs, startingRigs } from './startingRigs.js';
 import cassianLogo from './assets/cassian-logo-192.png'; // shown at 34 px; the full-size original stays in assets
+import packageInfo from '../package.json';
 
 const initialStatus = {
   model: '', ir: '', pedal: '', input: 0, prePedal: 0, postPedal: 0, postAmp: 0, postCab: 0, output: 0, gate: 0, overruns: 0, dropouts: -1,
@@ -222,6 +223,7 @@ export default function App() {
     {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
     <footer>
       <span role="status">{footerMessage}</span>
+      <span title="Cassian version" aria-label="Cassian version">v{status.appVersion || packageInfo.version}</span>
       {native && status.review?.playing && <button className="device-settings" onClick={() => deviceAction('reviewControl', 'stop', 0)}>Stop take review</button>}
       {native && status.practice?.recordMode > 0 && <button className="device-settings" onClick={() => navigate('Practice')}>Recording · Open Practice</button>}
       <span className="device-controls">
