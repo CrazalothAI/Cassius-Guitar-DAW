@@ -5,7 +5,7 @@ vi.mock('./juce/bridge.js', () => ({ native: true, invoke: bridge.invoke }));
 import Takes from './components/Takes.jsx';
 const status = {deviceSettingsAvailable: true, takes: {revision: 1, exporting: false}, practice: {recordMode: 0}, review: {duration: 60, position: 12, level: -12}};
 beforeEach(() => {
-  bridge.entries = [{id: 'one', name: 'Lead take', frames: 480000, sampleRate: 48000, originalRig: true, favorite: false, versions: [{id: 'v1', name: 'New clean tone'}]}, {id: 'two', name: 'Favorite clean', frames: 960000, sampleRate: 48000, favorite: true}];
+  bridge.entries = [{id: 'one', name: 'Lead take', frames: 480000, sampleRate: 48000, originalRig: true, favorite: false, versions: [{id: 'v1', name: 'New clean tone', rigPath: 'Reamp v1.json'}]}, {id: 'two', name: 'Favorite clean', frames: 960000, sampleRate: 48000, favorite: true}];
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
@@ -86,4 +86,42 @@ it('leaves standalone-only actions unavailable in a DAW', () => {
   render(<Takes status={{...status, deviceSettingsAvailable: false}} onError={vi.fn()}/>);
   expect(screen.getByRole('button', {name: 'Import take folder'}).disabled).toBe(true);
   expect(screen.getByText(/Open standalone/)).toBeTruthy(); expect(bridge.invoke).not.toHaveBeenCalled();
+});
+it('recovers the original or selected reamp rig and disables missing snapshots', async () => {
+  render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.click(screen.getByRole('button', {name: 'Load recorded rig'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('restoreTakeRig', 'one', 'processed'));
+  fireEvent.change(screen.getByLabelText('Take version'), {target: {value: 'dry'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Load recorded rig'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('restoreTakeRig', 'one', 'dry'));
+  fireEvent.change(screen.getByLabelText('Take version'), {target: {value: 'v1'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Load reamp rig'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('restoreTakeRig', 'one', 'v1'));
+  fireEvent.click(screen.getByText('★ Favorite clean'));
+  expect(screen.getByRole('button', {name: 'Load recorded rig'}).disabled).toBe(true);
+});
+it('prevents duplicate recovery and exports until reading finishes, then reports failures', async () => {
+  let finish; const error = vi.fn();
+  bridge.invoke.mockImplementation(name => name === 'getTakes' ? Promise.resolve(bridge.entries) : new Promise(resolve => { finish = resolve; }));
+  render(<Takes status={status} onError={error}/>); await screen.findByText('Lead take');
+  fireEvent.click(screen.getByRole('button', {name: 'Load recorded rig'}));
+  fireEvent.click(screen.getByRole('button', {name: 'Loading saved rig…'}));
+  expect(bridge.invoke.mock.calls.filter(([name]) => name === 'restoreTakeRig')).toHaveLength(1);
+  expect(screen.getByRole('button', {name: 'Reamp with current rig'}).disabled).toBe(true);
+  expect(screen.getByRole('button', {name: 'Export for video'}).disabled).toBe(true);
+  finish('Missing amp asset. Relink it in the Library first.');
+  await waitFor(() => expect(error).toHaveBeenCalledWith({title: 'Takes', text: 'Missing amp asset. Relink it in the Library first.'}));
+  expect(screen.getByRole('button', {name: 'Load recorded rig'}).disabled).toBe(false);
+});
+it('blocks recovery during recording, export, rig loading and incomplete recordings', async () => {
+  const {rerender} = render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  for (const next of [{...status, practice: {recordMode: 3}}, {...status, takes: {...status.takes, exporting: true}}, {...status, rigLoading: true}]) {
+    rerender(<Takes status={next} onError={vi.fn()}/>);
+    expect(screen.getByRole('button', {name: 'Load recorded rig'}).disabled).toBe(true);
+  }
+  bridge.entries[0].incomplete = true;
+  rerender(<Takes status={{...status, takes: {...status.takes, revision: 2}}} onError={vi.fn()}/>);
+  await screen.findByText('This recording was interrupted. Check the audio before using it.');
+  expect(screen.getByRole('button', {name: 'Load recorded rig'}).disabled).toBe(true);
+  expect(bridge.invoke.mock.calls.some(([name]) => name === 'restoreTakeRig')).toBe(false);
 });

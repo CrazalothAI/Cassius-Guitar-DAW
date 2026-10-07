@@ -32,6 +32,15 @@ juce::var rig() {
     set(p, "GATE_ON", 0); set(p, "REVERB_MIX", 0); set(p, "DELAY_MIX", 0); set(p, "MASTER_VOL", -48);
     set(p, "GUITAR_MIX_LEVEL", 12); set(p, "GUITAR_MIX_FOCUS", 100); return p.getRig();
 }
+juce::var recover(TakeLibrary& library, const juce::String& id, const juce::String& version) {
+    juce::var result; std::atomic<bool> finished {false}; int calls = 0;
+    const auto caller = juce::Thread::getCurrentThreadId(); bool worker = false;
+    const auto error = library.readRigSnapshot(id, version, [&](juce::var value) {
+        result = std::move(value); worker = caller != juce::Thread::getCurrentThreadId(); ++calls; finished.store(true);
+    });
+    require(error.isEmpty(), "Snapshot read must queue"); waitFor([&] { return finished.load(); });
+    require(worker && calls == 1, "Snapshot I/O must complete exactly once on the worker"); return result;
+}
 }
 void runTakeChecks()
 {
@@ -134,6 +143,30 @@ void runTakeChecks()
         require(std::abs(rendered.getSample(0, 3000) - .125f * 2 * juce::Decibels::decibelsToGain(6.f)) < .0001f, "Reamp must include current Input gain and guitar chain while excluding Master");
         const auto saved = juce::JSON::parse(juce::File(version["rigPath"].toString()).loadFileAsString());
         require(saved["state"].toString() == snapshot["state"].toString(), "Reamp version must save its exact rig snapshot");
+        const auto reampHash = juce::SHA256(juce::File(version["rigPath"].toString())).toHexString();
+        const auto recovered = recover(library, originalId, version["id"].toString());
+        require(recovered["state"].toString() == saved["state"].toString(), "Recovery must read the chosen reamp, not the current rig");
+        for (const auto& source : {juce::String("processed"), juce::String("dry")}) {
+            const auto original = recover(library, originalId, source);
+            require(static_cast<int>(original["schema"]) == 1 && original["state"].toString() == oldSnapshot["state"].toString(), "Both original versions must recover their exact legacy snapshot");
+            AmpSuiteAudioProcessor live(false); live.prepareToPlay(48000,128);
+            set(live,"INPUT_GAIN",-3); set(live,"MASTER_VOL",-21); set(live,"METRO_ON",1); set(live,"METRO_BPM",95);
+            set(live,"GUITAR_MIX_LEVEL",5); set(live,"GUITAR_MIX_FOCUS",32);
+            require(live.applyRig(original,true).isEmpty(), "Recovered legacy rig must enter prepared recall");
+            juce::AudioBuffer<float> block(2,128); juce::MidiBuffer midi;
+            waitFor([&] { block.clear(); live.processBlock(block,midi); return !static_cast<bool>(live.status()["rigLoading"]); });
+            require(!live.status()["message"].toString().startsWith("Load failed:") && live.apvts.getRawParameterValue("AMP_SOURCE")->load() == 4, "Saved amp identity must become active");
+            for (const auto& pair : {std::pair<const char*,float>{"INPUT_GAIN",-3}, {"MASTER_VOL",-21}, {"METRO_ON",1}, {"METRO_BPM",95}, {"GUITAR_MIX_LEVEL",5}, {"GUITAR_MIX_FOCUS",32}})
+                require(live.apvts.getRawParameterValue(pair.first)->load() == pair.second, "Take recall must preserve calibration, listening and click settings");
+            auto xml = juce::XmlDocument::parse(recovered["state"].toString()); auto missing = juce::ValueTree::fromXml(*xml);
+            missing.setProperty("modelPath",root.getChildFile("missing.nam").getFullPathName(),nullptr);
+            auto invalid = juce::JSON::parse(juce::JSON::toString(recovered)); invalid.getDynamicObject()->setProperty("state",missing.toXmlString());
+            const auto before = live.getRig()["state"].toString();
+            require(live.applyRig(invalid,true).isNotEmpty() && live.getRig()["state"].toString() == before, "Missing recovered assets must reject without changing the current rig");
+        }
+        require(juce::SHA256(juce::File(version["rigPath"].toString())).toHexString() == reampHash, "Recovery must never rewrite the reamp snapshot");
+        require(library.readRigSnapshot(originalId,"missing",[](juce::var) {}).isNotEmpty(), "Unknown snapshot version must reject before queuing");
+        require(library.readRigSnapshot("missing","processed",[](juce::var) {}).isNotEmpty(), "Unknown take must reject before queuing");
         require(library.reamp(originalId, juce::JSON::parse(originalRigFile.loadFileAsString())).isEmpty(), "Original schema-1 take snapshot must reamp");
         waitFor([&] { return !static_cast<bool>(library.status()["exporting"]); });
         require(library.status()["error"].toString().isEmpty(), "Legacy take reamp must complete");
@@ -149,6 +182,48 @@ void runTakeChecks()
             require(oldRendered.getSample(channel, sample) == rendered.getSample(channel, sample), "Legacy and new take snapshots must render identical audio");
         require(juce::SHA256(originalRigFile).toHexString() == originalRigHash, "Reamping must never rewrite a legacy Original rig.json");
         require(juce::SHA256(folder.getChildFile("Guitar dry.wav")).toHexString() == dryHash && juce::SHA256(folder.getChildFile("Guitar processed.wav")).toHexString() == wetHash, "Reamping must leave both originals byte-identical");
+    }
+    // Bad/missing snapshots report an error without touching audio or the catalog.
+    {
+        const auto badFolder = root.getChildFile("Broken snapshot"); makeTake(badFolder);
+        PracticeEngine review; TakeLibrary library({},review); imported(library,badFolder);
+        const auto id=first(library)["id"].toString(), before=juce::JSON::toString(library.list());
+        const auto file=badFolder.getChildFile("Original rig.json");
+        require(recover(library,id,"processed").hasProperty("error"), "Missing snapshot must fail safely");
+        for (const auto& text : {juce::String("not json"), juce::String("{}"), juce::String("{\"schema\":3,\"state\":12}")}) {
+            require(file.replaceWithText(text), "Invalid snapshot fixture must write");
+            require(recover(library,id,"dry").hasProperty("error"), "Malformed snapshot must fail safely");
+        }
+        require(file.replaceWithText(juce::String::repeatedString("x",4*1024*1024+1)), "Oversized fixture must write");
+        require(recover(library,id,"processed").hasProperty("error"), "Oversized snapshot must fail before parsing");
+        require(file.replaceWithText(juce::JSON::toString(rig())), "Valid snapshot fixture must write");
+        require(!recover(library,id,"processed").hasProperty("error") && library.status()["error"].toString().isEmpty(), "A valid recovery must clear previous errors");
+        require(juce::JSON::toString(library.list()) == before, "Snapshot reads must not edit the catalog");
+    }
+    // Catalog references cannot redirect recovery to a document outside a take.
+    {
+        const auto guardedCatalog=root.getChildFile("guarded.xml");
+        juce::ValueTree tree("TAKES"), take("TAKE"), version("REAMP");
+        take.setProperty("id","guarded",nullptr); take.setProperty("path",folder.getFullPathName(),nullptr);
+        version.setProperty("id","outside",nullptr); version.setProperty("rigPath",root.getChildFile("outside.json").getFullPathName(),nullptr);
+        require(root.getChildFile("outside.json").replaceWithText(juce::JSON::toString(rig())),"Outside fixture must write");
+        take.addChild(version,-1,nullptr); tree.addChild(take,-1,nullptr);
+        require(guardedCatalog.replaceWithText(tree.toXmlString()),"Guarded catalog must write");
+        PracticeEngine review; TakeLibrary library(guardedCatalog,review); waitFor([&]{return library.list().size()==1;});
+        require(recover(library,"guarded","outside").hasProperty("error"),"An outside reamp snapshot path must reject");
+        juce::WaitableEvent entered, release, finished;
+        require(library.readRigSnapshot("guarded","processed",[&](juce::var) { entered.signal(); release.wait(3000); finished.signal(); }).isEmpty(),"Read must queue without waiting for its callback");
+        require(entered.wait(3000),"Callback must run independently of caller");
+        std::atomic<bool> secondDone {false};
+        require(library.readRigSnapshot("guarded","dry",[&](juce::var) {secondDone.store(true);}).isEmpty(),"One pending read may wait behind worker completion");
+        require(library.readRigSnapshot("guarded","dry",[](juce::var) {}).isNotEmpty(),"Duplicate pending reads must reject");
+        release.signal(); require(finished.wait(3000),"Blocked callback must complete"); waitFor([&]{return secondDone.load();});
+    }
+    {
+        const auto incomplete=root.getChildFile("Incomplete"); makeTake(incomplete);
+        require(incomplete.getChildFile("Cassian take.json").replaceWithText("{\"incomplete\":true}"),"Incomplete metadata must write");
+        PracticeEngine review; TakeLibrary library({},review); imported(library,incomplete);
+        require(library.readRigSnapshot(first(library)["id"].toString(),"processed",[](juce::var) {}).isNotEmpty(),"Interrupted recordings must reject recovery");
     }
     // Reamp tails preserve effects, align the original backing and survive reopening.
     {

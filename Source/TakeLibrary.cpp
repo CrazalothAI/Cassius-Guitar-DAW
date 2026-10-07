@@ -35,6 +35,30 @@ juce::String TakeLibrary::preview(const juce::String& id, const juce::String& ve
     jobs.push_back(std::move(job)); error.clear(); notify(); return {};
 }
 void TakeLibrary::stopReview() { const juce::ScopedLock guard(lock); ++reviewGeneration; review.command("stop"); }
+juce::String TakeLibrary::readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)> completed)
+{
+    const juce::ScopedLock guard(lock); const auto take = find(id);
+    if (!take.isValid() || static_cast<bool>(take["incomplete"])) return "Choose a complete take to recover its rig.";
+    if (version != "processed" && version != "dry" && !take.getChildWithProperty("id", version).isValid()) return "Take version not found.";
+    if (!completed) return "Missing rig recovery callback.";
+    if (exporting.load()) return "Finish or cancel the export before recovering a rig.";
+    if (snapshotPending.exchange(true)) return "A take rig is already being read.";
+    Job job; job.type = "snapshot"; job.id = id; job.version = version; job.completed = std::move(completed);
+    jobs.push_back(std::move(job)); notify(); return {};
+}
+juce::var TakeLibrary::loadRigSnapshot(const Job& job)
+{
+    juce::File folder, snapshot;
+    { const juce::ScopedLock guard(lock); const auto take = find(job.id); require(take.isValid(), "Take not found.");
+      const auto path = take["path"].toString(); require(juce::File::isAbsolutePath(path), "Take folder is missing."); folder = juce::File(path);
+      if (job.version == "processed" || job.version == "dry") snapshot = folder.getChildFile("Original rig.json");
+      else { const auto path = take.getChildWithProperty("id", job.version)["rigPath"].toString(); require(juce::File::isAbsolutePath(path), "Reamp rig snapshot is missing."); snapshot = juce::File(path); } }
+    require(snapshot.isAChildOf(folder) && snapshot.hasFileExtension("json") && snapshot.existsAsFile(), "Rig snapshot is missing. Keep it with the take's WAV files.");
+    require(snapshot.getSize() > 0 && snapshot.getSize() <= 4 * 1024 * 1024, "Rig snapshot is empty or too large.");
+    const auto rig = juce::JSON::parse(snapshot.loadFileAsString());
+    require(rig.isObject() && !rig.hasProperty("error") && rig["state"].isString() && rig.hasProperty("schema"), "Rig snapshot is not a valid Cassian document.");
+    return rig;
+}
 juce::String TakeLibrary::reamp(const juce::String& id, const juce::var& rig, double tailSeconds)
 {
     if (!std::isfinite(tailSeconds) || tailSeconds < 0 || tailSeconds > 30) return "Choose a reamp tail between 0 and 30 seconds.";
@@ -160,6 +184,18 @@ void TakeLibrary::run()
         { const juce::ScopedLock guard(lock); if (!jobs.empty()) { job = std::move(jobs.front()); jobs.erase(jobs.begin()); ready = true; } }
         if (!ready) { wait(250); continue; }
         { const juce::ScopedLock guard(lock); error.clear(); }
+        if (job.type == "snapshot") {
+            juce::var result;
+            try { result = loadRigSnapshot(job); }
+            catch (const std::exception& e) {
+                auto failure = std::make_unique<juce::DynamicObject>(); failure->setProperty("error", juce::String(e.what())); result = juce::var(failure.release());
+                const juce::ScopedLock guard(lock); error = e.what();
+            }
+            snapshotPending.store(false);
+            try { job.completed(std::move(result)); }
+            catch (const std::exception& e) { const juce::ScopedLock guard(lock); error = e.what(); }
+            continue;
+        }
         try {
             if (job.type == "import") importTake(job.folder);
             else if (job.type == "edit") {

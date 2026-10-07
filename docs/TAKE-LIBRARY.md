@@ -18,9 +18,17 @@ Successful exports add uniquely named `Reamp <id>.wav` and `.json` files in the 
 
 Reamping begins with fresh DSP histories. Model/effect latency remains and is not compensated. The selected tail has a fixed duration; effects with longer decay can still be cut at its end. Existing reamps without duration metadata keep their original duration in the editor. Each take permits up to 64 reamp versions; the catalog permits up to 2,048 takes. Standard WAV size limits apply. Incomplete recordings are marked and cannot be reamped from the panel. Recording must finish before starting review or an export.
 
-Rig snapshots contain references to the selected assets, not a portable asset bundle. Assets must remain available for a future export. The original rig snapshot is retained for inspection; this update does not add one-click original-rig recall, waveform editing, deletion, automatic catalog migration, or latency compensation.
+Rig snapshots contain references to the selected assets, not a portable asset bundle. Assets must remain available for a future export or recall. Use Library relinking when a capture or cabinet has moved. This update does not add waveform editing, deletion, automatic catalog migration, or latency compensation.
+
+## Recover a saved tone
+
+Select Original processed or Dry DI and press **Load recorded rig** to restore the starting tone. Select a reamp version and press **Load reamp rig** to restore the tone used for that export. Save current edits first: recovery replaces the current tone, board, MIDI assignments and scenes. Input calibration, Master, metronome and Play Along settings stay as they are. Accepted recall stops review and pauses backing playback.
+
+Snapshot reads run on the take worker; full document validation and prepared rig recall use the existing engine path. Missing assets reject before changing the current rig. Corrupt assets may fail during preparation, retaining the current tone and reporting the engine error. Recording, exports, incomplete takes and rig loading block recovery. Older takes without a snapshot can still be reviewed and reamped. Recovery does not change WAV files, snapshots or catalog entries. Recording-time knob changes are not reconstructed.
 
 ## Verification
+
+0.4.1 checks on Windows on 2026-10-06: 139 UI tests, all four native suites with the optional 103-file bank, Release standalone/VST3 builds, version checks and isolated installation/upgrade/uninstall passed. Recovery checks cover exact originals/reamps, legacy migration, unchanged listening/calibration controls and files, missing assets, invalid documents, pending reads and worker callbacks. See [0.4.1 evidence and limits](RELEASE-0.4.1.md).
 
 Windows checks on 2026-10-06: all four CTest suites (with the optional 103-file bank) and 134 UI tests pass, with Release VST3 and side-by-side standalone builds. Native regressions cover catalog reopening, metadata edits, stored-audio review, cancellation, automatic recording registration and actual offline WAV rendering. Reamp checks include current Input gain, Master exclusion, exact rig snapshots, byte-identical originals, optional delay tails and persisted extended durations. Soundtrack checks include trimming at 44.1/48/96 kHz, boundary fades, clamping, synchronized backing and tail silence. See [0.3.0 notes](RELEASE-0.3.0.md).
 

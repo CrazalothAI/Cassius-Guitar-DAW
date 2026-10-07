@@ -105,6 +105,23 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (folder.isDirectory()) folder.revealToUser(); complete(folder.isDirectory());
         })
         .withNativeFunction("getTakes", [this](const auto&, auto complete) { complete(processor.takes.list()); })
+        .withNativeFunction("restoreTakeRig", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0 || static_cast<bool>(processor.status()["rigLoading"])) { complete(juce::String("Finish recording and rig loading before recovering a take tone.")); return; }
+            if (args.size() != 2 || !args[0].isString() || !args[1].isString()) { complete(juce::String("Choose a take version to recover.")); return; }
+            const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
+            const auto failure = processor.takes.readRigSnapshot(args[0].toString(), args[1].toString(), [safe, complete](juce::var rig) {
+                juce::MessageManager::callAsync([safe, complete, rig = std::move(rig)]() mutable {
+                    if (safe == nullptr) return;
+                    if (rig.hasProperty("error")) { complete(rig["error"].toString()); return; }
+                    if (static_cast<bool>(safe->processor.takes.status()["exporting"])) { complete(juce::String("Finish or cancel the export before recovering a rig.")); return; }
+                    if (static_cast<int>(safe->processor.practice.status()["recordMode"]) != 0 || static_cast<bool>(safe->processor.status()["rigLoading"])) { complete(juce::String("Finish recording and rig loading before recovering a take tone.")); return; }
+                    const auto error = safe->processor.applyRig(rig, true);
+                    if (error.isEmpty()) { safe->processor.takes.stopReview(); safe->processor.practice.command("pause"); }
+                    complete(error);
+                });
+            });
+            if (failure.isNotEmpty()) complete(failure);
+        })
         .withNativeFunction("importTake", [this](const auto&, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Take review is available in the standalone app.")); return; }
             chooseTakeFolder(); complete(juce::String());
