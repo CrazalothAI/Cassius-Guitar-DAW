@@ -94,7 +94,7 @@ export const parameters = [
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));
 
-export const boardTypes = ['compressor', 'overdrive', 'neural-pedal', 'eq', 'modulation', 'chorus', 'delay', 'reverb', 'ambience', 'wah'];
+export const boardTypes = ['compressor', 'overdrive', 'neural-pedal', 'eq', 'modulation', 'chorus', 'delay', 'reverb', 'ambience', 'wah', 'distortion'];
 export const boardControls = [
   ['CLEAN_COMP', 'COMP_THRESH', 'COMP_RATIO', 'COMP_ATTACK', 'COMP_RELEASE', 'COMP_MAKEUP'],
   ['OD_ON', 'OD_DRIVE', 'OD_TONE', 'OD_LEVEL', 'OD_TIGHT'],
@@ -103,6 +103,7 @@ export const boardControls = [
   ['CHORUS_MIX', 'CHORUS_RATE', 'CHORUS_DEPTH'], ['DELAY_TIME', 'DELAY_MIX', 'DELAY_WIDTH', 'DELAY_FEEDBACK', 'DELAY_SYNC', 'DELAY_DIVISION'],
   ['REVERB_MIX', 'REVERB_SIZE', 'REVERB_STYLE', 'REVERB_DAMP', 'REVERB_PREDELAY'], ['AMBIENCE_MIX'],
   ['WAH_MODE', 'WAH_POSITION', 'WAH_SENSITIVITY', 'WAH_RESONANCE', 'WAH_MIX'],
+  ['DIST_MODE', 'DIST_DRIVE', 'DIST_TONE', 'DIST_TIGHT', 'DIST_MIX'],
 ];
 export const boardPrefix = (kind, slot) => `BOARD_${boardTypes[kind].replaceAll('-', '_').toUpperCase()}_${slot}_`;
 export const boardId = (kind, slot, id) => slot === 0 && kind < 8 ? id : boardPrefix(kind, slot) + id;
@@ -116,6 +117,10 @@ export const boardParameters = boardTypes.flatMap((type, kind) => [0, 1].flatMap
     ['WAH_MODE', 'Mode', 0, 1, 0, ''], ['WAH_POSITION', 'Position', 0, 100, 50, '%'],
     ['WAH_SENSITIVITY', 'Sensitivity', -24, 24, 0, 'dB'], ['WAH_RESONANCE', 'Resonance', 0, 100, 45, '%'], ['WAH_MIX', 'Blend', 0, 100, 100, '%'],
   ].map(([id, label, min, max, initial, unit]) => ({id: boardId(kind, slot, id), label, min, max, initial, unit, step: unit ? .1 : 1, centre: 0, skew: 1})));
+  if (kind === 10) rows.push(...[
+    ['DIST_MODE', 'Mode', 0, 2, 0, '', 1, 0], ['DIST_DRIVE', 'Drive', 0, 100, 45, '%', 1, 0],
+    ['DIST_TONE', 'Tone', 0, 100, 50, '%', 1, 0], ['DIST_TIGHT', 'Low cut', 20, 250, 80, 'Hz', 1, 80], ['DIST_MIX', 'Blend', 0, 100, 100, '%', 1, 0],
+  ].map(([id,label,min,max,initial,unit,step,centre]) => ({id: boardId(kind,slot,id),label,min,max,initial,unit,step,centre,skew: centre ? Math.log(.5)/Math.log((centre-min)/(max-min)) : 1})));
   if (slot === 1 && kind < 8) rows.push(...boardControls[kind].map(id => ({...byId[id], id: boardId(kind, slot, id)})));
   return rows;
 }));

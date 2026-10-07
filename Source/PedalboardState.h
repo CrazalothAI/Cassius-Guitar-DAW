@@ -118,7 +118,7 @@ private:
             if (slot < 0 || (!integer(block["deleted"], 0) && !integer(block["deleted"], 1))) return "Invalid serial pedal slot.";
             const auto binding = block["type"].toString() + juce::String(slot); if (slots.contains(binding)) return "Duplicate pedal automation binding.";
             const auto lane = block["lane"].toString();
-            if (!block["lane"].isString() || (lane != "pre" && lane != "post") || ((type == 1 || type == 2) && lane != "pre")) return "Overdrive and mono NAM pedals require the pre-amp lane.";
+            if (!block["lane"].isString() || (lane != "pre" && lane != "post") || ((type == 1 || type == 2 || type == 10) && lane != "pre")) return "Drive and mono NAM pedals require the pre-amp lane.";
             ids.add(id); slots.add(binding);
         }
         return {};

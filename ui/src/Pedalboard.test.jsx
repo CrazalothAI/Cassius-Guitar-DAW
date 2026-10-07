@@ -10,6 +10,19 @@ afterEach(() => { cleanup(); bridge.native = true; bridge.invoke.mockReset(); })
 const block = (type, slot, lane = 'post') => { const kind = boardTypes.indexOf(type); return {id: `${type}.${slot}`, type, automationSlot: slot, lane, enabledId: boardOnId(kind, slot), trimId: `BOARD_${type.replaceAll('-', '_').toUpperCase()}_${slot}_TRIM`}; };
 const status = rows => ({board: {serial: true, blocks: rows, reserved: rows.length, canUndo: true, canRedo: false}, libraryRevision: 1});
 describe('independent serial pedalboard', () => {
+  it('adds distortion before the amp and edits its duplicate independently', async () => {
+    bridge.invoke.mockResolvedValue(''); setParameter('BOARD_DISTORTION_0_DIST_DRIVE',35);
+    render(<Pedalboard status={status([block('distortion',0,'pre'),block('distortion',1,'pre')])}/>);
+    fireEvent.click(screen.getByRole('button',{name:/02 Distortion 2/}));
+    const inspector=within(screen.getByRole('region',{name:'Selected pedal controls'}));
+    fireEvent.change(inspector.getByRole('combobox',{name:'Mode'}),{target:{value:'2'}});
+    fireEvent.change(inspector.getByRole('slider',{name:'Drive'}),{target:{value:'80'}});
+    expect(readParameter('BOARD_DISTORTION_1_DIST_MODE')).toBe(2); expect(readParameter('BOARD_DISTORTION_1_DIST_DRIVE')).toBe(80);expect(readParameter('BOARD_DISTORTION_0_DIST_DRIVE')).toBe(35);
+    expect(inspector.getByRole('button',{name:'Move after cabinet'}).disabled).toBe(true);
+    fireEvent.change(screen.getByRole('combobox',{name:'New pedal type'}),{target:{value:'distortion'}});
+    expect(screen.getByRole('combobox',{name:'New pedal position'}).value).toBe('pre');expect(screen.getByRole('combobox',{name:'New pedal position'}).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button',{name:'Add pedal'}));await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('boardCommand','add',{type:'distortion',lane:'pre'}));
+  });
   it('exposes manual/envelope wah controls without linking duplicate instances', async () => {
     bridge.invoke.mockResolvedValue('');
     setParameter('BOARD_WAH_0_WAH_POSITION', 20); setParameter('BOARD_WAH_1_WAH_POSITION', 50);

@@ -188,7 +188,7 @@ private:
                 const auto& p = allDefinitions()[i]; if (global(p.id)) continue;
                 // Future additions default without changing these original scene controls.
                 if (!values.hasProperty(p.id) && ((i >= 85 && static_cast<int>(parsed["version"]) < 3)
-                    || (p.id.startsWith("BOARD_WAH_") && !BoardParams::hasWah(board)))) values.getDynamicObject()->setProperty(p.id, p.initial);
+                    || BoardParams::appendedFamilyAbsent(p.id, board))) values.getDynamicObject()->setProperty(p.id, p.initial);
                 const auto v = values[p.id.toRawUTF8()]; const double x = static_cast<double>(v);
                 // JSON shortens float endpoints (e.g. 0.05f). Validate at the
                 // native parameter's precision so its own minimum round-trips.

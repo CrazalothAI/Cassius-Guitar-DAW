@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest milestone: 0.6.0 connects saved review sections to trimmed guitar/video WAV export and reports actual output duration and peak attenuation. It includes 0.5.5 take notes and 0.5.6 persistent review sections. See [0.6.0](RELEASE-0.6.0.md).
+Latest patch: 0.6.1 adds original oversampled distortion with append-only automation and absent-family rig/scene migration. See [distortion](RELEASE-0.6.1.md).
+
+Previous milestone: 0.6.0 connects saved review sections to trimmed guitar/video WAV export and reports actual output duration and peak attenuation. It includes 0.5.5 take notes and 0.5.6 persistent review sections. See [0.6.0](RELEASE-0.6.0.md).
 
 Earlier patch: 0.5.6 adds persistent take review sections with worker-side saves and stale-version protection. See [take sections](RELEASE-0.5.6.md).
 

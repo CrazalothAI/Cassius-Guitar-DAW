@@ -8,8 +8,8 @@
 // their original positions. A block's position never determines its parameter ID.
 namespace BoardParams {
 inline constexpr int slotsPerType = 2;
-inline const juce::StringArray types {"compressor", "overdrive", "neural-pedal", "eq", "modulation", "chorus", "delay", "reverb", "ambience", "wah"};
-inline const std::array<juce::StringArray, 10> controls {{
+inline const juce::StringArray types {"compressor", "overdrive", "neural-pedal", "eq", "modulation", "chorus", "delay", "reverb", "ambience", "wah", "distortion"};
+inline const std::array<juce::StringArray, 11> controls {{
     {"CLEAN_COMP", "COMP_THRESH", "COMP_RATIO", "COMP_ATTACK", "COMP_RELEASE", "COMP_MAKEUP"},
     {"OD_ON", "OD_DRIVE", "OD_TONE", "OD_LEVEL", "OD_TIGHT"},
     {"PEDAL_ON", "PEDAL_INPUT", "PEDAL_OUTPUT"},
@@ -19,7 +19,8 @@ inline const std::array<juce::StringArray, 10> controls {{
     {"DELAY_TIME", "DELAY_MIX", "DELAY_WIDTH", "DELAY_FEEDBACK", "DELAY_SYNC", "DELAY_DIVISION"},
     {"REVERB_MIX", "REVERB_SIZE", "REVERB_STYLE", "REVERB_DAMP", "REVERB_PREDELAY"},
     {"AMBIENCE_MIX"},
-    {"WAH_MODE", "WAH_POSITION", "WAH_SENSITIVITY", "WAH_RESONANCE", "WAH_MIX"}
+    {"WAH_MODE", "WAH_POSITION", "WAH_SENSITIVITY", "WAH_RESONANCE", "WAH_MIX"},
+    {"DIST_MODE", "DIST_DRIVE", "DIST_TONE", "DIST_TIGHT", "DIST_MIX"}
 }};
 inline juce::String prefix(int kind, int slot) { return "BOARD_" + types[kind].replaceCharacter('-', '_').toUpperCase() + "_" + juce::String(slot) + "_"; }
 inline juce::String parameter(int kind, int slot, const juce::String& original) { return slot == 0 && kind < 8 ? original : prefix(kind, slot) + original; }
@@ -43,6 +44,13 @@ inline const std::vector<Definition>& definitions() {
                 result.push_back({parameter(kind, slot, "WAH_SENSITIVITY"), title + "sensitivity", -24, 24, 0, "dB", 0});
                 result.push_back({parameter(kind, slot, "WAH_RESONANCE"), title + "resonance", 0, 100, 45, "%", 0});
                 result.push_back({parameter(kind, slot, "WAH_MIX"), title + "blend", 0, 100, 100, "%", 0});
+            }
+            if (kind == 10) {
+                result.push_back({parameter(kind, slot, "DIST_MODE"), title + "mode", 0, 2, 0, "", 0});
+                result.push_back({parameter(kind, slot, "DIST_DRIVE"), title + "drive", 0, 100, 45, "%", 0});
+                result.push_back({parameter(kind, slot, "DIST_TONE"), title + "tone", 0, 100, 50, "%", 0});
+                result.push_back({parameter(kind, slot, "DIST_TIGHT"), title + "low cut", 20, 250, 80, "Hz", 80});
+                result.push_back({parameter(kind, slot, "DIST_MIX"), title + "blend", 0, 100, 100, "%", 0});
             }
             if (slot == 1) for (const auto& id : controls[static_cast<size_t>(kind)]) for (const auto& old : Params::definitions) if (id == old.id)
                 result.push_back({parameter(kind, slot, id), title + old.name, old.min, old.max, old.initial, old.unit, old.centre});
@@ -71,12 +79,22 @@ inline bool hasWah(const juce::ValueTree& state) {
     for (const auto& block : board) if (block["type"].toString() == "wah") return true;
     return false;
 }
+// Only absent appended families may default. Reserved/deleted blocks still
+// require complete controls, so truncated current rigs cannot silently recall.
+inline bool appendedFamilyAbsent(const juce::String& id, const juce::ValueTree& state) {
+    const auto board = state.hasType("PEDALBOARD") ? state : state.getChildWithName("PEDALBOARD");
+    for (const auto* type : {"wah", "distortion"}) {
+        const auto family = "BOARD_" + juce::String(type).toUpperCase() + "_";
+        if (id.startsWith(family)) { for (const auto& block : board) if (block["type"].toString() == type) return false; return true; }
+    }
+    return false;
+}
 inline juce::String addDefaults(juce::ValueTree& state, bool requireAll) {
     for (const auto& p : definitions()) {
         auto row = state.getChildWithProperty("id", p.id);
         // Pre-0.4 schema-3 documents have no wah controls. Default only this
         // appended family when no wah block (including reserved slots) exists.
-        if (!row.isValid() && (!requireAll || (p.id.startsWith("BOARD_WAH_") && !hasWah(state)))) { row = juce::ValueTree("PARAM"); row.setProperty("id", p.id, nullptr); row.setProperty("value", p.initial, nullptr); state.addChild(row, -1, nullptr); }
+        if (!row.isValid() && (!requireAll || appendedFamilyAbsent(p.id, state))) { row = juce::ValueTree("PARAM"); row.setProperty("id", p.id, nullptr); row.setProperty("value", p.initial, nullptr); state.addChild(row, -1, nullptr); }
         if (!row.hasType("PARAM")) return "Incomplete board parameter: " + p.id;
         const auto text = row["value"].toString().toStdString(); char* end = nullptr; const auto amount = std::strtod(text.c_str(), &end); const auto x = static_cast<float>(amount);
         if (end == text.c_str() || *end != '\0' || !std::isfinite(amount) || x < p.min || x > p.max || (p.unit[0] == 0 && amount != std::floor(amount))) return "Invalid board parameter: " + p.id;

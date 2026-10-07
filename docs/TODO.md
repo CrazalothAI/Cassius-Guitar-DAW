@@ -31,6 +31,8 @@
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).
 - Follow the implementation order in [NEXT-STEPS.md](NEXT-STEPS.md) for pedalboards, sounds, curated rigs and real-use validation.
 
+- [x] Add 0.6.1 original 4x oversampled distortion, independent duplicate controls and compatible old rig/scene recall.
+
 ## After the app is more mature
 
 - Plan and build a polished Cassian website for promotion, demos, easy Windows downloads, documentation, support and suggestions.

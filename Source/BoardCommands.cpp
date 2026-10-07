@@ -70,7 +70,7 @@ juce::String AmpSuiteAudioProcessor::boardCommand(const juce::String& action, co
             juce::ValueTree added("BLOCK"); added.setProperty("id", "block." + juce::Uuid().toString(), nullptr);
             added.setProperty("type", BoardParams::types[kind], nullptr); added.setProperty("automationSlot", slot, nullptr); added.setProperty("deleted", 0, nullptr);
             auto lane = action == "duplicate" || action == "replace" ? block["lane"].toString() : args["lane"].toString();
-            if (action == "replace" && (kind == 1 || kind == 2)) lane = "pre";
+            if (action == "replace" && (kind == 1 || kind == 2 || kind == 10)) lane = "pre";
             added.setProperty("lane", lane, nullptr); board.addChild(added, action == "duplicate" || action == "replace" ? board.indexOf(block) + 1 : -1, nullptr);
             if (action == "replace") block.setProperty("deleted", 1, nullptr);
             const int from = static_cast<int>(block["automationSlot"]);
