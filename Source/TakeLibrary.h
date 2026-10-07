@@ -15,6 +15,7 @@ public:
     juce::String renameVersion(const juce::String& id, const juce::String& version, const juce::String& name);
     juce::String preview(const juce::String& id, const juce::String& version);
     juce::String reviewControl(const juce::String& id, const juce::String& version, const juce::String& command, double amount);
+    juce::var reviewWaveform(const juce::String& id, const juce::String& version);
     // File reads finish on the take worker; the caller chooses its callback thread.
     juce::String readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)>);
     juce::String reamp(const juce::String& id, const juce::var& rig, double tailSeconds = 0);

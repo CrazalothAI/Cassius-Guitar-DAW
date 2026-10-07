@@ -141,6 +141,10 @@ void runTakeChecks()
         juce::AudioBuffer<float> audio(2, 128), dry(1, 128); audio.clear(); dry.clear();
         review.process(audio, dry.getReadPointer(0)); require(audio.getMagnitude(0, 0, 128) > .19f, "Processed review must preserve stored audio at review gain");
         require(library.status()["reviewId"].toString() == originalId && library.status()["reviewVersion"].toString() == "processed" && !static_cast<bool>(library.status()["reviewLoading"]), "Review identity must publish only after preparation");
+        const auto waveform = library.reviewWaveform(originalId,"processed");
+        require(waveform["takeId"].toString()==originalId && waveform["version"].toString()=="processed" && waveform["peaks"].isArray() && waveform["peaks"].size()==512 && static_cast<int>(waveform["revision"])==static_cast<int>(review.status()["waveRevision"]),"Loaded review waveform must publish a bounded envelope with its exact identity/revision");
+        require(static_cast<double>(waveform["peaks"][200][1])>.79 && std::abs(static_cast<double>(waveform["duration"])-4096./48000)<1.e-6,"Review waveform must describe stored audio before monitoring gain");
+        require(library.reviewWaveform("other","processed").hasProperty("error") && library.reviewWaveform(originalId,"dry").hasProperty("error"),"Other take/version requests must not expose the loaded waveform");
         require(library.reviewControl("other", "processed", "seek", .02).isNotEmpty() && library.reviewControl(originalId, "dry", "pause", 0).isNotEmpty(), "Controls for another take or version must not change playback");
         require(review.transportActive(), "Rejected stale pause must leave the loaded version playing");
         require(library.reviewControl(originalId,"processed","pause",0).isEmpty(), "Loaded review must pause");
@@ -160,6 +164,7 @@ void runTakeChecks()
         require(library.reviewControl(originalId,"processed","b",.03).isEmpty() && !static_cast<bool>(review.status()["loop"]) && library.reviewControl(originalId,"processed","loop",1).isNotEmpty(), "Too-short review loops must disable and reject enabling");
         require(library.reviewControl(originalId,"processed","record",0).isNotEmpty() && library.reviewControl(originalId,"processed","seek",std::numeric_limits<double>::quiet_NaN()).isNotEmpty(), "Unsupported and nonfinite review controls must reject");
         library.stopReview(); require(!review.transportActive(), "Review must stop without waiting for an audio callback");
+        require(library.reviewWaveform(originalId,"processed").hasProperty("error"),"Stopped review must not expose a stale envelope");
         require(library.status()["reviewId"].toString().isEmpty() && !static_cast<bool>(library.status()["reviewLoading"]) && library.reviewControl(originalId,"processed","play",0).isNotEmpty(), "Stopped review must invalidate its identity and reject stale resume");
         library.preview(originalId, "processed"); library.stopReview(); juce::Thread::sleep(20); require(!review.transportActive(), "Cancelled preview must not restart playback");
         require(library.preview(originalId,"dry").isEmpty(), "A different review version must queue");

@@ -59,6 +59,14 @@ juce::String TakeLibrary::reviewControl(const juce::String& id, const juce::Stri
         return "Unknown take review control.";
     return review.command(command, amount);
 }
+juce::var TakeLibrary::reviewWaveform(const juce::String& id, const juce::String& version)
+{
+    const juce::ScopedLock guard(lock);
+    if (reviewLoading || reviewId.isEmpty() || id != reviewId || version != reviewVersion) {
+        auto error = std::make_unique<juce::DynamicObject>(); error->setProperty("error", "Listen to the selected version before reading its waveform."); return juce::var(error.release());
+    }
+    auto wave = review.waveform(); wave.getDynamicObject()->setProperty("takeId", id); wave.getDynamicObject()->setProperty("version", version); return wave;
+}
 juce::String TakeLibrary::readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)> completed)
 {
     const juce::ScopedLock guard(lock); const auto take = find(id);

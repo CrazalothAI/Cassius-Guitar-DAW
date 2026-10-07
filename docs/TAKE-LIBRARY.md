@@ -20,6 +20,8 @@ The review status names the loaded take/version even when you select another row
 
 ## Reamp versions
 
+0.5.2 adds a waveform for the loaded review version. Click to seek or use arrows (one second), Shift+arrows (ten seconds), Home and End. The cursor and A/B region follow review playback. Only the matching loaded version can expose or control its waveform; selection changes hide the previous envelope. Waveform failures leave the normal position slider usable. The existing decoder prepares at most 512 min/max pairs on its worker; playback-position polling does not rescan audio.
+
 Set up the desired amp, pedals, cabinets and effects, then choose **Reamp with current rig**. A separate processor prepares the snapshot's assets and streams the original dry file through the guitar chain on a worker. It does not change the live rig or depend on audio callbacks. The current Input gain and guitar processing are included; Master, output limiter, accompaniment and clicks are excluded.
 
 Successful exports add uniquely named `Reamp <id>.wav` and `.json` files in the take folder and a version in the selector. The WAV is stereo 32-bit float with the original dry file's sample rate. Choose **Effect tail** before reamping: no extra tail, 1, 2 (default), 5 or 10 seconds. Extra frames feed silence through the same processor so delays and reverbs ring out; version duration and tail length persist in the catalog. It retains headroom above 0 dBFS, so use suitable playback gain. Original dry and processed files remain untouched. **Cancel export** discards an unfinished audio output. Preparation/read/write failures report an error instead of adding a successful version.

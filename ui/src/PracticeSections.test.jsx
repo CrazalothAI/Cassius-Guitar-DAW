@@ -91,5 +91,5 @@ it('disables waveform seeking during takes, count-in and loading', async () => {
 it('reports waveform bridge failures without breaking the existing seek slider', async () => {
   const onError = vi.fn(); bridge.invoke.mockRejectedValue(new Error('Disconnected'));
   render(waveform({onError})); await waitFor(() => expect(onError).toHaveBeenCalledWith({title: 'Practice', text: 'Couldn’t read the backing waveform.'}));
-  expect(screen.getByText('Preparing waveform…')).toBeTruthy();
+  expect(screen.getByText('Waveform unavailable. Use the position slider.')).toBeTruthy();
 });

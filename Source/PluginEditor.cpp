@@ -83,6 +83,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             complete(processor.practice.command(args[0].toString(), static_cast<double>(args[1])));
         })
         .withNativeFunction("getPracticeWaveform", [this](const auto&, auto complete) { complete(processor.practice.waveform()); })
+        .withNativeFunction("getTakeReviewWaveform", [this](const auto& args, auto complete) { complete(processor.takes.reviewWaveform(args.size() == 2 && args[0].isString() ? args[0].toString() : juce::String(), args.size() == 2 && args[1].isString() ? args[1].toString() : juce::String())); })
         .withNativeFunction("savePracticeSection", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Practice sections are available in standalone.")); return; }
             complete(args.size() == 2 && args[0].isString() && args[1].isString() ? processor.practice.saveSection(args[0].toString(), args[1].toString()) : juce::String("Invalid section request."));

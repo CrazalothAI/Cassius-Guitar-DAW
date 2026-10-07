@@ -214,3 +214,30 @@ it('surfaces review command failures without changing soundtrack export settings
   fireEvent.click(screen.getByRole('button',{name:'Export for video'}));
   expect(bridge.invoke).toHaveBeenCalledWith('exportVideoAudio','one','processed',false,0,0,3,10,.01);
 });
+it('draws the loaded version waveform and seeks by pointer and keyboard without fetching on position polls', async () => {
+  const loaded={...status,takes:{...status.takes,reviewId:'one',reviewVersion:'processed'},review:{...status.review,duration:10,position:2,waveRevision:1}};
+  bridge.invoke.mockImplementation(async fn=>fn==='getTakes'?bridge.entries:fn==='getTakeReviewWaveform'?{revision:1,takeId:'one',version:'processed',peaks:[[-.4,.6],[0,.2]]}:'');
+  const {container,rerender}=render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  await waitFor(()=>expect(container.querySelector('.wave-peaks').getAttribute('d')).toContain('M250.00,23.00V68.00'));
+  const slider=screen.getByRole('slider',{name:'Take waveform position'});
+  vi.spyOn(slider,'getBoundingClientRect').mockReturnValue({left:10,width:400});
+  fireEvent.click(slider,{clientX:210});
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','seek',5);
+  fireEvent.keyDown(slider,{key:'ArrowRight'});
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','seek',3);
+  rerender(<Takes status={{...loaded,review:{...loaded.review,position:4}}} onError={vi.fn()}/>);
+  expect(bridge.invoke.mock.calls.filter(([fn])=>fn==='getTakeReviewWaveform')).toHaveLength(1);
+  fireEvent.change(screen.getByLabelText('Take version'),{target:{value:'v1'}});
+  expect(slider.getAttribute('aria-disabled')).toBe('true');
+  expect(container.querySelector('.wave-peaks').getAttribute('d')).toBe('');
+  fireEvent.keyDown(slider,{key:'End'});
+  expect(bridge.invoke.mock.calls.filter(([fn])=>fn==='takeReviewControl')).toHaveLength(2);
+});
+it('reports unavailable take waveforms while keeping the ordinary position slider usable',async()=>{
+  const error=vi.fn();
+  bridge.invoke.mockImplementation(async fn=>fn==='getTakes'?bridge.entries:fn==='getTakeReviewWaveform'?{error:'Version changed'}:'');
+  render(<Takes status={{...status,takes:{...status.takes,reviewId:'one',reviewVersion:'processed'},review:{...status.review,waveRevision:1}}} onError={error}/>); await screen.findByText('Lead take');
+  await waitFor(()=>expect(error).toHaveBeenCalledWith({title:'Takes',text:'Couldn’t read this version’s waveform. Use the position slider.'}));
+  expect(screen.getByLabelText('Take review position').disabled).toBe(false);
+  expect(screen.getByText('Waveform unavailable. Use the position slider.')).toBeTruthy();
+});
