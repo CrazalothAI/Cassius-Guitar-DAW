@@ -68,3 +68,36 @@ it('surfaces invalid saved rig inspection without allowing recall',async()=>{
   const row=screen.getByRole('button',{name:'Favorite My clean'}).closest('article');
   expect(within(row).getByRole('button',{name:'Use'}).disabled).toBe(true);
 });
+it('combines missing-file and capture-type filters and refreshes after relinking',async()=>{
+  const assets=[{id:'head',kind:'amp',name:'Dry head',captureKind:1,ownership:'User',missing:false},{id:'full',kind:'amp',name:'Studio rig',captureKind:3,ownership:'User',missing:true},{id:'pre',kind:'amp',name:'Preamp capture',captureKind:'2',ownership:'User',missing:false},{id:'unknown',kind:'amp',name:'Mystery capture',ownership:'User'}];
+  bridge.invoke.mockImplementation(async(fn)=>{
+    if(fn==='getLibrary')return {assets,rigs:bridge.rigs};
+    if(fn==='relinkAsset'){assets[1].missing=false;return true;} return '';
+  });
+  render(<Library onClose={vi.fn()}/>); await screen.findByText('Studio rig');
+  fireEvent.change(screen.getByLabelText('Library capture type'),{target:{value:'full'}});
+  fireEvent.change(screen.getByLabelText('Library file status'),{target:{value:'missing'}});
+  expect(screen.queryByText('Dry head')).toBeNull();expect(screen.queryByText('Lumen')).toBeNull();
+  expect(screen.getByRole('status').textContent).toBe('1 of 7 sounds');
+  fireEvent.click(screen.getByText('Studio rig'));
+  expect(screen.getByText(/Includes a captured cabinet/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Relink'}));
+  await waitFor(()=>expect(screen.getByRole('status').textContent).toBe('0 of 7 sounds'));
+  fireEvent.change(screen.getByLabelText('Library file status'),{target:{value:'available'}});
+  expect(screen.getByRole('status').textContent).toBe('1 of 7 sounds');
+  fireEvent.click(screen.getByRole('button',{name:'Clear filters'}));
+  expect(screen.getByLabelText('Library capture type').value).toBe('');expect(screen.getByLabelText('Library file status').value).toBe('');
+  expect(screen.getByText('Dry head')).toBeTruthy();
+  expect(bridge.invoke.mock.calls.some(([fn])=>fn==='selectAsset'||fn==='loadRig')).toBe(false);
+});
+it('keeps amp-type filters out of other tabs and file filters out of saved rigs',async()=>{
+  bridge.invoke.mockImplementation(async fn=>fn==='getLibrary'?{assets:[{id:'cab',kind:'cab',name:'Room cabinet',missing:false,ownership:'User'}],rigs:bridge.rigs}:'');
+  render(<Library onClose={vi.fn()}/>);await screen.findByText('Lumen');
+  fireEvent.change(screen.getByLabelText('Library capture type'),{target:{value:'preamp'}});
+  fireEvent.change(screen.getByLabelText('Library file status'),{target:{value:'missing'}});
+  fireEvent.click(screen.getByRole('button',{name:'Presets'}));await screen.findByText('My clean');
+  expect(screen.queryByLabelText('Library file status')).toBeNull();expect(screen.queryByLabelText('Library capture type')).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Cabinets'}));
+  fireEvent.change(screen.getByLabelText('Library file status'),{target:{value:'available'}});
+  expect(screen.getByText('Room cabinet')).toBeTruthy();expect(screen.queryByLabelText('Library capture type')).toBeNull();
+});

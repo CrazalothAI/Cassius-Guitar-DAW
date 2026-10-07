@@ -1,4 +1,5 @@
 export const gainLabels = {'': 'Unknown', clean: 'Clean', breakup: 'Breakup', crunch: 'Crunch', 'high-gain': 'High gain', drive: 'Drive', fuzz: 'Fuzz'};
+export const captureLabels = {builtin:'Built-in amp',direct:'Direct input',unknown:'Unknown capture',amp:'Amp-only',preamp:'Preamp-only',full:'Full rig'};
 export const styleNames = ['acoustic', 'ambient', 'blues', 'classical', 'clean', 'country', 'funk', 'jazz', 'lead', 'metal', 'metalcore', 'pop', 'rock', 'thrash'];
 export const title = value => value ? value[0].toUpperCase() + value.slice(1) : '';
 const tokens = value => String(value || '').toLowerCase().split(/[\s,;]+/).filter(Boolean);
@@ -14,7 +15,9 @@ export function catalogRow(row) {
   const candidateGain = row.gain != null ? row.gain : inferredGain;
   const gain = Object.hasOwn(gainLabels, candidateGain) ? candidateGain : '';
   const speaker = row.speaker != null ? row.speaker : /\bv\s?30\b/i.test(hint) ? 'V30' : /\bjensen\b/i.test(hint) ? 'Jensen' : /\balnico blue\b/i.test(hint) ? 'Alnico Blue' : '';
-  return {...row, styles, gain, speaker, inferred: (row.gain == null && !!gain) || (row.styles == null && styles.length > 0) || (row.speaker == null && !!speaker)};
+  const captureType = row.kind !== 'amp' ? '' : row.source === 4 ? 'direct' : row.source != null ? 'builtin'
+    : /^[123]$/.test(String(row.captureKind)) ? ['unknown','amp','preamp','full'][Number(row.captureKind)] : 'unknown';
+  return {...row, styles, gain, speaker, captureType, inferred: (row.gain == null && !!gain) || (row.styles == null && styles.length > 0) || (row.speaker == null && !!speaker)};
 }
 export function matchesCatalog(row, filters, favorite) {
   const haystack = [row.name, row.sourceName, row.gear, row.creator, row.tags, row.notes, row.pack, row.speaker, ...row.styles].join(' ').toLowerCase();
@@ -23,5 +26,7 @@ export function matchesCatalog(row, filters, favorite) {
     && (!filters.style || row.styles.includes(filters.style))
     && (filters.gain === 'all' || row.gain === filters.gain)
     && (!filters.speaker || row.speaker === filters.speaker) && (!filters.pack || row.pack === filters.pack)
+    && (!filters.availability || (filters.availability === 'missing' ? Boolean(row.missing) : !row.missing))
+    && (!filters.captureType || row.captureType === filters.captureType)
     && (!filters.rigType || (filters.rigType === 'starter' ? !!row.starter : filters.rigType === 'controls' ? !!row.preset : !row.starter && !row.preset));
 }

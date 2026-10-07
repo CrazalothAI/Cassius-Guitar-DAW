@@ -53,4 +53,17 @@ describe('library discovery', () => {
     expect(matchesCatalog(catalogRow({starter: true, styles: [], ownership: 'Factory'}), {...filter, rigType: 'controls'}, false)).toBe(false);
     expect(matchesCatalog(catalogRow({preset: true, styles: [], ownership: 'Factory'}), {...filter, rigType: 'starter'}, false)).toBe(false);
   });
+  it('filters file presence and exact recorded amp types without guessing unknown captures',()=>{
+    const external=kind=>catalogRow({kind:'amp',name:'Clean full rig filename',captureKind:kind,ownership:'User'});
+    for(const [kind,type] of [[0,'unknown'],[1,'amp'],['2','preamp'],[3,'full'],[null,'unknown'],['__proto__','unknown'],[1.5,'unknown']]) {
+      const row=external(kind);expect(row.captureType).toBe(type);
+      expect(matchesCatalog(row,{...filter,captureType:type,availability:'available'},false)).toBe(true);
+      expect(matchesCatalog({...row,missing:true},{...filter,captureType:type,availability:'available'},false)).toBe(false);
+      expect(matchesCatalog({...row,missing:true},{...filter,captureType:type,availability:'missing'},false)).toBe(true);
+    }
+    expect(catalogRow({kind:'amp',source:1}).captureType).toBe('builtin');
+    expect(catalogRow({kind:'amp',source:4}).captureType).toBe('direct');
+    expect(catalogRow({kind:'pedal',captureKind:3}).captureType).toBe('');
+    expect(matchesCatalog(external(3),{...filter,captureType:'amp'},false)).toBe(false);
+  });
 });

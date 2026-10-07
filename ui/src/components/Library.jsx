@@ -3,7 +3,7 @@ import { invoke, native } from '../juce/bridge.js';
 import { restoreSnapshot, setParameter, snapshotParameters } from '../parameterState.js';
 import { applyPreset, presets, notes, familyOf } from '../presets.js';
 import { applyStartingPreview, resolveStartingRigs } from '../startingRigs.js';
-import { catalogRow, gainLabels, matchesCatalog, title } from '../libraryCatalog.js';
+import { catalogRow, captureLabels, gainLabels, matchesCatalog, title } from '../libraryCatalog.js';
 
 const builtins = [
   { id: 'lumen', name: 'Lumen', kind: 'amp', source: 1, ownership: 'Factory', tags: 'clean warm jazz', notes: 'Cassian built-in clean amp.' },
@@ -21,8 +21,9 @@ export default function Library({ revision, loading = false, onClose, onPreset =
   const [previewFavorites, setPreviewFavorites] = useState(readFavorites);
   const [style, setStyle] = useState(''), [gain, setGain] = useState('all'), [speaker, setSpeaker] = useState(''), [pack, setPack] = useState('');
   const [rigType, setRigType] = useState(''), [sort, setSort] = useState('name');
+  const [availability, setAvailability] = useState(''), [captureType, setCaptureType] = useState('');
   const [rigDetails, setRigDetails] = useState(null);
-  const clearFilters = () => { setSearch(''); setOwnership('All'); setFavorites(false); setStyle(''); setGain('all'); setSpeaker(''); setPack(''); setRigType(''); };
+  const clearFilters = () => { setSearch(''); setOwnership('All'); setFavorites(false); setStyle(''); setGain('all'); setSpeaker(''); setPack(''); setRigType(''); setAvailability(''); setCaptureType(''); };
   const panel = useRef(null), actionPending = useRef(false);
   useEffect(() => {
     const previous = document.activeElement;
@@ -90,7 +91,7 @@ export default function Library({ revision, loading = false, onClose, onPreset =
   ] : [...builtins, ...(catalog.assets || [])].filter(r => r.kind === tab);
   const categorized = rows.map(catalogRow), starred = r => Boolean(r.favorite || previewFavorites[r.id]);
   const options = field => [...new Set(categorized.flatMap(r => Array.isArray(r[field]) ? r[field] : [r[field]]).filter(Boolean))].sort((a,b) => a.localeCompare(b));
-  const shown = categorized.filter(r => matchesCatalog(r, {ownership, favorites, search, style, gain, speaker, pack, rigType}, starred(r)))
+  const shown = categorized.filter(r => matchesCatalog(r, {ownership, favorites, search, style, gain, speaker, pack, rigType, availability:tab === 'rig' ? '' : availability, captureType:tab === 'amp' ? captureType : ''}, starred(r)))
     .sort((a,b) => (sort === 'favorites' ? Number(starred(b)) - Number(starred(a)) : 0) || String(a.name || '').localeCompare(String(b.name || '')));
   const detail = selected && categorized.find(r => r.id === selected);
   return <div className="library-overlay" onKeyDown={e => {
@@ -115,6 +116,8 @@ export default function Library({ revision, loading = false, onClose, onPreset =
         <label>Style<select aria-label="Library style" value={style} onChange={e => setStyle(e.target.value)}><option value="">All styles</option>{options('styles').map(x => <option key={x} value={x}>{title(x)}</option>)}</select></label>
         <label>Gain<select aria-label="Library gain" value={gain} onChange={e => setGain(e.target.value)}><option value="all">All gain levels</option>{Object.entries(gainLabels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></label>
         <label>Speaker<select aria-label="Library speaker" value={speaker} onChange={e => setSpeaker(e.target.value)}><option value="">All speakers</option>{options('speaker').map(x => <option key={x} value={x}>{x}</option>)}</select></label>
+        {tab !== 'rig' && <label>File status<select aria-label="Library file status" value={availability} onChange={e => setAvailability(e.target.value)}><option value="">All sounds</option><option value="available">Available</option><option value="missing">Missing files</option></select></label>}
+        {tab === 'amp' && <label>Capture type<select aria-label="Library capture type" value={captureType} onChange={e => setCaptureType(e.target.value)}><option value="">All amp types</option>{Object.entries(captureLabels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></label>}
         <label>Source pack<select aria-label="Library source pack" value={pack} onChange={e => setPack(e.target.value)}><option value="">All packs</option>{options('pack').map(x => <option key={x} value={x}>{x.replace(/\.zip$/i, '')}</option>)}</select></label>
         {tab === 'rig' && <label>Rig type<select aria-label="Library rig type" value={rigType} onChange={e => setRigType(e.target.value)}><option value="">All rig types</option><option value="starter">Complete starter rigs</option><option value="saved">Saved rigs</option><option value="controls">Control starting points</option></select></label>}
         <label>Sort<select aria-label="Library sort" value={sort} onChange={e => setSort(e.target.value)}><option value="name">Name</option><option value="favorites">Favorites first</option></select></label>
@@ -135,9 +138,11 @@ export default function Library({ revision, loading = false, onClose, onPreset =
         {!shown.length && <p className="library-empty">No matches. Import your own files or change the filters.</p>}
       </div>{detail && <aside className="library-detail"><h3>{detail.name}</h3><p>{detail.notes || detail.gear || 'Saved rig with amp, pedal, cabinet, routing, and effect settings.'}</p>
         {detail.amp && <p>Amp: {detail.amp}</p>}
+        {detail.captureType && <p>Capture type: {captureLabels[detail.captureType]}. {detail.source == null && (detail.captureType === 'full' ? 'Includes a captured cabinet; Auto avoids adding another cabinet.' : detail.captureType === 'preamp' ? 'Preamp capture; this does not add a separate power-amp model.' : 'Check source notes and cabinet routing before loading.')}</p>}
         {detail.styles.length > 0 && <p>Style: {detail.styles.map(title).join(', ')}</p>}
         <p>Gain: {gainLabels[detail.gain]}{detail.speaker ? ` · Speaker: ${detail.speaker}` : ''}</p>
         {detail.pack && <p>Source pack: {detail.pack}</p>}
+        {detail.kind !== 'rig' && <p className="library-note">File status checks availability only. Imported amp types come from capture metadata and filename hints; verify the source notes before choosing cabinet routing.</p>}
         {detail.inferred && <p className="library-note">Some categories are filename/tag hints. Save metadata below to correct them.</p>}
         {detail.starter && <p>{detail.assets ? 'Loads the exact captures, cabinet and complete board in this recipe.' : 'Loads a complete board with built-in sounds and no external files.'} Save your edited version as a new rig.</p>}
         {detail.assets && <p>Sounds: {Object.values(detail.assets).map(a => a.name).join(' · ')}</p>}
