@@ -11,6 +11,7 @@ void runSoundChecks(const juce::File& fixture);
 void runPracticeChecks();
 void runTakeChecks();
 void runMidiChecks();
+void runWahChecks();
 void runModulationChecks();
 void runSceneChecks();
 void runPracticeSectionChecks();
@@ -660,6 +661,7 @@ int main(int argc, char** argv)
         runPracticeChecks();
         runTakeChecks();
         runMidiChecks();
+        runWahChecks();
         runModulationChecks();
         runSceneChecks();
         runPracticeSectionChecks();

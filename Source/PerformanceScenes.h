@@ -175,6 +175,11 @@ private:
             if (slot.isVoid()) continue;
             if (!slot.isObject() || !slot["name"].isString() || slot["name"].toString().trim().isEmpty() || slot["name"].toString().length() > 48 || !slot["parameters"].isObject()) return "Invalid saved scene.";
             const auto values = slot["parameters"];
+            juce::ValueTree board;
+            if (slot.hasProperty("board")) {
+                if (const auto failure = readBoard(slot["board"], board); failure.isNotEmpty()) return failure;
+            } else if (legacy) board = legacyBoard.createCopy();
+            else return "Saved scene is missing its pedalboard.";
             for (const auto& key : values.getDynamicObject()->getProperties()) {
                 bool known = false; for (const auto& p : allDefinitions()) if (key.name.toString() == p.id && !global(p.id)) { known = true; break; }
                 if (!known) return "Scene contains an unsupported or global parameter.";
@@ -182,18 +187,14 @@ private:
             for (size_t i = 0; i < allDefinitions().size(); ++i) {
                 const auto& p = allDefinitions()[i]; if (global(p.id)) continue;
                 // Future additions default without changing these original scene controls.
-                if (!values.hasProperty(p.id) && i >= 85 && static_cast<int>(parsed["version"]) < 3) values.getDynamicObject()->setProperty(p.id, p.initial);
+                if (!values.hasProperty(p.id) && ((i >= 85 && static_cast<int>(parsed["version"]) < 3)
+                    || (p.id.startsWith("BOARD_WAH_") && !BoardParams::hasWah(board)))) values.getDynamicObject()->setProperty(p.id, p.initial);
                 const auto v = values[p.id.toRawUTF8()]; const double x = static_cast<double>(v);
                 // JSON shortens float endpoints (e.g. 0.05f). Validate at the
                 // native parameter's precision so its own minimum round-trips.
                 const auto amount = static_cast<float>(x);
                 if ((!v.isDouble() && !v.isInt() && !v.isInt64()) || !std::isfinite(x) || amount < p.min || amount > p.max || (p.unit[0] == 0 && x != std::round(x))) return "Invalid scene parameter: " + juce::String(p.id);
             }
-            juce::ValueTree board;
-            if (slot.hasProperty("board")) {
-                if (const auto failure = readBoard(slot["board"], board); failure.isNotEmpty()) return failure;
-            } else if (legacy) board = legacyBoard.createCopy();
-            else return "Saved scene is missing its pedalboard.";
             if (const auto failure = PedalboardState::validate(holder(board)); failure.isNotEmpty()) return failure;
             slot.getDynamicObject()->setProperty("board", board.toXmlString());
         }

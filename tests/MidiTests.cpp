@@ -68,6 +68,11 @@ void runMidiChecks()
         send(p, juce::MidiMessage::controllerEvent(1, 21, 127)); waitFor([&] { return p.apvts.getRawParameterValue("MASTER_VOL")->load() == 0; });
         send(p, juce::MidiMessage::controllerEvent(1, 21, 0)); waitFor([&] { return p.apvts.getRawParameterValue("MASTER_VOL")->load() == -60; });
         send(p, juce::MidiMessage::controllerEvent(1, 22, 127)); waitFor([&] { return p.apvts.getRawParameterValue("REVERB_MIX")->load() == 0; });
+        require(p.midiControl.setMapping(3,map("wah1",23)).isEmpty() && p.midiControl.setMapping(4,map("wah2",24,0,"cc",{},true)).isEmpty(),"Both wah expression assignments must be accepted");
+        require(p.midiControl.setMapping(5,map("wah1",25,0,"pc")).isNotEmpty(),"Wah expression must reject program changes");
+        send(p,juce::MidiMessage::controllerEvent(1,23,127)); waitFor([&]{return p.apvts.getRawParameterValue("BOARD_WAH_0_WAH_POSITION")->load()==100;});
+        send(p,juce::MidiMessage::controllerEvent(1,24,127)); waitFor([&]{return p.apvts.getRawParameterValue("BOARD_WAH_1_WAH_POSITION")->load()==0;});
+        require(p.apvts.getRawParameterValue("BOARD_WAH_0_WAH_POSITION")->load()==100,"Second expression assignment must not change the first wah");
         // SysEx, note messages and MIDI clocks cannot activate CC bindings.
         const juce::uint8 sysex[] {0x7d, 0x14, 0x7f};
         set(p, "OD_ON", 0); send(p, juce::MidiMessage::noteOn(1, 20, static_cast<juce::uint8>(127))); send(p, juce::MidiMessage::midiClock()); send(p, juce::MidiMessage::createSysExMessage(sysex, 3)); juce::Thread::sleep(25);

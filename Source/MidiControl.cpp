@@ -4,7 +4,7 @@ MidiControl::MidiControl() : Thread("Cassian MIDI control")
 { for (int i = 0; i < 8; ++i) mappings[static_cast<size_t>(i)].number = 16 + i; }
 void MidiControl::start(Action callback) { action = std::move(callback); startThread(); }
 void MidiControl::shutdown() { signalThreadShouldExit(); notify(); stopThread(-1); }
-bool MidiControl::expression(const juce::String& s) { return s == "master" || s == "drive" || s == "reverb" || s == "delay"; }
+bool MidiControl::expression(const juce::String& s) { return s == "master" || s == "drive" || s == "reverb" || s == "delay" || s == "wah1" || s == "wah2"; }
 juce::var MidiControl::describe(const Mapping& m)
 {
     auto o = std::make_unique<juce::DynamicObject>();

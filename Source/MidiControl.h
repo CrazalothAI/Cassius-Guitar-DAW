@@ -19,11 +19,11 @@ public:
     juce::var configuration();
     juce::String restore(const juce::var&);
     juce::var status();
+    static bool expression(const juce::String&);
 private:
     struct Event { unsigned epoch = 0, packed = 0; };
     static juce::var describe(const Mapping&);
     static juce::String parse(const juce::var&, Mapping&);
-    static bool expression(const juce::String&);
     static bool conflicts(const std::array<Mapping, 8>&);
     void run() override;
     juce::CriticalSection lock;

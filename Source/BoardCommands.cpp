@@ -77,7 +77,7 @@ juce::String AmpSuiteAudioProcessor::boardCommand(const juce::String& action, co
             for (const auto& id : BoardParams::controls[static_cast<size_t>(kind)]) {
                 float amount = kind == 8 ? 25.f : 0.f;
                 if (action == "duplicate") amount = static_cast<float>(state.getChildWithProperty("id", BoardParams::parameter(kind, from, id))["value"]);
-                else for (const auto& p : Params::definitions) if (id == p.id) { amount = p.initial; break; }
+                else BoardParams::each([&](const auto& p) { if (id == p.id || BoardParams::parameter(kind, slot, id) == p.id) amount = p.initial; });
                 set(BoardParams::parameter(kind, slot, id), amount);
             }
             set(BoardParams::onId(kind, slot), action == "duplicate" ? static_cast<float>(state.getChildWithProperty("id", BoardParams::onId(kind, from))["value"]) : ((kind == 2 || kind == 8) ? 0.f : 1.f));

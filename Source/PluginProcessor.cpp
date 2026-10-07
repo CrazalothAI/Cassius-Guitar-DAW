@@ -1010,10 +1010,11 @@ juce::String AmpSuiteAudioProcessor::handleMidiAction(const MidiControl::Mapping
     if (rigLoading.load()) return "Rig is preparing; try the control again when it is ready.";
     const char* id = nullptr; float target = 0;
     const auto& action = mapping.action;
-    if (action == "master" || action == "drive" || action == "reverb" || action == "delay") {
+    if (MidiControl::expression(action)) {
         const float fraction = (mapping.inverted ? 127 - amount : amount) / 127.f;
         if (action == "master") { id = "MASTER_VOL"; target = -60 + fraction * 60; }
         else if (action == "drive") { id = "DRIVE_GAIN"; target = fraction * 24; }
+        else if (action == "wah1" || action == "wah2") { id = action == "wah1" ? "BOARD_WAH_0_WAH_POSITION" : "BOARD_WAH_1_WAH_POSITION"; target = fraction * 100; }
         else { id = action == "reverb" ? "REVERB_MIX" : "DELAY_MIX"; target = fraction * 100; }
     } else {
         id = action == "overdrive" ? "OD_ON" : action == "pedal" ? "PEDAL_ON" : action == "eq" ? "EQ_ON" : action == "gate" ? "GATE_ON" : action == "metronome" ? "METRO_ON" : action == "modulation" ? "MOD_ON" : nullptr;

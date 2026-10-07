@@ -94,7 +94,7 @@ export const parameters = [
   ({ id, label, min, max, initial, unit, step, centre, skew: centre ? Math.log(0.5) / Math.log((centre - min) / (max - min)) : 1 }));
 export const byId = Object.fromEntries(parameters.map(p => [p.id, p]));
 
-export const boardTypes = ['compressor', 'overdrive', 'neural-pedal', 'eq', 'modulation', 'chorus', 'delay', 'reverb', 'ambience'];
+export const boardTypes = ['compressor', 'overdrive', 'neural-pedal', 'eq', 'modulation', 'chorus', 'delay', 'reverb', 'ambience', 'wah'];
 export const boardControls = [
   ['CLEAN_COMP', 'COMP_THRESH', 'COMP_RATIO', 'COMP_ATTACK', 'COMP_RELEASE', 'COMP_MAKEUP'],
   ['OD_ON', 'OD_DRIVE', 'OD_TONE', 'OD_LEVEL', 'OD_TIGHT'],
@@ -102,16 +102,21 @@ export const boardControls = [
   ['MOD_ON', 'MOD_TYPE', 'MOD_RATE', 'MOD_DEPTH', 'MOD_MIX', 'MOD_FEEDBACK', 'MOD_STEREO', 'MOD_SYNC', 'MOD_DIVISION'],
   ['CHORUS_MIX', 'CHORUS_RATE', 'CHORUS_DEPTH'], ['DELAY_TIME', 'DELAY_MIX', 'DELAY_WIDTH', 'DELAY_FEEDBACK', 'DELAY_SYNC', 'DELAY_DIVISION'],
   ['REVERB_MIX', 'REVERB_SIZE', 'REVERB_STYLE', 'REVERB_DAMP', 'REVERB_PREDELAY'], ['AMBIENCE_MIX'],
+  ['WAH_MODE', 'WAH_POSITION', 'WAH_SENSITIVITY', 'WAH_RESONANCE', 'WAH_MIX'],
 ];
 export const boardPrefix = (kind, slot) => `BOARD_${boardTypes[kind].replaceAll('-', '_').toUpperCase()}_${slot}_`;
-export const boardId = (kind, slot, id) => slot === 0 && kind !== 8 ? id : boardPrefix(kind, slot) + id;
+export const boardId = (kind, slot, id) => slot === 0 && kind < 8 ? id : boardPrefix(kind, slot) + id;
 export const boardOnId = (kind, slot) => boardControls[kind][0].endsWith('_ON') ? boardId(kind, slot, boardControls[kind][0]) : boardPrefix(kind, slot) + 'ON';
 export const boardParameters = boardTypes.flatMap((type, kind) => [0, 1].flatMap(slot => {
   const rows = [];
   if (!boardControls[kind][0].endsWith('_ON')) rows.push({id: boardOnId(kind, slot), label: 'Enabled', min: 0, max: 1, initial: 1, unit: '', step: 1, centre: 0, skew: 1});
   rows.push({id: boardPrefix(kind, slot) + 'TRIM', label: 'Output trim', min: -24, max: 12, initial: 0, unit: 'dB', step: .1, centre: 0, skew: 1});
   if (kind === 8) rows.push({id: boardId(kind, slot, 'AMBIENCE_MIX'), label: 'Blend', min: 0, max: 100, initial: 25, unit: '%', step: 1, centre: 0, skew: 1});
-  if (slot === 1 && kind !== 8) rows.push(...boardControls[kind].map(id => ({...byId[id], id: boardId(kind, slot, id)})));
+  if (kind === 9) rows.push(...[
+    ['WAH_MODE', 'Mode', 0, 1, 0, ''], ['WAH_POSITION', 'Position', 0, 100, 50, '%'],
+    ['WAH_SENSITIVITY', 'Sensitivity', -24, 24, 0, 'dB'], ['WAH_RESONANCE', 'Resonance', 0, 100, 45, '%'], ['WAH_MIX', 'Blend', 0, 100, 100, '%'],
+  ].map(([id, label, min, max, initial, unit]) => ({id: boardId(kind, slot, id), label, min, max, initial, unit, step: unit ? .1 : 1, centre: 0, skew: 1})));
+  if (slot === 1 && kind < 8) rows.push(...boardControls[kind].map(id => ({...byId[id], id: boardId(kind, slot, id)})));
   return rows;
 }));
 boardParameters.forEach(p => { byId[p.id] = p; });

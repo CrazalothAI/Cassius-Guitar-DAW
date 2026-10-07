@@ -9,7 +9,7 @@ describe('complete starter definitions', () => {
   it('covers cleans and leads with valid complete controls and mono/stereo placements', () => {
     const names = catalog.rigs.map(rig => rig.name), ids = catalog.rigs.map(rig => rig.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(names).toEqual(expect.arrayContaining(['Warm Jazz', 'Glass Chorus', 'Funk Clean', 'Natural Nylon', 'Neoclassical Lead', 'Modern Metalcore']));
+    expect(names).toEqual(expect.arrayContaining(['Warm Jazz', 'Glass Chorus', 'Funk Clean', 'Natural Nylon', 'Neoclassical Lead', 'Modern Metalcore', 'Envelope Clean', 'Vowel Lead']));
     for (const rig of catalog.rigs) {
       const values = startingParameters(rig.id);
       expect(Object.keys(values)).toHaveLength(allParameters.filter(p => !isGlobalParameter(p.id)).length);

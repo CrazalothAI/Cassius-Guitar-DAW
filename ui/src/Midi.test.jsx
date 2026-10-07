@@ -49,6 +49,16 @@ it('forces CC for expression and submits reversed pedal direction', async () => 
   fireEvent.click(screen.getByRole('button', {name: 'Apply assignment'}));
   await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('setMidiMapping', 0, {...rows[0], action: 'master', inverted: true}));
 });
+it('offers separate wah expression targets and forces a CC assignment', async () => {
+  render(<Midi status={status} onError={vi.fn()}/>);
+  fireEvent.change(screen.getByLabelText('MIDI message type'), {target: {value: 'pc'}});
+  fireEvent.change(screen.getByLabelText('MIDI action'), {target: {value: 'wah2'}});
+  expect(screen.getByLabelText('MIDI message type').value).toBe('cc');
+  expect(screen.getByRole('option', {name: 'Wah 1 position'})).toBeTruthy();
+  fireEvent.click(screen.getByLabelText('Invert expression'));
+  fireEvent.click(screen.getByRole('button', {name: 'Apply assignment'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('setMidiMapping', 0, {...rows[0], action: 'wah2', inverted: true}));
+});
 it('shows DAW routing, missing targets, errors and queue limits', async () => {
   const onError = vi.fn(); bridge.invoke.mockResolvedValue('Message overlaps another assignment.');
   render(<Midi status={{...status, deviceSettingsAvailable: false, midi: {...status.midi, error: 'Rig not found.', dropped: 3, config: {...status.midi.config, mappings: [{...rows[0], action: 'rig', rig: 'missing'}, ...rows.slice(1)]}}}} onError={onError}/>);

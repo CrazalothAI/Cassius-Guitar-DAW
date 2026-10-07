@@ -4,7 +4,7 @@ Implemented 2026-10-06. The header now offers complete capture recipes and Cassi
 
 ## Sound choices
 
-There are 12 file-free built-in rigs and 20 exact-capture recipes. The latter reference content hashes, so renamed files work and distinct capture variants cannot be silently substituted.
+There are 14 file-free built-in rigs and 20 exact-capture recipes. The latter reference content hashes, so renamed files work and distinct capture variants cannot be silently substituted.
 
 | Family | Capture recipes |
 | --- | --- |

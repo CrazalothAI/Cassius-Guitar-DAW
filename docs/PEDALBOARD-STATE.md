@@ -40,6 +40,8 @@ The metronome, backing buses, listening-only Guitar balance/Focus, Master and ou
 
 ## Verification and limits
 
+0.4.0 appends two independent wah slots and their controls after the existing host parameters. Pre-0.4 rigs/scenes without wah blocks default the new family; wah-containing boards require complete wah controls. Manual and envelope modes work in both lanes, with linked stereo detection after the cabinet. See [wah compatibility and setup](WAH-PEDAL.md).
+
 Native tests cover independent controls, order-dependent audio, exact settled bypass, kind-slot reservation, reorder/replacement, Undo/Redo, scene topology recall, native restore at an alternate host rate, atomic invalid recall, two independent NAM slots and deduplicated portable round-trip. Synthetic stereo ambience verifies captured timing/gain. Existing legacy migration comparisons remain sample-identical, and Play Along recording isolation remains covered.
 
 The optional supplied-pack manifest validates all 65 October files without embedding them in test fixtures or releases. `CASSIAN_ACTUAL_SOUND_LIBRARY` adds a demanding board with the supplied JCM800, two independent Klon engines, a 20-second ambience response and six other effect types. It reports offline guitar processing at 48 kHz / 128, 256 and 512 samples, including blocks exceeding their time budget. Timing is diagnostic evidence, not a guarantee for every capture or live interface. For heavy boards, try 256/512 samples and monitor the app's dropout/overrun alerts. Real guitar auditions, sustained device tests, Linux and real DAW automation/session workflows remain release checks. Packaging is local and does not publish or merge this branch.

@@ -530,6 +530,115 @@
           "lane": "post"
         }
       ]
+    },
+    {
+      "id": "factory.envelope-clean",
+      "name": "Envelope Clean",
+      "styles": [
+        "clean",
+        "funk",
+        "country"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Responsive clean envelope filter before Lumen, with light compression and room. Sensitivity follows your picking; no pedal capture is required.",
+      "parameters": {
+        "AMP_OUT": 6,
+        "AMP_BASS": -2,
+        "AMP_MID": 1,
+        "AMP_TREBLE": 1.5,
+        "CLEAN_COMP": 45,
+        "COMP_THRESH": -26,
+        "COMP_RATIO": 3,
+        "COMP_ATTACK": 12,
+        "COMP_RELEASE": 100,
+        "COMP_MAKEUP": 1,
+        "REVERB_MIX": 5,
+        "REVERB_SIZE": 20,
+        "BOARD_WAH_0_WAH_MODE": 1,
+        "BOARD_WAH_0_WAH_SENSITIVITY": 6,
+        "BOARD_WAH_0_WAH_MIX": 65,
+        "BOARD_REVERB_0_TRIM": 6
+      },
+      "board": [
+        {
+          "type": "wah",
+          "lane": "pre"
+        },
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.vowel-lead",
+      "name": "Vowel Lead",
+      "styles": [
+        "lead",
+        "rock"
+      ],
+      "gain": "high-gain",
+      "amp": "Ferrum",
+      "speaker": "Built-in 4x12",
+      "notes": "Vocal Ferrum lead with manual wah before the drive pedal. Sweep Position or assign Wah 1 position to a MIDI expression CC.",
+      "parameters": {
+        "AMP_SOURCE": 2,
+        "AMP_CLEAN": 0,
+        "CAB_MODE": 2,
+        "AMP_OUT": 3,
+        "DRIVE_GAIN": 6,
+        "TIGHT": 85,
+        "OD_ON": 1,
+        "OD_DRIVE": 8,
+        "OD_LEVEL": -2,
+        "OD_TIGHT": 85,
+        "AMP_MID": 2,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "GATE_THRESH": -65,
+        "GATE_RELEASE": 220,
+        "EQ_ON": 1,
+        "EQ_MUD": -2,
+        "EQ_FOCUS": 1,
+        "EQ_FIZZ": -2,
+        "DELAY_MIX": 12,
+        "DELAY_TIME": 340,
+        "DELAY_WIDTH": 25,
+        "DELAY_FEEDBACK": 24,
+        "REVERB_MIX": 9,
+        "REVERB_SIZE": 35,
+        "BOARD_WAH_0_WAH_POSITION": 62,
+        "BOARD_WAH_0_WAH_RESONANCE": 60,
+        "BOARD_WAH_0_WAH_MIX": 80
+      },
+      "board": [
+        {
+          "type": "wah",
+          "lane": "pre"
+        },
+        {
+          "type": "overdrive",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "reverb",
+          "lane": "post"
+        }
+      ]
     }
   ],
   "captureRigs": [

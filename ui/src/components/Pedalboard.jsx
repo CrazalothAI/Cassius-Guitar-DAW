@@ -5,8 +5,8 @@ import { setParameter, useParameter } from '../parameterState.js';
 import Knob from './Knob.jsx';
 import Switch from './Switch.jsx';
 import Scenes from './Scenes.jsx';
-const names = ['Compressor', 'Overdrive', 'Captured pedal', 'EQ', 'Modulation', 'Chorus', 'Delay', 'Reverb', 'Ambience'];
-const choices = { MOD_TYPE: ['Phaser', 'Flanger', 'Tremolo'], MOD_DIVISION: ['Whole', 'Half', 'Quarter', 'Eighth', 'Dotted eighth'], DELAY_DIVISION: ['Quarter', 'Eighth', 'Dotted eighth', 'Sixteenth', 'Half', 'Whole'], REVERB_STYLE: ['Room', 'Chamber', 'Hall'] };
+const names = ['Compressor', 'Overdrive', 'Captured pedal', 'EQ', 'Modulation', 'Chorus', 'Delay', 'Reverb', 'Ambience', 'Wah'];
+const choices = { WAH_MODE: ['Manual', 'Envelope'], MOD_TYPE: ['Phaser', 'Flanger', 'Tremolo'], MOD_DIVISION: ['Whole', 'Half', 'Quarter', 'Eighth', 'Dotted eighth'], DELAY_DIVISION: ['Quarter', 'Eighth', 'Dotted eighth', 'Sixteenth', 'Half', 'Whole'], REVERB_STYLE: ['Room', 'Chamber', 'Hall'] };
 function Control({kind, slot, base}) {
   const id = boardId(kind, slot, base), value = useParameter(id), p = byId[id];
   if (choices[base]) return <label className="slot-choice">{p.label}<select aria-label={p.label} value={Math.round(value)} onChange={e => setParameter(id, Number(e.target.value))}>{choices[base].map((name, index) => <option key={name} value={index}>{name}</option>)}</select></label>;
@@ -54,6 +54,7 @@ export default function Pedalboard({status, onError = () => {}}) {
       <form className="board-replace" onSubmit={e => { e.preventDefault(); command('replace', {id: current.id, type: replacement}); }}><label>Replace with<select aria-label="Replacement pedal type" value={replacement} disabled={blocked} onChange={e => setReplacement(e.target.value)}>{boardTypes.map((id, i) => <option key={id} value={id}>{names[i]}</option>)}</select></label><button className="text-button quiet" disabled={blocked}>Replace pedal</button></form>
       <div className="board-controls">{boardControls[kind].filter(id => !id.endsWith('_ON')).map(base => <Control key={base} base={base} kind={kind} slot={Number(current.automationSlot)}/>)}<Knob id={current.trimId} small/></div>
       {kind === 8 && <p className="board-note">Recorded ambience keeps its captured decay and repeats. Blend and output trim set its place in the tone.</p>}
+      {kind === 9 && <p className="board-note">Manual: sweep Position by hand or map it to a MIDI expression CC in MIDI settings. Envelope: picking controls the sweep; Sensitivity sets how far it opens. Resonance shapes the vowel and Blend adds the original tone. Start before the amp for leads, or try after the cabinet for cleans.</p>}
     </section>}
     <p className="board-note">Drag pedals or use the arrow buttons to reorder. Removed pedals keep their automation slots reserved. Undo restores them. Board changes briefly fade the guitar and restart effect tails.</p>
     <p className="board-note">Multiple captured pedals and long ambience responses use more CPU. If you hear crackles, try a 256 or 512 sample buffer in Audio settings or your DAW.</p>

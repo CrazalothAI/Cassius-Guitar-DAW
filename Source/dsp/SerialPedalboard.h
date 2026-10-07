@@ -6,6 +6,7 @@
 #include "ModulationPedal.h"
 #include "StereoChorus.h"
 #include "NamWrapper.h"
+#include "WahPedal.h"
 
 // Construct/prepare/retire on the loader thread. The callback reads cached
 // atomic parameters and uses bounded scratch storage; it never touches trees.
@@ -18,6 +19,7 @@ class SerialPedalboard {
         juce::AudioBuffer<float> wet, room;
         StudioCompressor compressor; Overdrive drive; PedalEq eq;
         ModulationPedal modulation; StereoChorus chorus;
+        WahPedal wah;
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delay, roomDelay;
         juce::dsp::Reverb reverb;
         std::unique_ptr<juce::dsp::Convolution> ambience;
@@ -42,6 +44,7 @@ class SerialPedalboard {
                     rv.damping = v(3) / 100; rv.wetLevel = v(0) / 100; rv.dryLevel = 0; reverb.setParameters(rv);
                     mix.setTargetValue(v(0) / 100); predelay.setTargetValue(v(4) * static_cast<float>(rate) / 1000); break;
                 }
+                case 9: wah.configure({juce::roundToInt(v(0)), v(1), v(2), v(3), v(4)}); break;
                 default: break;
             }
         }
@@ -92,13 +95,14 @@ class SerialPedalboard {
                     }
                     ambience->prepare(spec); mix.setCurrentAndTargetValue(saved[0] / 100); break;
                 }
+                case 9: wah.prepare(spec, {juce::roundToInt(saved[0]), saved[1], saved[2], saved[3], saved[4]}); break;
                 default: break;
             }
         }
         void process(juce::AudioBuffer<float>& audio, float bpm, NamWrapper* const* captures) {
             const int n = audio.getNumSamples(); blend.setTargetValue(enabled->load() >= .5f ? 1.f : 0.f); gain.setTargetValue(juce::Decibels::decibelsToGain(trim->load()));
             const bool bypassed = !blend.isSmoothing() && blend.getCurrentValue() == 0;
-            if (bypassed && kind < 5) {
+            if (bypassed && (kind < 5 || kind == 9)) {
                 // Captured pedals have no audible tails. Freeze their recurrent
                 // engines after the bypass fade, as the original pedal path does.
                 // Delay/reverb nodes still receive silence to drain their tails.
@@ -122,6 +126,7 @@ class SerialPedalboard {
                 case 3: eq.process(chunk); break;
                 case 4: modulation.process(chunk); break;
                 case 5: chorus.process(context); break;
+                case 9: wah.process(chunk); break;
                 case 6:
                     for (int i = 0; i < n; ++i) { const float t = time.getNextValue(), m = mix.getNextValue(), w = width.getNextValue(), f = feedback.getNextValue();
                         for (int ch = 0; ch < channels; ++ch) { auto& sample = chunk.getWritePointer(ch)[i]; const auto echo = delay.popSample(ch, t * (ch == 1 ? 1 + .25f * w : 1)); delay.pushSample(ch, sample + echo * f); sample = sample * (1 - m * .5f) + echo * m * .5f; }

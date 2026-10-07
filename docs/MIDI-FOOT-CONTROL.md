@@ -21,6 +21,7 @@ Apply edits before Learn. Selecting another row discards unapplied edits. Confli
 | Recall saved rig | Existing off-thread complete rig preparation and short guitar fade; preserves global input calibration, Master and metronome settings. |
 | Recall scene | One of four guitar-parameter snapshots sharing the current files. Preserves Input, Master and click settings; an empty slot reports an error. See [performance scenes](PERFORMANCE-SCENES.md). |
 | Toggle overdrive / NAM pedal / EQ / gate / metronome / modulation | Changes that enable parameter. An empty NAM pedal slot remains empty. |
+| Wah 1 / Wah 2 position | CC sweeps the selected independent wah's Position from 0–100%; inversion reverses its direction. Add and enable that instance in Board and choose Manual. See [wah setup](WAH-PEDAL.md). |
 | Master expression | Absolute listening level, −60 to 0 dB, affecting guitar, backing and click together. |
 | Drive expression | Main amp Drive, 0 to 24 dB; separate from the overdrive pedal's Drive dial. |
 | Reverb / Delay expression | Absolute wet mix, 0 to 100%. |

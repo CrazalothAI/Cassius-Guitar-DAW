@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
 
 const defaults = Array.from({length: 8}, (_, i) => ({type: 'cc', channel: 0, number: 16 + i, action: 'none', rig: '', scene: 0, inverted: false}));
-const actions = [['none', 'Unassigned'], ['rig', 'Recall saved rig'], ['scene', 'Recall scene'], ['overdrive', 'Toggle overdrive'], ['pedal', 'Toggle NAM pedal'], ['eq', 'Toggle EQ'], ['gate', 'Toggle gate'], ['metronome', 'Toggle metronome'], ['modulation', 'Toggle modulation'], ['master', 'Master expression'], ['drive', 'Drive expression'], ['reverb', 'Reverb expression'], ['delay', 'Delay expression']];
-const expression = name => ['master', 'drive', 'reverb', 'delay'].includes(name);
+const actions = [['none', 'Unassigned'], ['rig', 'Recall saved rig'], ['scene', 'Recall scene'], ['overdrive', 'Toggle overdrive'], ['pedal', 'Toggle NAM pedal'], ['eq', 'Toggle EQ'], ['gate', 'Toggle gate'], ['metronome', 'Toggle metronome'], ['modulation', 'Toggle modulation'], ['master', 'Master expression'], ['drive', 'Drive expression'], ['reverb', 'Reverb expression'], ['delay', 'Delay expression'], ['wah1', 'Wah 1 position'], ['wah2', 'Wah 2 position']];
+const expression = name => ['master', 'drive', 'reverb', 'delay', 'wah1', 'wah2'].includes(name);
 
 export default function Midi({status, onError}) {
   const midi = status.midi ?? {}, config = midi.config ?? {enabled: false, mappings: defaults};

@@ -10,6 +10,22 @@ afterEach(() => { cleanup(); bridge.native = true; bridge.invoke.mockReset(); })
 const block = (type, slot, lane = 'post') => { const kind = boardTypes.indexOf(type); return {id: `${type}.${slot}`, type, automationSlot: slot, lane, enabledId: boardOnId(kind, slot), trimId: `BOARD_${type.replaceAll('-', '_').toUpperCase()}_${slot}_TRIM`}; };
 const status = rows => ({board: {serial: true, blocks: rows, reserved: rows.length, canUndo: true, canRedo: false}, libraryRevision: 1});
 describe('independent serial pedalboard', () => {
+  it('exposes manual/envelope wah controls without linking duplicate instances', async () => {
+    bridge.invoke.mockResolvedValue('');
+    setParameter('BOARD_WAH_0_WAH_POSITION', 20); setParameter('BOARD_WAH_1_WAH_POSITION', 50);
+    render(<Pedalboard status={status([block('wah', 0, 'pre'), block('wah', 1, 'post')])}/>);
+    fireEvent.click(screen.getByRole('button', {name: /01 Wah 2/}));
+    const inspector = within(screen.getByRole('region', {name: 'Selected pedal controls'}));
+    fireEvent.change(inspector.getByRole('combobox', {name: 'Mode'}), {target: {value: '1'}});
+    fireEvent.change(inspector.getByRole('slider', {name: 'Position'}), {target: {value: '85'}});
+    expect(readParameter('BOARD_WAH_1_WAH_MODE')).toBe(1);
+    expect(readParameter('BOARD_WAH_1_WAH_POSITION')).toBe(85);
+    expect(readParameter('BOARD_WAH_0_WAH_POSITION')).toBe(20);
+    expect(screen.getByText(/picking controls the sweep/)).toBeTruthy();
+    fireEvent.change(screen.getByRole('combobox', {name: 'New pedal type'}), {target: {value: 'wah'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Add pedal'}));
+    await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('boardCommand', 'add', {type: 'wah', lane: 'pre'}));
+  });
   it('defines unique appended controls and independent kind/slot bindings', () => {
     expect(new Set(boardParameters.map(p => p.id)).size).toBe(boardParameters.length);
     expect(boardId(3, 0, 'EQ_FOCUS')).toBe('EQ_FOCUS');
