@@ -17,6 +17,7 @@ public:
     juce::String preview(const juce::String& id, const juce::String& version);
     juce::String reviewControl(const juce::String& id, const juce::String& version, const juce::String& command, double amount);
     juce::var reviewWaveform(const juce::String& id, const juce::String& version);
+    juce::String reviewSection(const juce::String& id, const juce::String& version, const juce::String& command, const juce::String& name, const juce::String& sectionId);
     // File reads finish on the take worker; the caller chooses its callback thread.
     juce::String readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)>);
     juce::String reamp(const juce::String& id, const juce::var& rig, double tailSeconds = 0);
@@ -28,7 +29,7 @@ public:
     juce::String reveal(const juce::String& id);
     juce::String revealExport();
 private:
-    struct Job { juce::String type, id, name, version, notes; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; double tailSeconds = 0, startSeconds = 0, endSeconds = -1, fadeSeconds = 0; juce::var rig; unsigned previewGeneration = 0; std::function<void(juce::var)> completed; };
+    struct Job { juce::String type, id, name, version, notes, command, sectionId; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; double tailSeconds = 0, startSeconds = 0, endSeconds = -1, fadeSeconds = 0; juce::var rig; unsigned previewGeneration = 0; std::function<void(juce::var)> completed; };
     juce::var loadRigSnapshot(const Job&);
     void run() override;
     void importTake(const juce::File&);

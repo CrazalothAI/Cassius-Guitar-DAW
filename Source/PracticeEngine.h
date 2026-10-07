@@ -23,6 +23,7 @@ public:
     juce::var status();
     juce::var waveform();
     juce::String saveSection(const juce::String& name, const juce::String& id = {});
+    juce::String saveSectionRange(const juce::String& name, const juce::String& id, double a, double b);
     juce::String recallSection(const juce::String& id);
     juce::String removeSection(const juce::String& id);
     bool counting() const { return countActive.load(); }

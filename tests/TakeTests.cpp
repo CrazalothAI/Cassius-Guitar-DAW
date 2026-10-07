@@ -50,6 +50,48 @@ void runTakeChecks()
     require(root.createDirectory().wasOk(), "Take test directory must create");
     struct Cleanup { juce::File folder, base; ~Cleanup() { if (folder.isAChildOf(base)) folder.deleteRecursively(); } } cleanup {root, base};
     const auto folder = root.getChildFile("Original take"), catalog = root.getChildFile("takes.xml"); makeTake(folder);
+    // Review sections persist independently of backing sections and audio. A
+    // queued save captures the range at click time; stale generations cancel.
+    const auto sectionFolder = root.getChildFile("Section take"), sectionCatalog = root.getChildFile("sections-catalog.xml"), sectionStore = root.getChildFile("take-sections");
+    makeTake(sectionFolder, 48000); sectionFolder.getChildFile("Original rig.json").replaceWithText(juce::JSON::toString(rig()));
+    const auto sectionAudioHash = juce::SHA256(sectionFolder.getChildFile("Guitar processed.wav")).toHexString();
+    juce::String sectionTakeId, savedSectionId;
+    {
+        PracticeEngine review(262144, sectionStore); review.prepare(48000); TakeLibrary library(sectionCatalog, review); imported(library, sectionFolder);
+        sectionTakeId = first(library)["id"].toString();
+        require(library.reviewSection(sectionTakeId,"processed","save","Solo",{}).isNotEmpty(), "Unloaded section edits must reject");
+        library.preview(sectionTakeId,"processed"); waitFor([&]{return library.status()["reviewId"].toString()==sectionTakeId;});
+        juce::AudioBuffer<float> output(2,128), dry(1,128); output.clear(); dry.clear(); review.process(output,dry.getReadPointer(0));
+        library.reviewControl(sectionTakeId,"processed","a",.1); library.reviewControl(sectionTakeId,"processed","b",.6);
+        juce::WaitableEvent entered, release, finished;
+        library.readRigSnapshot(sectionTakeId,"processed",[&](juce::var) { entered.signal(); release.wait(3000); finished.signal(); });
+        require(entered.wait(3000),"Section fixture must pause the worker");
+        require(library.reviewSection(sectionTakeId,"processed","save","Solo",{}).isEmpty(), "Loaded section save must queue");
+        library.reviewControl(sectionTakeId,"processed","a",.2); library.reviewControl(sectionTakeId,"processed","b",.9);
+        release.signal(); require(finished.wait(3000),"Section fixture callback must complete");
+        waitFor([&]{return review.status()["sections"].size()==1;}); const auto row=review.status()["sections"][0]; savedSectionId=row["id"].toString();
+        require(std::abs(static_cast<double>(row["a"])-.1)<1.e-6 && std::abs(static_cast<double>(row["b"])-.6)<1.e-6,"Section save must preserve its queued range");
+        require(library.reviewSection(sectionTakeId,"dry","remove",{},savedSectionId).isNotEmpty() && library.reviewSection(sectionTakeId,"processed","unknown",{},savedSectionId).isNotEmpty(),"Wrong version and command must reject");
+        const auto revision=static_cast<int>(review.status()["sectionRevision"]);
+        require(library.reviewSection(sectionTakeId,"processed","recall",{},savedSectionId).isEmpty(),"Section recall must queue");
+        waitFor([&]{return static_cast<int>(review.status()["sectionRevision"])>revision;});
+        require(!review.isPlaying() && static_cast<bool>(review.status()["loop"]) && std::abs(static_cast<double>(review.status()["a"])-.1)<1.e-6,"Recall must pause and restore the saved loop");
+        juce::WaitableEvent enteredAgain, releaseAgain;
+        library.readRigSnapshot(sectionTakeId,"processed",[&](juce::var) { enteredAgain.signal(); releaseAgain.wait(3000); });
+        require(enteredAgain.wait(3000),"Stale section fixture must pause worker");
+        library.reviewSection(sectionTakeId,"processed","save","Cancelled section",{}); library.stopReview(); releaseAgain.signal();
+        library.preview(sectionTakeId,"dry"); waitFor([&]{return library.status()["reviewVersion"].toString()=="dry";});
+        require(review.status()["sections"].size()==0,"Dry DI must not inherit processed version sections");
+    }
+    {
+        PracticeEngine review(262144,sectionStore); review.prepare(48000); TakeLibrary library(sectionCatalog,review); waitFor([&]{return library.list().size()==1;});
+        library.preview(sectionTakeId,"processed"); waitFor([&]{return library.status()["reviewVersion"].toString()=="processed";});
+        juce::AudioBuffer<float> output(2,128), dry(1,128); output.clear(); dry.clear(); review.process(output,dry.getReadPointer(0));
+        require(review.status()["sections"].size()==1 && review.status()["sections"][0]["id"].toString()==savedSectionId,"Sections must survive reopening and stale saves must not persist");
+        require(library.reviewSection(sectionTakeId,"processed","remove",{},savedSectionId).isEmpty(),"Saved section deletion must queue");
+        waitFor([&]{return review.status()["sections"].size()==0;});
+        require(juce::SHA256(sectionFolder.getChildFile("Guitar processed.wav")).toHexString()==sectionAudioHash,"Section edits must preserve original audio");
+    }
     // Video exports work at common interface rates and keep backing separate
     // until the export stage. No live Master/Play Along controls enter this mix.
     for (double rate : {44100., 48000., 96000.}) {

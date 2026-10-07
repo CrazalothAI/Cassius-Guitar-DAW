@@ -73,6 +73,20 @@ juce::var TakeLibrary::reviewWaveform(const juce::String& id, const juce::String
     }
     auto wave = review.waveform(); wave.getDynamicObject()->setProperty("takeId", id); wave.getDynamicObject()->setProperty("version", version); return wave;
 }
+juce::String TakeLibrary::reviewSection(const juce::String& id, const juce::String& version, const juce::String& command, const juce::String& name, const juce::String& sectionId)
+{
+    const juce::ScopedLock guard(lock);
+    if (reviewLoading || reviewId.isEmpty() || id != reviewId || version != reviewVersion)
+        return "Listen to the selected version before editing its sections.";
+    if (command != "save" && command != "recall" && command != "remove") return "Unknown take section command.";
+    if (sectionId.length() > 64 || (command != "save" && sectionId.isEmpty())) return "Choose a saved section.";
+    if (command == "save" && (name.trim().isEmpty() || name.length() > 48)) return "Use a section name between 1 and 48 characters.";
+    const auto state = review.status();
+    if (static_cast<bool>(state["starting"]) || static_cast<bool>(state["counting"])) return "Wait for review playback to start before editing sections.";
+    Job job; job.type = "reviewSection"; job.id = id; job.version = version; job.command = command;
+    job.name = name; job.sectionId = sectionId; job.startSeconds = state["a"]; job.endSeconds = state["b"]; job.previewGeneration = reviewGeneration.load();
+    jobs.push_back(std::move(job)); notify(); return {};
+}
 juce::String TakeLibrary::readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)> completed)
 {
     const juce::ScopedLock guard(lock); const auto take = find(id);
@@ -250,6 +264,13 @@ void TakeLibrary::run()
                 }
             }
             else if (job.type == "preview") playReview(job);
+            else if (job.type == "reviewSection") {
+                const juce::ScopedLock guard(lock);
+                if (job.previewGeneration != reviewGeneration.load() || reviewLoading || reviewId != job.id || reviewVersion != job.version) continue;
+                const auto failure = job.command == "save" ? review.saveSectionRange(job.name, job.sectionId, job.startSeconds, job.endSeconds)
+                    : job.command == "recall" ? review.recallSection(job.sectionId) : review.removeSection(job.sectionId);
+                require(failure.isEmpty(), failure);
+            }
             else if (job.type == "renameVersion") {
                 juce::var previous; bool hadName = false;
                 { const juce::ScopedLock guard(lock); auto version = find(job.id).getChildWithProperty("id",job.version); require(version.hasType("REAMP"),"Take version not found.");
@@ -265,7 +286,7 @@ void TakeLibrary::run()
             else if (job.type == "video") exportVideoAudio(job);
         } catch (const std::exception& e) {
             const juce::ScopedLock guard(lock);
-            if (job.type != "preview" || job.previewGeneration == reviewGeneration.load()) {
+            if ((job.type != "preview" && job.type != "reviewSection") || job.previewGeneration == reviewGeneration.load()) {
                 error = e.what(); if (job.type == "preview") reviewLoading = false;
             }
         }

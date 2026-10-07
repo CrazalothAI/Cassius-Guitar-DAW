@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest patch: 0.5.5 adds searchable take notes and metadata rollback on failed saves. See [take notes](RELEASE-0.5.5.md).
+Latest patch: 0.5.6 adds persistent take review sections with worker-side saves and stale-version protection. See [take sections](RELEASE-0.5.6.md).
+
+Previous patch: 0.5.5 adds searchable take notes and metadata rollback on failed saves. See [take notes](RELEASE-0.5.5.md).
 
 Earlier patches: 0.5.2 adds take/version review waveforms; 0.5.3 adds sound-file and amp capture-type filters; 0.5.4 exports selected saved rigs without changing the playing tone. See [review waveforms](RELEASE-0.5.2.md), [library discovery](RELEASE-0.5.3.md) and [saved exports](RELEASE-0.5.4.md). Live audition, sustained interface/DAW evidence and cleared sound distribution remain outstanding.
 

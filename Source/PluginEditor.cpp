@@ -158,6 +158,11 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (args.size() != 4 || !args[0].isString() || !args[1].isString() || !args[2].isString() || !(args[3].isInt() || args[3].isInt64() || args[3].isDouble())) { complete(juce::String("Invalid take review control.")); return; }
             complete(processor.takes.reviewControl(args[0].toString(), args[1].toString(), args[2].toString(), static_cast<double>(args[3])));
         })
+        .withNativeFunction("takeReviewSection", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish recording before editing take sections in standalone.")); return; }
+            bool valid = args.size() == 5; for (const auto& arg : args) valid = valid && arg.isString();
+            complete(valid ? processor.takes.reviewSection(args[0].toString(), args[1].toString(), args[2].toString(), args[3].toString(), args[4].toString()) : juce::String("Invalid take section request."));
+        })
         .withNativeFunction("reampTake", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Reamping is available in the standalone app.")); return; }
             if (static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish the recording before starting an export.")); return; }

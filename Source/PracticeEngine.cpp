@@ -422,8 +422,13 @@ bool PracticeEngine::sectionsBlocked() const
 juce::String PracticeEngine::saveSection(const juce::String& name, const juce::String& id)
 {
     const juce::ScopedLock lock(control);
+    return saveSectionRange(name, id, loopA.load(), loopB.load());
+}
+juce::String PracticeEngine::saveSectionRange(const juce::String& name, const juce::String& id, double a, double b)
+{
+    const juce::ScopedLock lock(control);
     if (sectionsBlocked()) return "Load a track and finish preparation, the take or count-in before editing sections.";
-    try { sectionRows = sections.change(trackKey, duration.load(), id, name, loopA.load(), loopB.load(), false); sectionError.clear(); ++sectionRevision; return {}; }
+    try { sectionRows = sections.change(trackKey, duration.load(), id, name, a, b, false); sectionError.clear(); ++sectionRevision; return {}; }
     catch (const std::exception& e) { return e.what(); }
 }
 juce::String PracticeEngine::removeSection(const juce::String& id)

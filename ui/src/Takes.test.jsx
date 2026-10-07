@@ -9,6 +9,20 @@ beforeEach(() => {
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
+it('shows sections only for the loaded version and discards selection when versions change', async () => {
+  const loaded = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'processed'}, review: {...status.review, sectionRevision: 1, a: 1, b: 4, sections: [{id: 'phrase', name: 'Fast phrase', a: 1, b: 4}]}};
+  const view = render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.click(screen.getByRole('button', {name: 'Sections · 1'}));
+  fireEvent.change(screen.getByLabelText('Saved section'), {target: {value: 'phrase'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Recall section'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('takeReviewSection', 'one', 'processed', 'recall', '', 'phrase'));
+  fireEvent.change(screen.getByLabelText('Take version'), {target: {value: 'v1'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Sections · 0'}));
+  expect(screen.getByLabelText('Saved section').disabled).toBe(true);
+  view.rerender(<Takes status={{...loaded, takes: {...loaded.takes, reviewVersion: 'v1'}, review: {...loaded.review, sections: [], sectionRevision: 2}}} onError={vi.fn()}/>);
+  fireEvent.click(screen.getByRole('button', {name: 'Sections · 0'}));
+  expect(screen.getByLabelText('Saved section').value).toBe(''); expect(screen.getByRole('button', {name: 'Recall section'}).disabled).toBe(true);
+});
 it('searches saved notes, edits them separately and loads notes from another take', async () => {
   bridge.entries[0].notes = 'Drop D, 140 bpm'; bridge.entries[1].notes = 'Fingerstyle';
   render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');

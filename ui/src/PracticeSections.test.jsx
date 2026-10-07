@@ -7,6 +7,18 @@ import PracticeWaveform from './components/PracticeWaveform.jsx';
 const p = {duration: 120, position: 30, a: 10.25, b: 40.75, sectionRevision: 1, sections: [{id: 'solo', name: 'Solo', a: 10.25, b: 40.75}]};
 beforeEach(() => { bridge.invoke.mockReset().mockResolvedValue(''); });
 afterEach(cleanup);
+it('routes take section save, recall and delete to the exact loaded version', async () => {
+  render(<PracticeSections p={p} available={true} takeId="take-one" takeVersion="reamp-2" onError={vi.fn()}/>);
+  fireEvent.click(screen.getByRole('button', {name: 'Sections · 1'}));
+  fireEvent.change(screen.getByLabelText('Section name'), {target: {value: 'Solo ending'}}); fireEvent.click(screen.getByRole('button', {name: 'Save loop'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('takeReviewSection', 'take-one', 'reamp-2', 'save', 'Solo ending', ''));
+  await waitFor(() => expect(screen.getByLabelText('Saved section').disabled).toBe(false));
+  fireEvent.change(screen.getByLabelText('Saved section'), {target: {value: 'solo'}}); fireEvent.click(screen.getByRole('button', {name: 'Recall section'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('takeReviewSection', 'take-one', 'reamp-2', 'recall', '', 'solo'));
+  await waitFor(() => expect(screen.getByRole('button', {name: 'Delete section'}).disabled).toBe(false)); fireEvent.click(screen.getByRole('button', {name: 'Delete section'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('takeReviewSection', 'take-one', 'reamp-2', 'remove', '', 'solo'));
+  expect(bridge.invoke.mock.calls.some(([method]) => method.endsWith('PracticeSection'))).toBe(false);
+});
 const sections = props => <PracticeSections p={p} available={true} onError={vi.fn()} {...props}/>;
 const waveform = props => <PracticeWaveform p={{...p, waveRevision: 1}} available={true} disabled={false} onSeek={vi.fn()} onError={vi.fn()} {...props}/>;
 it('saves a trimmed named loop and distinguishes replacement from creation', async () => {
@@ -37,6 +49,11 @@ it('blocks controls during preparation, recording and unsupported preview modes'
   expect(screen.getByRole('button', {name: 'Save loop'}).disabled).toBe(true);
   view.rerender(sections({available: false})); expect(screen.getByLabelText('Section name').disabled).toBe(true);
   view.rerender(sections({p: {...p, a: 10, b: 10.01}})); expect(screen.getByRole('button', {name: 'Save loop'}).disabled).toBe(true);
+  for (const state of [{starting: true}, {loading: true}, {counting: true}, {recordMode: 3}]) {
+    view.rerender(sections({p: {...p, ...state}})); expect(screen.getByRole('button', {name: 'Save loop'}).disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', {name: 'Save loop'}));
+  }
+  expect(bridge.invoke).not.toHaveBeenCalled();
 });
 it('refreshes deleted selections without discarding names on ordinary status polls', () => {
   const view = render(sections()); fireEvent.click(screen.getByRole('button', {name: 'Sections · 1'}));

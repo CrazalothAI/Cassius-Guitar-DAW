@@ -41,3 +41,4 @@
 - Website work is deferred at the owner's request. No site, domain purchase, deployment, account or paid service is authorized by this TODO.
 
 - [x] Add 0.5.5 searchable take notes with persistent metadata and failed-save rollback.
+- [x] Add 0.5.6 persistent take review sections with worker-side storage, captured ranges and stale-request rejection.
