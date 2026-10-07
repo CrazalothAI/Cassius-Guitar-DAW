@@ -24,6 +24,8 @@ Use **Library → Import sound ZIPs** to add supported NAM/WAV collections witho
 
 **0.5.3 improves sound discovery.** Filter missing/available sound files and distinguish amp-only, preamp-only and full-rig captures from built-in amps and direct input. See [library discovery](docs/RELEASE-0.5.3.md).
 
+**0.7.0 expands the ready-to-play tones.** Iron Rhythm and Velvet Lead use the new distortion pedal; Prism Clean and Midnight Space use the new plate while keeping clean decays open. All four work without sound downloads. See [0.7.0 notes](docs/RELEASE-0.7.0.md).
+
 **0.6.2 adds an original stereo plate.** A separate reverb pedal brings decay, damping tone, pre-delay, width and blend to cleans and leads. See [plate reverb](docs/RELEASE-0.6.2.md).
 
 **0.6.1 adds a dedicated distortion pedal.** Add original Hard, Asymmetric or Fuzz clipping to the serial board, with independent duplicate controls and no capture-file dependency. See [distortion](docs/RELEASE-0.6.1.md).
@@ -42,7 +44,7 @@ This README describes the development source; public downloads can lag the curre
 
 Download **[Cassian-Setup.exe](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/download/latest/Cassian-Setup.exe)** from [Latest Windows download](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/tag/latest), run it, and follow the installer. Then open **Cassian** from the Windows Start menu. Setup offers an optional desktop shortcut and VST3 plugin; administrator access is not required. It checks for Microsoft WebView2 and installs the runtime when missing (internet access is needed for that step).
 
-The current source version is **0.6.2 preview**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
+The current source version is **0.7.0 preview**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
 
 The app installs to `%LOCALAPPDATA%\Programs\Cassian`. Run a newer installer to update it in place; close Cassian and any DAW using its plugin first. Uninstall through **Windows Settings → Apps → Cassian**. Saved settings, managed captures/rigs, practice sections and recordings are retained. Optional VST3 installation uses `%LOCALAPPDATA%\Programs\Common\VST3\Cassian.vst3`; rescan your DAW and add that location to its plugin paths if needed.
 
@@ -122,7 +124,7 @@ A capture containing a cabinet usually works best with cabinet Auto or Off. Stac
 
 Open **Library** to browse **Amps**, **Pedals**, **Cabinets**, and **Presets**. Search names, gear, creators, tags, and notes; filter by Factory, User, or Favorites. Edit friendly names, creator attribution, source URLs, tags, and notes in the details panel.
 
-The preset menu now offers **14 complete built-in rigs** and **20 exact-capture recipes** covering clean, ambient, blues, rock, lead, metalcore and fuzz sounds. Red-II is selected explicitly for harder EVH distortion; British rock/crunch uses the JCM800 or Brit 50 captures. Complete recall replaces files, the serial board and scenes, preserving global listening/performance controls. Legacy control starting points remain separately labeled and no longer switch all distorted presets to Red-I. Missing exact sounds disable a capture recipe instead of substituting another head. See [presets and shared sounds](docs/PRESETS-AND-SHARED-SOUNDS.md).
+The preset menu now offers **18 complete built-in rigs** and **20 exact-capture recipes** covering clean, ambient, blues, rock, lead, metalcore and fuzz sounds. Red-II is selected explicitly for harder EVH distortion; British rock/crunch uses the JCM800 or Brit 50 captures. Complete recall replaces files, the serial board and scenes, preserving global listening/performance controls. Legacy control starting points remain separately labeled and no longer switch all distorted presets to Red-I. Missing exact sounds disable a capture recipe instead of substituting another head. See [presets and shared sounds](docs/PRESETS-AND-SHARED-SOUNDS.md).
 
 The owner's 103 supplied sounds are imported locally. A verified bank can accompany the installer/portable ZIP and import automatically on a new PC. Public third-party sound distribution is still pending source/license records; built-in rigs need no files. The bank pipeline preserves creator metadata and includes per-asset permissions/notices. No third-party NAM/WAV files have been added to Git during this update.
 

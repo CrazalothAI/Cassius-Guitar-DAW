@@ -4,7 +4,7 @@ Implemented 2026-10-06. The header now offers complete capture recipes and Cassi
 
 ## Sound choices
 
-There are 14 file-free built-in rigs and 20 exact-capture recipes. The latter reference content hashes, so renamed files work and distinct capture variants cannot be silently substituted.
+As of 0.7.0 there are 18 file-free built-in rigs and 20 exact-capture recipes. The latter reference content hashes, so renamed files work and distinct capture variants cannot be silently substituted.
 
 | Family | Capture recipes |
 | --- | --- |
@@ -21,6 +21,21 @@ Captured pedal variants have fixed settings. Changing their Input/Output control
 The local managed library now contains all 103 unique supplied sounds, including 28 EVH variants, the prior Mesa/Fortin files and October intake. It contains originals by content identity, not copies of recordings or user settings. Library offers combined style, gain, speaker, source-pack, favorites and rig-type filters. Literal filename hints are identified as hints; editable metadata can correct them. A missing exact file disables its recipe and names the missing sounds. Built-in rigs always remain playable without those files.
 
 Output trims were adjusted using repeatable synthetic signals. Input calibration and model input gains were not changed to make quiet heads louder. These checks establish finite output, useful reference levels and headroom; they do not establish a finished musical audition or perceptual loudness matching on a real guitar.
+
+## Original distortion and plate starters (0.7.0)
+
+These four complete rigs contain only original built-in DSP and are included with the app and source. They require no sound files. Existing starter IDs and the 20 exact-capture recipes are unchanged.
+
+| Rig | Complete signal path | Intended use |
+| --- | --- | --- |
+| Iron Rhythm | Hard distortion → Natural DI → built-in 4x12 → EQ | Tight, dry metal/metalcore rhythm |
+| Velvet Lead | Asymmetric distortion → Lumen → Delay → Plate | Mid-forward lead and fast melodic runs |
+| Prism Clean | Lumen → Compressor → Plate | Clear chords, fingerstyle and clean melodies |
+| Midnight Space | Compressor → Lumen → Chorus → Delay → Plate | Spacious clean swells and layers |
+
+Prism Clean and Midnight Space have no distortion pedal and leave the input gate off. Plate pre-delay separates the wet response from the attack; lowering Delay/Plate Blend makes the dry instrument more prominent. Iron Rhythm and Velvet Lead use modest gate settings which still need adjustment for the instrument. None of these rigs changes Input calibration, Master, metronome or Play Along controls.
+
+The Distortion block has Hard, Asymmetric and Fuzz voices, bass control, tone and blend; Plate has nominal decay, damping tone, pre-delay, wet width and blend. Both support two independent instances, host automation, complete saving, scenes, sessions and portable packs. Plate is a separate algorithm from Room/Chamber/Hall and recorded ambience; see [distortion](RELEASE-0.6.1.md) and [plate](RELEASE-0.6.2.md).
 
 ## Distribution and installation
 

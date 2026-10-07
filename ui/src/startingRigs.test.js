@@ -17,10 +17,28 @@ describe('complete starter definitions', () => {
       expect([1,2,4]).toContain(values.AMP_SOURCE); expect(values.PEDAL_ON).toBe(0);
       for (const [id, value] of Object.entries(values)) { expect(value).toBeGreaterThanOrEqual(byId[id].min); expect(value).toBeLessThanOrEqual(byId[id].max); }
       expect(new Set(rig.board.map(block => block.type)).size).toBe(rig.board.length);
-      for (const block of rig.board) { expect(boardTypes).toContain(block.type); expect(['pre','post']).toContain(block.lane); if (['overdrive','neural-pedal'].includes(block.type)) expect(block.lane).toBe('pre'); }
+      for (const block of rig.board) { expect(boardTypes).toContain(block.type); expect(['pre','post']).toContain(block.lane); if (['overdrive','neural-pedal','distortion'].includes(block.type)) expect(block.lane).toBe('pre'); }
     }
   });
   it('rejects unknown starter IDs before any application', () => expect(() => startingParameters('missing')).toThrow('Starter rig not found'));
+  it('makes the new drive and plate rigs playable without files and keeps clean decays ungated', () => {
+    const available = resolveStartingRigs([]);
+    for (const id of ['iron-rhythm','velvet-lead','prism-clean','midnight-space']) {
+      const rig = catalog.rigs.find(r => r.id === `factory.${id}`);
+      expect(available.find(r => r.id === rig.id).unavailable).toBe(false);
+      expect(rig.assets).toBeUndefined();
+      const values = startingParameters(rig.id);
+      if (rig.gain === 'clean') {
+        expect(rig.board.some(b => ['distortion','overdrive','neural-pedal'].includes(b.type))).toBe(false);
+        expect(values.GATE_ON).toBe(0);
+        expect(rig.board.some(b => b.type === 'plate' && b.lane === 'post')).toBe(true);
+      } else {
+        expect(rig.board.some(b => b.type === 'distortion' && b.lane === 'pre')).toBe(true);
+        expect(values.BOARD_DISTORTION_0_DIST_MIX).toBe(100);
+      }
+    }
+    expect(startingParameters('factory.iron-rhythm').BOARD_DISTORTION_0_DIST_MODE).not.toBe(startingParameters('factory.velvet-lead').BOARD_DISTORTION_0_DIST_MODE);
+  });
   it('separates exact Red-II from Red-I and uses other heads for rock', () => {
     const red2 = catalog.captureRigs.find(r => r.id === 'factory.capture-red2-tight');
     const red1 = catalog.captureRigs.find(r => r.id === 'factory.capture-red1-lead');

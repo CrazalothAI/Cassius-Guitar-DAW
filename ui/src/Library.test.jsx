@@ -26,7 +26,8 @@ describe('library preview', () => {
     fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library style'}), {target: {value: 'jazz'}});
     fireEvent.change(within(dialog).getByRole('combobox', {name: 'Library gain'}), {target: {value: 'clean'}});
     expect(within(dialog).queryByText('Modern Metalcore')).toBeNull(); expect(within(dialog).queryByText('Glass clean')).toBeNull();
-    expect(within(dialog).getByRole('status').textContent).toMatch(/^3 of \d+ rigs and starting points$/);
+    expect(within(dialog).getByText('Prism Clean')).toBeTruthy();
+    expect(within(dialog).getByRole('status').textContent).toMatch(/^4 of \d+ rigs and starting points$/);
     fireEvent.click(within(within(dialog).getByText('Warm Jazz').closest('article')).getByRole('button', {name: 'Use'}));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const bar = within(screen.getByRole('region', {name: 'Current complete rig'})); expect(bar.getByText('Warm Jazz')).toBeTruthy(); expect(bar.getByText('STARTER RIG')).toBeTruthy(); expect(bar.queryByText('Edited')).toBeNull();

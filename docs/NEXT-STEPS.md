@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest patch: 0.6.2 adds an original plate-style stereo tank with independent controls, persistent recall and appended automation. See [plate reverb](RELEASE-0.6.2.md).
+Latest milestone: 0.7.0 adds four complete file-free distortion/plate rigs, bringing the starter catalog to 18 built-in tones. See [0.7.0](RELEASE-0.7.0.md). Next work is real guitar audition, sustained interface/DAW testing, and closing release gates, followed by spring reverb and the remaining sound coverage.
+
+Previous patch: 0.6.2 adds an original plate-style stereo tank with independent controls, persistent recall and appended automation. See [plate reverb](RELEASE-0.6.2.md).
 
 Previous patch: 0.6.1 adds original oversampled distortion with append-only automation and absent-family rig/scene migration. See [distortion](RELEASE-0.6.1.md).
 

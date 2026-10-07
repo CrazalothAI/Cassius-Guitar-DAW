@@ -31,9 +31,12 @@
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).
 - Follow the implementation order in [NEXT-STEPS.md](NEXT-STEPS.md) for pedalboards, sounds, curated rigs and real-use validation.
 
+- [x] Add 0.5.5 searchable take notes with persistent metadata and failed-save rollback.
+- [x] Add 0.5.6 persistent take review sections with worker-side storage, captured ranges and stale-request rejection.
+- [x] Add 0.6.0 review-to-export selections, guitar excerpt WAVs and measured export completion reports.
 - [x] Add 0.6.1 original 4x oversampled distortion, independent duplicate controls and compatible old rig/scene recall.
-
 - [x] Add 0.6.2 original stereo plate-style reverb with independent instances, old-state migration and complete rig/scene/pack recall.
+- [x] Add 0.7.0 four file-free distortion/plate starter rigs with complete recall and reference-level checks.
 
 ## After the app is more mature
 
@@ -43,7 +46,3 @@
 - Keep user downloads separate from source archives. Connect the site to tested versioned release assets; GitHub documents [direct release download links](https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases).
 - Define visual design, content ownership, moderation, accessibility, privacy, hosting, administration and maintenance requirements when website work begins.
 - Website work is deferred at the owner's request. No site, domain purchase, deployment, account or paid service is authorized by this TODO.
-
-- [x] Add 0.5.5 searchable take notes with persistent metadata and failed-save rollback.
-- [x] Add 0.5.6 persistent take review sections with worker-side storage, captured ranges and stale-request rejection.
-- [x] Add 0.6.0 review-to-export selections, guitar excerpt WAVs and measured export completion reports.

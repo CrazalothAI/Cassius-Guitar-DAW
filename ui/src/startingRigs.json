@@ -639,6 +639,186 @@
           "lane": "post"
         }
       ]
+    },
+    {
+      "id": "factory.iron-rhythm",
+      "name": "Iron Rhythm",
+      "styles": [
+        "metal",
+        "metalcore",
+        "thrash"
+      ],
+      "gain": "high-gain",
+      "amp": "Natural DI",
+      "speaker": "Built-in 4x12",
+      "notes": "Dedicated hard distortion into the built-in 4x12, with firm bass control and focused post-cabinet EQ. Dry rhythm; set the gate to your pickup noise.",
+      "parameters": {
+        "AMP_SOURCE": 4,
+        "CAB_MODE": 2,
+        "AMP_OUT": -8,
+        "HIGH_CUT": 7200,
+        "GATE_ON": 1,
+        "GATE_THRESH": -64,
+        "GATE_RELEASE": 140,
+        "EQ_ON": 1,
+        "EQ_MUD": -2.5,
+        "EQ_FOCUS": 1.5,
+        "EQ_FIZZ": -2,
+        "BOARD_DISTORTION_0_DIST_MODE": 0,
+        "BOARD_DISTORTION_0_DIST_DRIVE": 65,
+        "BOARD_DISTORTION_0_DIST_TONE": 42,
+        "BOARD_DISTORTION_0_DIST_TIGHT": 110,
+        "BOARD_DISTORTION_0_DIST_MIX": 100
+      },
+      "board": [
+        {
+          "type": "distortion",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.velvet-lead",
+      "name": "Velvet Lead",
+      "styles": [
+        "lead",
+        "classical",
+        "rock"
+      ],
+      "gain": "high-gain",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Asymmetric distortion into Lumen, forward mids and short stereo repeats. Plate pre-delay leaves space around quick runs; reduce Blend for drier articulation.",
+      "parameters": {
+        "AMP_OUT": -6,
+        "AMP_BASS": -1,
+        "AMP_MID": 1.5,
+        "AMP_TREBLE": -1,
+        "HIGH_CUT": 8500,
+        "GATE_ON": 1,
+        "GATE_THRESH": -68,
+        "GATE_RELEASE": 220,
+        "DELAY_MIX": 10,
+        "DELAY_TIME": 280,
+        "DELAY_FEEDBACK": 20,
+        "DELAY_WIDTH": 20,
+        "BOARD_DISTORTION_0_DIST_MODE": 1,
+        "BOARD_DISTORTION_0_DIST_DRIVE": 48,
+        "BOARD_DISTORTION_0_DIST_TONE": 48,
+        "BOARD_DISTORTION_0_DIST_TIGHT": 85,
+        "BOARD_PLATE_0_PLATE_DECAY": 1.6,
+        "BOARD_PLATE_0_PLATE_TONE": 48,
+        "BOARD_PLATE_0_PLATE_PREDELAY": 28,
+        "BOARD_PLATE_0_PLATE_WIDTH": 70,
+        "BOARD_PLATE_0_PLATE_MIX": 10
+      },
+      "board": [
+        {
+          "type": "distortion",
+          "lane": "pre"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "plate",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.prism-clean",
+      "name": "Prism Clean",
+      "styles": [
+        "clean",
+        "jazz",
+        "pop",
+        "classical"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Clear clean chords and melodic fingerstyle with gentle compression and a short stereo plate. No drive pedal or gate; clean note decays remain open.",
+      "parameters": {
+        "AMP_OUT": 7,
+        "AMP_BASS": -1,
+        "AMP_MID": 0.5,
+        "AMP_TREBLE": 1,
+        "CLEAN_COMP": 25,
+        "COMP_THRESH": -26,
+        "COMP_RATIO": 2,
+        "COMP_ATTACK": 25,
+        "COMP_RELEASE": 180,
+        "BOARD_PLATE_0_PLATE_DECAY": 1.4,
+        "BOARD_PLATE_0_PLATE_TONE": 62,
+        "BOARD_PLATE_0_PLATE_PREDELAY": 22,
+        "BOARD_PLATE_0_PLATE_WIDTH": 80,
+        "BOARD_PLATE_0_PLATE_MIX": 14
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "plate",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.midnight-space",
+      "name": "Midnight Space",
+      "styles": [
+        "clean",
+        "ambient"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Slow chorus, spacious repeats and a warm stereo plate for clean swells and chord layers. No drive pedal or gate; lower Delay and Plate blend to bring the guitar forward.",
+      "parameters": {
+        "AMP_OUT": 9,
+        "CLEAN_COMP": 20,
+        "COMP_THRESH": -28,
+        "COMP_RATIO": 2,
+        "COMP_ATTACK": 25,
+        "CHORUS_MIX": 12,
+        "CHORUS_RATE": 0.4,
+        "CHORUS_DEPTH": 40,
+        "DELAY_MIX": 18,
+        "DELAY_TIME": 420,
+        "DELAY_WIDTH": 40,
+        "DELAY_FEEDBACK": 28,
+        "BOARD_PLATE_0_PLATE_DECAY": 4.2,
+        "BOARD_PLATE_0_PLATE_TONE": 40,
+        "BOARD_PLATE_0_PLATE_PREDELAY": 35,
+        "BOARD_PLATE_0_PLATE_WIDTH": 100,
+        "BOARD_PLATE_0_PLATE_MIX": 24
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "pre"
+        },
+        {
+          "type": "chorus",
+          "lane": "post"
+        },
+        {
+          "type": "delay",
+          "lane": "post"
+        },
+        {
+          "type": "plate",
+          "lane": "post"
+        }
+      ]
     }
   ],
   "captureRigs": [

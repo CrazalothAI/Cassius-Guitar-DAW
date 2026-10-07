@@ -19,7 +19,7 @@ juce::ValueTree state(AmpSuiteAudioProcessor& p) { return juce::ValueTree::fromX
 void runStartingRigChecks(const juce::File& fixture)
 {
     const auto catalog = AmpSuiteAudioProcessor::startingRigCatalog();
-    require(static_cast<int>(catalog["version"]) == 1 && catalog["rigs"].isArray() && catalog["rigs"].size() >= 12, "Embedded starter catalog must be complete");
+    require(static_cast<int>(catalog["version"]) == 1 && catalog["rigs"].isArray() && catalog["rigs"].size() >= 18, "Embedded starter catalog must include the sound expansion");
     AmpSuiteAudioProcessor p(false); p.prepareToPlay(48000, 256);
     p.requestFile(true, fixture); p.requestPedal(fixture); ready(p);
     require(p.boardCommand("convert", {}).isEmpty(), "Contaminated rig must convert"); ready(p);
