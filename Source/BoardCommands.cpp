@@ -87,6 +87,22 @@ juce::String AmpSuiteAudioProcessor::boardCommand(const juce::String& action, co
                 const auto source = base + (from == 0 ? "" : "1") + suffix, target = base + (slot == 0 ? "" : "1") + suffix;
                 state.setProperty(target, action == "duplicate" ? state[source] : juce::var(), nullptr);
             }
+        } else if (action == "reset") {
+            const int kind = PedalboardState::kind(block), slot = static_cast<int>(block["automationSlot"]);
+            juce::StringArray keys {BoardParams::trimId(kind, slot)};
+            for (const auto& id : BoardParams::controls[static_cast<size_t>(kind)]) {
+                const auto key = BoardParams::parameter(kind, slot, id);
+                if (key != BoardParams::onId(kind, slot)) keys.add(key);
+            }
+            bool changed = false;
+            BoardParams::each([&](const auto& p) {
+                if (keys.contains(p.id) && static_cast<float>(state.getChildWithProperty("id", p.id)["value"]) != p.initial) {
+                    set(p.id, p.initial); changed = true;
+                }
+            });
+            // Keep bypass, captured files, block identity and lane. A no-op
+            // must not reload the graph, clear Redo or consume Undo history.
+            if (!changed) return {};
         } else if (action == "remove") block.setProperty("deleted", 1, nullptr);
         else if (action == "lane") block.setProperty("lane", args["lane"], nullptr);
         else if (action == "moveTo") {

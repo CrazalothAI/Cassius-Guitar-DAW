@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest patch: 0.7.1 adds an original dispersive spring-style reverb with compatible recall and independent controls. Pedal Reset controls and new clean/blues/fuzz starters are the next coding steps. See [spring](RELEASE-0.7.1.md).
+Latest patch: 0.7.2 adds selected-pedal Reset controls with Undo/Redo, preserving bypass, file and stable automation identity. See [reset](RELEASE-0.7.2.md).
+
+Previous patch: 0.7.1 adds an original dispersive spring-style reverb with compatible recall and independent controls. Pedal Reset controls and new clean/blues/fuzz starters are the next coding steps. See [spring](RELEASE-0.7.1.md).
 
 Previous milestone: 0.7.0 adds four complete file-free distortion/plate rigs, bringing the starter catalog to 18 built-in tones. See [0.7.0](RELEASE-0.7.0.md). Next work is real guitar audition, sustained interface/DAW testing, and closing release gates, followed by spring reverb and the remaining sound coverage.
 

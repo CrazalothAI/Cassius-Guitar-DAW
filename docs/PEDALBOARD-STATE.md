@@ -10,7 +10,9 @@ The runtime supports compressor, built-in overdrive, captured NAM pedal, EQ, mod
 
 There are two kind-qualified automation slots per type, with at most 16 reserved blocks across the board. Removal creates a tombstone and does not release the slot. Replacement reserves a new identity/slot. Reordering never changes parameter identity. If both slots for a type are reserved, Undo can restore a removed pedal; choose another saved rig to start another board. This prevents old automation from silently controlling a newly added effect.
 
-Undo/Redo keeps the latest 32 structural edits and capture assignments in this processor instance. It restores pedal controls, topology and pedal/ambience files, retaining the current amp, cabinets, scenes and listening settings. Ordinary knob gestures use host automation and are not added to this structural history. Loading another complete rig resets the history; it is not persisted across app restarts.
+Reset controls restores the selected instance and its trim while preserving bypass/file/identity; Undo restores the settings. Resetting defaults does not reload or alter history.
+
+Undo/Redo keeps the latest 32 structural edits, resets and capture assignments in this processor instance. It restores pedal controls, topology and pedal/ambience files, retaining the current amp, cabinets, scenes and listening settings. Ordinary knob gestures use host automation and are not added to this structural history. Loading another complete rig resets the history; it is not persisted across app restarts.
 
 Conversion moves the neural pedal ahead of the amp's drive/tight processing and turns embedded clean compression into an ordinary pedal. Compressor Off remains bypassed. The serial reverb has unity dry output at zero mix instead of the fixed chain's legacy doubled dry level. Conversion can therefore change sound and level; Undo restores the fixed routing. Built-in starting presets change their existing controls without removing independent duplicate pedals; use a saved complete rig to recall exact topology and files.
 

@@ -40,6 +40,8 @@
 
 - [x] Add 0.7.1 original spring-style reverb with separate dispersion controls, appended automation and compatible recall.
 
+- [x] Add 0.7.2 selected-pedal Reset controls with isolation, preserved bypass/files and Undo/Redo.
+
 ## After the app is more mature
 
 - Plan and build a polished Cassian website for promotion, demos, easy Windows downloads, documentation, support and suggestions.

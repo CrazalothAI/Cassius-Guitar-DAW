@@ -15,6 +15,7 @@ void runWahChecks();
 void runDistortionChecks();
 void runPlateChecks();
 void runSpringChecks();
+void runBoardResetChecks(const juce::File& fixture);
 void runModulationChecks();
 void runSceneChecks();
 void runPracticeSectionChecks();
@@ -668,6 +669,7 @@ int main(int argc, char** argv)
         runDistortionChecks();
         runPlateChecks();
         runSpringChecks();
+        runBoardResetChecks(juce::File(argv[1]));
         runModulationChecks();
         runSceneChecks();
         runPracticeSectionChecks();

@@ -10,6 +10,15 @@ afterEach(() => { cleanup(); bridge.native = true; bridge.invoke.mockReset(); })
 const block = (type, slot, lane = 'post') => { const kind = boardTypes.indexOf(type); return {id: `${type}.${slot}`, type, automationSlot: slot, lane, enabledId: boardOnId(kind, slot), trimId: `BOARD_${type.replaceAll('-', '_').toUpperCase()}_${slot}_TRIM`}; };
 const status = rows => ({board: {serial: true, blocks: rows, reserved: rows.length, canUndo: true, canRedo: false}, libraryRevision: 1});
 describe('independent serial pedalboard', () => {
+  it('resets the selected stable identity through native Undo history and blocks reset during loading',async()=>{
+    bridge.invoke.mockResolvedValue('');
+    const {rerender}=render(<Pedalboard status={status([block('eq',0),block('eq',1)])}/>);
+    fireEvent.click(screen.getByRole('button',{name:/02 EQ 2/}));
+    fireEvent.click(screen.getByRole('button',{name:'Reset controls'}));
+    await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('boardCommand','reset',{id:'eq.1'}));
+    rerender(<Pedalboard status={{...status([block('eq',0),block('eq',1)]),rigLoading:true}}/>);
+    expect(screen.getByRole('button',{name:'Reset controls'}).disabled).toBe(true);
+  });
   it('adds spring after the cabinet and gives its duplicate separate drip controls',async()=>{
     bridge.invoke.mockResolvedValue('');setParameter('BOARD_SPRING_0_SPRING_DRIP',25);
     render(<Pedalboard status={status([block('spring',0),block('spring',1)])}/>);
