@@ -14,6 +14,10 @@ Select Original processed, Dry DI or an exported reamp version, then press **Lis
 
 Review uses the practice engine's worker-side decoding and filtered resampling. Each decoded track is limited to 256 MiB of stereo float audio at the interface rate; longer takes can still be reamped and opened externally. Practice and review can retain separate decoded buffers. DAW playback and recording remain owned by the host, so this panel's native transport is standalone-only.
 
+0.5.1 adds **Pause review / Resume review**, **Set review A here**, **Set review B here**, **Loop A–B** and **Go to A**. Listen to the selected version first, seek to the desired boundaries and set A/B. B must be at least 0.05 seconds after A. The loop uses 5 ms edge fades; overlapping fades are bounded to a quarter of the loop length. Pause keeps the current position and restores live monitoring; Resume continues from that position. Resuming at the natural end restarts the version.
+
+The review status names the loaded take/version even when you select another row or version. Seeking, pause/resume and loop controls remain disabled until your selection matches the loaded audio. Press Listen to load that selection; it resets the loop to the full version. Stop invalidates the loaded identity and cancels decoding or queued previews. Missing audio reports an error and leaves the controls unavailable. Review controls are blocked during recording. Loop bounds are temporary listening controls: they do not trim recordings, change reamp rendering or alter Video soundtrack export ranges. Review volume remains global.
+
 ## Reamp versions
 
 Set up the desired amp, pedals, cabinets and effects, then choose **Reamp with current rig**. A separate processor prepares the snapshot's assets and streams the original dry file through the guitar chain on a worker. It does not change the live rig or depend on audio callbacks. The current Input gain and guitar processing are included; Master, output limiter, accompaniment and clicks are excluded.
@@ -31,6 +35,8 @@ Select Original processed or Dry DI and press **Load recorded rig** to restore t
 Snapshot reads run on the take worker; full document validation and prepared rig recall use the existing engine path. Missing assets reject before changing the current rig. Corrupt assets may fail during preparation, retaining the current tone and reporting the engine error. Recording, exports, incomplete takes and rig loading block recovery. Older takes without a snapshot can still be reviewed and reamped. Recovery does not change WAV files, snapshots or catalog entries. Recording-time knob changes are not reconstructed.
 
 ## Verification
+
+0.5.1 checks on Windows on 2026-10-07: 154 UI tests, four native suites with the optional 103-file bank, Release standalone/VST3 builds, version checks and isolated install/upgrade/uninstall passed. Review checks cover actual looped audio and fades, pause position, version identity, rapid replacement, cancellation, missing audio and independent export ranges. See [take audition evidence and limits](RELEASE-0.5.1.md).
 
 0.5.0 checks on Windows on 2026-10-06: 150 UI tests, four native suites with the optional 103-file bank, Release standalone/VST3 builds, version checks and isolated install/upgrade/uninstall passed. Version-label checks cover reopening, file preservation and failed-write rollback; quick-export checks decode actual dry/processed WAVs across common rates. See [five-part update evidence](RELEASE-0.5.0.md).
 

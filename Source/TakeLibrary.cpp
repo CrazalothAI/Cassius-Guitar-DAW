@@ -32,6 +32,8 @@ juce::String TakeLibrary::preview(const juce::String& id, const juce::String& ve
     if (!take.isValid()) return "Take not found.";
     if (version != "processed" && version != "dry" && !take.getChildWithProperty("id", version).isValid()) return "Take version not found.";
     Job job; job.type = "preview"; job.id = id; job.version = version; job.previewGeneration = ++reviewGeneration;
+    review.command("stop"); review.command("cancelLoad");
+    reviewId.clear(); reviewVersion.clear(); reviewLoading = true;
     jobs.push_back(std::move(job)); error.clear(); notify(); return {};
 }
 juce::String TakeLibrary::renameVersion(const juce::String& id, const juce::String& version, const juce::String& name)
@@ -42,7 +44,21 @@ juce::String TakeLibrary::renameVersion(const juce::String& id, const juce::Stri
     if (exporting.load()) return "Finish or cancel the export before renaming a version.";
     Job job; job.type = "renameVersion"; job.id = id; job.version = version; job.name = title; jobs.push_back(std::move(job)); notify(); return {};
 }
-void TakeLibrary::stopReview() { const juce::ScopedLock guard(lock); ++reviewGeneration; review.command("stop"); }
+void TakeLibrary::stopReview() {
+    const juce::ScopedLock guard(lock); ++reviewGeneration;
+    review.command("stop"); review.command("cancelLoad");
+    reviewId.clear(); reviewVersion.clear(); reviewLoading = false;
+}
+juce::String TakeLibrary::reviewControl(const juce::String& id, const juce::String& version, const juce::String& command, double amount)
+{
+    const juce::ScopedLock guard(lock);
+    if (reviewLoading || reviewId.isEmpty() || id != reviewId || version != reviewVersion)
+        return "Listen to the selected take version before using its review controls.";
+    if (!std::isfinite(amount)) return "Invalid take review value.";
+    if (command != "pause" && command != "play" && command != "seek" && command != "a" && command != "b" && command != "loop")
+        return "Unknown take review control.";
+    return review.command(command, amount);
+}
 juce::String TakeLibrary::readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)> completed)
 {
     const juce::ScopedLock guard(lock); const auto take = find(id);
@@ -123,16 +139,18 @@ void TakeLibrary::playReview(const Job& job)
     { const juce::ScopedLock guard(lock); const auto take = find(job.id); require(take.isValid(), "Take not found.");
       const juce::File folder(take["path"].toString());
       file = job.version == "processed" ? folder.getChildFile("Guitar processed.wav") : job.version == "dry" ? folder.getChildFile("Guitar dry.wav") : juce::File(take.getChildWithProperty("id", job.version)["path"].toString()); }
-    if (job.previewGeneration != reviewGeneration.load()) return;
-    require(file.existsAsFile(), "Take audio is missing. Re-import the folder if it moved.");
-    review.load(file);
+    { const juce::ScopedLock guard(lock);
+      if (job.previewGeneration != reviewGeneration.load()) return;
+      require(file.existsAsFile(), "Take audio is missing. Re-import the folder if it moved.");
+      review.load(file); }
     while (static_cast<bool>(review.status()["loading"])) {
         if (threadShouldExit() || job.previewGeneration != reviewGeneration.load()) return; wait(5);
     }
     require(review.status()["error"].toString().isEmpty(), review.status()["error"].toString());
     { const juce::ScopedLock guard(lock);
       if (job.previewGeneration != reviewGeneration.load()) return;
-      review.setCountIn(0, 120, 4); const auto failure = review.command("play"); require(failure.isEmpty(), failure); reviewId = job.id; }
+      review.setCountIn(0, 120, 4); const auto failure = review.command("play"); require(failure.isEmpty(), failure);
+      reviewId = job.id; reviewVersion = job.version; reviewLoading = false; }
 }
 void TakeLibrary::exportReamp(const Job& job)
 {
@@ -224,7 +242,12 @@ void TakeLibrary::run()
             }
             else if (job.type == "reamp") exportReamp(job);
             else if (job.type == "video") exportVideoAudio(job);
-        } catch (const std::exception& e) { const juce::ScopedLock guard(lock); error = e.what(); }
+        } catch (const std::exception& e) {
+            const juce::ScopedLock guard(lock);
+            if (job.type != "preview" || job.previewGeneration == reviewGeneration.load()) {
+                error = e.what(); if (job.type == "preview") reviewLoading = false;
+            }
+        }
         if (job.type == "reamp" || job.type == "video") { exporting.store(false); const juce::ScopedLock guard(lock); activeId.clear(); }
     }
 }
@@ -242,7 +265,7 @@ juce::var TakeLibrary::list()
 juce::var TakeLibrary::status()
 {
     auto o = std::make_unique<juce::DynamicObject>();
-    { const juce::ScopedLock guard(lock); o->setProperty("error", error); o->setProperty("activeId", activeId); o->setProperty("reviewId", reviewId); o->setProperty("lastExportPath", lastExportPath); }
+    { const juce::ScopedLock guard(lock); o->setProperty("error", error); o->setProperty("activeId", activeId); o->setProperty("reviewId", reviewId); o->setProperty("reviewVersion", reviewVersion); o->setProperty("reviewLoading", reviewLoading); o->setProperty("lastExportPath", lastExportPath); }
     o->setProperty("revision", static_cast<int>(revision.load())); o->setProperty("exporting", exporting.load()); o->setProperty("progress", progress.load()); return juce::var(o.release());
 }
 juce::String TakeLibrary::reveal(const juce::String& id)

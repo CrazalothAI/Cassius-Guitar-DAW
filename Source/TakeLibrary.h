@@ -14,6 +14,7 @@ public:
     juce::String edit(const juce::String& id, const juce::String& name, bool favorite);
     juce::String renameVersion(const juce::String& id, const juce::String& version, const juce::String& name);
     juce::String preview(const juce::String& id, const juce::String& version);
+    juce::String reviewControl(const juce::String& id, const juce::String& version, const juce::String& command, double amount);
     // File reads finish on the take worker; the caller chooses its callback thread.
     juce::String readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)>);
     juce::String reamp(const juce::String& id, const juce::var& rig, double tailSeconds = 0);
@@ -39,7 +40,8 @@ private:
     juce::ValueTree entries {"TAKES"};
     std::vector<Job> jobs;
     PracticeEngine& review;
-    juce::String error, activeId, reviewId, lastExportPath;
+    juce::String error, activeId, reviewId, reviewVersion, lastExportPath;
+    bool reviewLoading = false;
     std::atomic<bool> exporting {false}, cancelled {false};
     std::atomic<bool> snapshotPending {false};
     std::atomic<unsigned> reviewGeneration {0}, revision {0};

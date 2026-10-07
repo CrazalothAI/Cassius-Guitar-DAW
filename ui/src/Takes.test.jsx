@@ -158,3 +158,59 @@ it('quick-exports the full guitar version without backing, trim selections or mi
   rerender(<Takes status={{...status,practice:{recordMode:3}}} onError={vi.fn()}/>);
   expect(screen.getByRole('button',{name:'Export guitar WAV'}).disabled).toBe(true);
 });
+it('pauses, resumes, seeks and loops only the loaded selected version', async () => {
+  const loaded = {...status, takes: {...status.takes, reviewId:'one', reviewVersion:'processed'}, review:{...status.review, playing:true, a:2, b:8, loop:false}};
+  const {rerender} = render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByRole('status', {name:'Take review status'}).textContent).toContain('Playing: Lead take · Original processed');
+  fireEvent.click(screen.getByRole('button',{name:'Pause review'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','pause',0));
+  fireEvent.change(screen.getByLabelText('Take review position'),{target:{value:'4'}});
+  fireEvent.click(screen.getByRole('button',{name:'Set review A here'}));
+  fireEvent.click(screen.getByRole('button',{name:'Set review B here'}));
+  fireEvent.click(screen.getByLabelText('Loop take review'));
+  fireEvent.click(screen.getByRole('button',{name:'Go to A'}));
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','seek',4);
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','a',12);
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','b',12);
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','loop',1);
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','seek',2);
+  rerender(<Takes status={{...loaded,review:{...loaded.review,playing:false,loop:true}}} onError={vi.fn()}/>);
+  fireEvent.click(screen.getByRole('button',{name:'Resume review'}));
+  expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl','one','processed','play',0);
+  expect(screen.getByLabelText('Loop take review').checked).toBe(true);
+});
+it('keeps the actual review label while selection changes and blocks controls for other versions', async () => {
+  render(<Takes status={{...status,takes:{...status.takes,reviewId:'one',reviewVersion:'processed'},review:{...status.review,playing:true}}} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Take version'),{target:{value:'v1'}});
+  expect(screen.getByRole('status', {name:'Take review status'}).textContent).toContain('Playing: Lead take · Original processed');
+  expect(screen.getByLabelText('Take review position').disabled).toBe(true);
+  expect(screen.getByRole('button',{name:'Pause review'}).disabled).toBe(true);
+  expect(screen.getByLabelText('Loop take review').disabled).toBe(true);
+  fireEvent.click(screen.getByText('★ Favorite clean'));
+  expect(screen.getByRole('button',{name:'Set review A here'}).disabled).toBe(true);
+  expect(screen.getByRole('status', {name:'Take review status'}).textContent).toContain('Press Listen to load your selected version');
+  fireEvent.click(screen.getByRole('button',{name:'Listen'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('previewTake','two','processed'));
+  expect(bridge.invoke.mock.calls.some(([fn])=>fn==='takeReviewControl')).toBe(false);
+});
+it('blocks pending and recording review controls and prevents too-short loops', async () => {
+  const loaded={...status,takes:{...status.takes,reviewId:'one',reviewVersion:'processed'},review:{...status.review,a:2,b:2.01}};
+  const {rerender}=render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByLabelText('Loop take review').disabled).toBe(true);
+  for (const next of [{...loaded,takes:{...loaded.takes,reviewLoading:true}},{...loaded,review:{...loaded.review,loading:true}},{...loaded,practice:{recordMode:3}}]) {
+    rerender(<Takes status={next} onError={vi.fn()}/>);
+    expect(screen.getByLabelText('Take review position').disabled).toBe(true);
+    expect(screen.getByRole('button',{name:'Resume review'}).disabled).toBe(true);
+  }
+});
+it('surfaces review command failures without changing soundtrack export settings', async () => {
+  const error=vi.fn();
+  bridge.invoke.mockImplementation(async fn=>fn==='getTakes'?bridge.entries:fn==='takeReviewControl'?'Listen to the selected take version before using its review controls.':'');
+  render(<Takes status={{...status,takes:{...status.takes,reviewId:'one',reviewVersion:'processed'},review:{...status.review,a:2,b:8}}} onError={error}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Export start seconds'),{target:{value:'3'}});
+  fireEvent.click(screen.getByRole('button',{name:'Go to A'}));
+  await waitFor(()=>expect(error).toHaveBeenCalledWith({title:'Takes',text:'Listen to the selected take version before using its review controls.'}));
+  expect(screen.getByLabelText('Export start seconds').value).toBe('3');
+  fireEvent.click(screen.getByRole('button',{name:'Export for video'}));
+  expect(bridge.invoke).toHaveBeenCalledWith('exportVideoAudio','one','processed',false,0,0,3,10,.01);
+});

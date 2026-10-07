@@ -148,6 +148,11 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             else if (name == "level" || name == "seek") complete(processor.takeReview.command(name, static_cast<double>(args[1])));
             else complete(juce::String("Unknown review control."));
         })
+        .withNativeFunction("takeReviewControl", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish recording before reviewing a take in standalone.")); return; }
+            if (args.size() != 4 || !args[0].isString() || !args[1].isString() || !args[2].isString() || !(args[3].isInt() || args[3].isInt64() || args[3].isDouble())) { complete(juce::String("Invalid take review control.")); return; }
+            complete(processor.takes.reviewControl(args[0].toString(), args[1].toString(), args[2].toString(), static_cast<double>(args[3])));
+        })
         .withNativeFunction("reampTake", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Reamping is available in the standalone app.")); return; }
             if (static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish the recording before starting an export.")); return; }

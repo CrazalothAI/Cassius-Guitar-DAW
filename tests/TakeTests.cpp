@@ -1,5 +1,6 @@
 #include "../Source/PluginProcessor.h"
 #include <iostream>
+#include <limits>
 
 namespace {
 void require(bool ok, const char* reason) { if (!ok) throw std::runtime_error(reason); }
@@ -139,8 +140,38 @@ void runTakeChecks()
         waitFor([&] { return review.transportActive(); });
         juce::AudioBuffer<float> audio(2, 128), dry(1, 128); audio.clear(); dry.clear();
         review.process(audio, dry.getReadPointer(0)); require(audio.getMagnitude(0, 0, 128) > .19f, "Processed review must preserve stored audio at review gain");
+        require(library.status()["reviewId"].toString() == originalId && library.status()["reviewVersion"].toString() == "processed" && !static_cast<bool>(library.status()["reviewLoading"]), "Review identity must publish only after preparation");
+        require(library.reviewControl("other", "processed", "seek", .02).isNotEmpty() && library.reviewControl(originalId, "dry", "pause", 0).isNotEmpty(), "Controls for another take or version must not change playback");
+        require(review.transportActive(), "Rejected stale pause must leave the loaded version playing");
+        require(library.reviewControl(originalId,"processed","pause",0).isEmpty(), "Loaded review must pause");
+        const auto paused = static_cast<double>(review.status()["position"]);
+        audio.clear(); review.process(audio, dry.getReadPointer(0));
+        require(!review.transportActive() && static_cast<double>(review.status()["position"]) == paused && audio.getMagnitude(0,128) == 0, "Pause must retain position and produce no review audio");
+        require(library.reviewControl(originalId,"processed","a",.02).isEmpty() && library.reviewControl(originalId,"processed","b",.08).isEmpty(), "Review loop bounds must set on the loaded version");
+        require(library.reviewControl(originalId,"processed","loop",1).isEmpty() && library.reviewControl(originalId,"processed","seek",.02).isEmpty(), "Valid review loop must enable and seek");
+        require(library.reviewControl(originalId,"processed","play",0).isEmpty(), "Paused review must resume");
+        float loopPeak = 0;
+        for (int block = 0; block < 80; ++block) { audio.clear(); review.process(audio,dry.getReadPointer(0)); loopPeak = juce::jmax(loopPeak,audio.getMagnitude(0,128)); }
+        const auto loopPosition = static_cast<double>(review.status()["position"]);
+        require(review.transportActive() && loopPosition >= .02 && loopPosition <= .08 + 1./48000 && loopPeak > .19f, "Review loop must wrap through actual stored audio beyond its natural end");
+        require(library.reviewControl(originalId,"processed","seek",.02).isEmpty(), "Review must seek to loop start");
+        audio.clear(); review.process(audio,dry.getReadPointer(0));
+        require(std::abs(audio.getSample(0,0)) < 1.e-6 && audio.getSample(0,127) > .1f, "Review loop must fade the boundary without silencing its interior");
+        require(library.reviewControl(originalId,"processed","b",.03).isEmpty() && !static_cast<bool>(review.status()["loop"]) && library.reviewControl(originalId,"processed","loop",1).isNotEmpty(), "Too-short review loops must disable and reject enabling");
+        require(library.reviewControl(originalId,"processed","record",0).isNotEmpty() && library.reviewControl(originalId,"processed","seek",std::numeric_limits<double>::quiet_NaN()).isNotEmpty(), "Unsupported and nonfinite review controls must reject");
         library.stopReview(); require(!review.transportActive(), "Review must stop without waiting for an audio callback");
+        require(library.status()["reviewId"].toString().isEmpty() && !static_cast<bool>(library.status()["reviewLoading"]) && library.reviewControl(originalId,"processed","play",0).isNotEmpty(), "Stopped review must invalidate its identity and reject stale resume");
         library.preview(originalId, "processed"); library.stopReview(); juce::Thread::sleep(20); require(!review.transportActive(), "Cancelled preview must not restart playback");
+        require(library.preview(originalId,"dry").isEmpty(), "A different review version must queue");
+        waitFor([&] {return library.status()["reviewVersion"].toString()=="dry";});
+        require(!static_cast<bool>(review.status()["loop"]) && static_cast<double>(review.status()["a"])==0 && std::abs(static_cast<double>(review.status()["b"])-4096./48000)<1.e-6, "Loading another version must reset loop bounds to its whole duration");
+        audio.clear(); review.process(audio,dry.getReadPointer(0));
+        require(std::abs(audio.getSample(0,64)-.125f*juce::Decibels::decibelsToGain(-12.f))<1.e-5 && audio.getSample(0,64)==audio.getSample(1,64), "Dry review must play its own audio identically in both output channels");
+        library.stopReview();
+        require(library.preview(originalId,"processed").isEmpty() && library.preview(originalId,"dry").isEmpty(), "Rapid review changes must queue");
+        waitFor([&] {return library.status()["reviewVersion"].toString()=="dry";});
+        require(library.reviewControl(originalId,"processed","pause",0).isNotEmpty(), "Superseded version controls must stay invalid after the latest preview loads");
+        library.stopReview();
         const auto snapshot = rig(); require(library.reamp(originalId, snapshot).isEmpty(), "Offline reamp must queue");
         waitFor([&] { return !static_cast<bool>(library.status()["exporting"]); });
         require(library.status()["error"].toString().isEmpty(), "Offline reamp must complete without errors");
@@ -320,6 +351,10 @@ void runTakeChecks()
         auto invalidRig = std::make_unique<juce::DynamicObject>(); invalidRig->setProperty("schema", 77); invalidRig->setProperty("state", "bad");
         library.reamp(id, juce::var(invalidRig.release())); waitFor([&] { return !static_cast<bool>(library.status()["exporting"]); });
         require(library.status()["error"].toString().isNotEmpty() && first(library)["versions"].size() == 0, "Invalid rig must produce an export error without a version");
+        require(longTake.getChildFile("Guitar processed.wav").deleteFile(), "Remove only the temporary fixture's wet audio");
+        require(library.preview(id,"processed").isEmpty(), "A catalog entry with moved audio must queue for worker validation");
+        waitFor([&] {return !static_cast<bool>(library.status()["reviewLoading"]);});
+        require(library.status()["error"].toString().contains("Take audio is missing") && library.status()["reviewId"].toString().isEmpty() && library.reviewControl(id,"processed","play",0).isNotEmpty(), "Missing review audio must clear preparation state, report failure and reject resume");
     }
     std::cout << "Take library, review and offline reamping checks passed\n";
 }
