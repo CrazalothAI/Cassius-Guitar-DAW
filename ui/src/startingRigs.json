@@ -819,6 +819,168 @@
           "lane": "post"
         }
       ]
+    },
+    {
+      "id": "factory.copper-blues",
+      "name": "Copper Blues",
+      "styles": [
+        "blues",
+        "rock"
+      ],
+      "gain": "breakup",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "A low-drive boost into Lumen with warm mids and a short, restrained spring. Reduce Drive or your guitar volume for a cleaner edge.",
+      "parameters": {
+        "AMP_OUT": 1,
+        "OD_ON": 1,
+        "OD_DRIVE": 5,
+        "OD_LEVEL": -2,
+        "OD_TONE": 42,
+        "OD_TIGHT": 45,
+        "AMP_MID": 1.5,
+        "AMP_TREBLE": -1,
+        "BOARD_SPRING_0_SPRING_DECAY": 1.4,
+        "BOARD_SPRING_0_SPRING_TONE": 45,
+        "BOARD_SPRING_0_SPRING_DRIP": 35,
+        "BOARD_SPRING_0_SPRING_PREDELAY": 12,
+        "BOARD_SPRING_0_SPRING_MIX": 10
+      },
+      "board": [
+        {
+          "type": "overdrive",
+          "lane": "pre"
+        },
+        {
+          "type": "spring",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.country-spring",
+      "name": "Country Spring",
+      "styles": [
+        "clean",
+        "country",
+        "funk"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Articulate clean picking with quick, gentle post compression and a short spring. No drive pedal or gate to choke the note decay.",
+      "parameters": {
+        "AMP_OUT": 7,
+        "AMP_BASS": -2,
+        "AMP_MID": 1,
+        "AMP_TREBLE": 1.5,
+        "CLEAN_COMP": 35,
+        "COMP_THRESH": -26,
+        "COMP_RATIO": 2.5,
+        "COMP_ATTACK": 12,
+        "COMP_RELEASE": 120,
+        "COMP_MAKEUP": 0,
+        "BOARD_SPRING_0_SPRING_DECAY": 1.2,
+        "BOARD_SPRING_0_SPRING_TONE": 65,
+        "BOARD_SPRING_0_SPRING_DRIP": 50,
+        "BOARD_SPRING_0_SPRING_PREDELAY": 8,
+        "BOARD_SPRING_0_SPRING_MIX": 12
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "spring",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.surf-clean",
+      "name": "Surf Clean",
+      "styles": [
+        "clean",
+        "surf",
+        "pop"
+      ],
+      "gain": "clean",
+      "amp": "Lumen",
+      "speaker": "Lumen voicing",
+      "notes": "Open Lumen clean with a brighter, drippier spring return for melodic lines and picked chords. No distortion or gate; lower Spring Blend for a drier tone.",
+      "parameters": {
+        "AMP_OUT": 9,
+        "AMP_BASS": -1,
+        "AMP_TREBLE": 1.5,
+        "CLEAN_COMP": 20,
+        "COMP_THRESH": -28,
+        "COMP_RATIO": 2,
+        "COMP_ATTACK": 25,
+        "BOARD_SPRING_0_SPRING_DECAY": 3.2,
+        "BOARD_SPRING_0_SPRING_TONE": 65,
+        "BOARD_SPRING_0_SPRING_DRIP": 90,
+        "BOARD_SPRING_0_SPRING_PREDELAY": 5,
+        "BOARD_SPRING_0_SPRING_MIX": 26
+      },
+      "board": [
+        {
+          "type": "compressor",
+          "lane": "post"
+        },
+        {
+          "type": "spring",
+          "lane": "post"
+        }
+      ]
+    },
+    {
+      "id": "factory.fuzz-orbit",
+      "name": "Fuzz Orbit",
+      "styles": [
+        "rock",
+        "doom",
+        "ambient"
+      ],
+      "gain": "fuzz",
+      "amp": "Natural DI",
+      "speaker": "Built-in 4x12",
+      "notes": "Built-in Fuzz voice into the 4x12 with warm bass, controlled fizz and a small plate. A file-free saturation texture; the gentle gate needs matching to your pickups.",
+      "parameters": {
+        "AMP_SOURCE": 4,
+        "CAB_MODE": 2,
+        "AMP_OUT": -9,
+        "HIGH_CUT": 7500,
+        "GATE_ON": 1,
+        "GATE_THRESH": -68,
+        "GATE_RELEASE": 220,
+        "EQ_ON": 1,
+        "EQ_BODY": 1,
+        "EQ_MUD": -1.5,
+        "EQ_FIZZ": -2,
+        "BOARD_DISTORTION_0_DIST_MODE": 2,
+        "BOARD_DISTORTION_0_DIST_DRIVE": 60,
+        "BOARD_DISTORTION_0_DIST_TIGHT": 65,
+        "BOARD_DISTORTION_0_DIST_TONE": 37,
+        "BOARD_PLATE_0_PLATE_DECAY": 1.8,
+        "BOARD_PLATE_0_PLATE_TONE": 40,
+        "BOARD_PLATE_0_PLATE_PREDELAY": 20,
+        "BOARD_PLATE_0_PLATE_MIX": 10
+      },
+      "board": [
+        {
+          "type": "distortion",
+          "lane": "pre"
+        },
+        {
+          "type": "eq",
+          "lane": "post"
+        },
+        {
+          "type": "plate",
+          "lane": "post"
+        }
+      ]
     }
   ],
   "captureRigs": [

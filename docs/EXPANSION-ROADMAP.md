@@ -2,7 +2,9 @@
 
 The first pass follows the requested scope: searchable library, universal amp selection, and complete rig saving. This does not represent completion of the full 55-item expansion or readiness for a paid commercial release.
 
-Current checkpoint (2026-10-07): 0.7.0 includes serial boards, original wah/distortion/plate blocks, 18 complete file-free starter rigs, 20 exact-capture recipes, take review/sections/export and versioned Windows packaging. Older descriptions below record earlier foundation stages. Spring modeling, remaining amp coverage, live interface/DAW audition, approved sound redistribution, signing and fresh-PC validation remain work. See [0.7.0](RELEASE-0.7.0.md).
+Current checkpoint (2026-10-07): 0.8.0 adds original spring reverb, selected-pedal Reset controls and four more file-free starting rigs (22 total), with a measured two-distortion/two-plate/two-spring board fixture. See [0.8.0](RELEASE-0.8.0.md). Real-use/release gates remain open.
+
+Previous checkpoint (2026-10-07): 0.7.0 includes serial boards, original wah/distortion/plate blocks, 18 complete file-free starter rigs, 20 exact-capture recipes, take review/sections/export and versioned Windows packaging. Older descriptions below record earlier foundation stages. Spring modeling, remaining amp coverage, live interface/DAW audition, approved sound redistribution, signing and fresh-PC validation remain work. See [0.7.0](RELEASE-0.7.0.md).
 
 ## Foundation delivered
 

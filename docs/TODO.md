@@ -37,10 +37,10 @@
 - [x] Add 0.6.1 original 4x oversampled distortion, independent duplicate controls and compatible old rig/scene recall.
 - [x] Add 0.6.2 original stereo plate-style reverb with independent instances, old-state migration and complete rig/scene/pack recall.
 - [x] Add 0.7.0 four file-free distortion/plate starter rigs with complete recall and reference-level checks.
-
 - [x] Add 0.7.1 original spring-style reverb with separate dispersion controls, appended automation and compatible recall.
-
 - [x] Add 0.7.2 selected-pedal Reset controls with isolation, preserved bypass/files and Undo/Redo.
+
+- [x] Add 0.8.0 four spring/blues/fuzz starters and finite-output/performance checks for a six-effect board.
 
 ## After the app is more mature
 

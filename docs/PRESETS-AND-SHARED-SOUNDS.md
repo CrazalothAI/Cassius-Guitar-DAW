@@ -4,7 +4,7 @@ Implemented 2026-10-06. The header now offers complete capture recipes and Cassi
 
 ## Sound choices
 
-As of 0.7.0 there are 18 file-free built-in rigs and 20 exact-capture recipes. The latter reference content hashes, so renamed files work and distinct capture variants cannot be silently substituted.
+As of 0.8.0 there are 22 file-free built-in rigs and 20 exact-capture recipes. The latter reference content hashes, so renamed files work and distinct capture variants cannot be silently substituted.
 
 | Family | Capture recipes |
 | --- | --- |
@@ -36,6 +36,19 @@ These four complete rigs contain only original built-in DSP and are included wit
 Prism Clean and Midnight Space have no distortion pedal and leave the input gate off. Plate pre-delay separates the wet response from the attack; lowering Delay/Plate Blend makes the dry instrument more prominent. Iron Rhythm and Velvet Lead use modest gate settings which still need adjustment for the instrument. None of these rigs changes Input calibration, Master, metronome or Play Along controls.
 
 The Distortion block has Hard, Asymmetric and Fuzz voices, bass control, tone and blend; Plate has nominal decay, damping tone, pre-delay, wet width and blend. Both support two independent instances, host automation, complete saving, scenes, sessions and portable packs. Plate is a separate algorithm from Room/Chamber/Hall and recorded ambience; see [distortion](RELEASE-0.6.1.md) and [plate](RELEASE-0.6.2.md).
+
+## Spring, blues and fuzz starters (0.8.0)
+
+Four more original rigs are included with every app package without capture downloads:
+
+| Rig | Complete signal path | Intended use |
+| --- | --- | --- |
+| Copper Blues | Low-drive Overdrive → Lumen → Spring | Warm edge-of-breakup blues |
+| Country Spring | Lumen → Compressor → Spring | Articulate clean picking |
+| Surf Clean | Lumen → Compressor → Spring | Clean melody with a brighter, drippier tail |
+| Fuzz Orbit | Fuzz distortion → Natural DI → built-in 4x12 → EQ → Plate | Saturated rock/doom texture |
+
+Country Spring and Surf Clean leave the gate off and have no drive pedal. Spring is an original dispersive algorithm with adjustable nominal decay, damping tone, Drip, wet pre-delay and Blend. Copper Blues keeps pedal input/output calibration modest; Fuzz Orbit explicitly uses the separate built-in Fuzz mode. Output trims are measured on the same synthetic reference as the previous starters; real guitar/perceptual audition remains necessary. See [spring](RELEASE-0.7.1.md) and [0.8.0](RELEASE-0.8.0.md).
 
 ## Distribution and installation
 

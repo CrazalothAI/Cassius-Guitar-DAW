@@ -21,6 +21,21 @@ describe('complete starter definitions', () => {
     }
   });
   it('rejects unknown starter IDs before any application', () => expect(() => startingParameters('missing')).toThrow('Starter rig not found'));
+  it('offers file-free spring cleans, low-drive blues and a distinct built-in fuzz voice',()=>{
+    const available=resolveStartingRigs([]);
+    for(const id of ['copper-blues','country-spring','surf-clean','fuzz-orbit']) {
+      const rig=catalog.rigs.find(r=>r.id===`factory.${id}`);
+      expect(available.find(r=>r.id===rig.id).unavailable).toBe(false);expect(rig.assets).toBeUndefined();
+      const p=startingParameters(rig.id);
+      if(rig.gain==='clean') {
+        expect(p.GATE_ON).toBe(0);expect(rig.board.some(b=>['distortion','overdrive','neural-pedal'].includes(b.type))).toBe(false);
+      }
+      if(id!=='fuzz-orbit')expect(rig.board.some(b=>b.type==='spring'&&b.lane==='post')).toBe(true);
+    }
+    expect(startingParameters('factory.copper-blues').OD_DRIVE).toBeLessThan(15);
+    expect(startingParameters('factory.fuzz-orbit').BOARD_DISTORTION_0_DIST_MODE).toBe(2);
+    expect(startingParameters('factory.surf-clean').BOARD_SPRING_0_SPRING_DRIP).toBeGreaterThan(startingParameters('factory.country-spring').BOARD_SPRING_0_SPRING_DRIP);
+  });
   it('makes the new drive and plate rigs playable without files and keeps clean decays ungated', () => {
     const available = resolveStartingRigs([]);
     for (const id of ['iron-rhythm','velvet-lead','prism-clean','midnight-space']) {

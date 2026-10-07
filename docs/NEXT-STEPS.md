@@ -2,11 +2,13 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest patch: 0.7.2 adds selected-pedal Reset controls with Undo/Redo, preserving bypass, file and stable automation identity. See [reset](RELEASE-0.7.2.md).
+Latest milestone: 0.8.0 adds four complete file-free spring/blues/fuzz rigs (22 built-in total) and a demanding six-effect processing fixture. It includes 0.7.1 spring and 0.7.2 pedal reset. Next work remains real guitar/interface/DAW audition and the signing, fresh-PC and sound-permission release gates. See [0.8.0](RELEASE-0.8.0.md).
 
-Previous patch: 0.7.1 adds an original dispersive spring-style reverb with compatible recall and independent controls. Pedal Reset controls and new clean/blues/fuzz starters are the next coding steps. See [spring](RELEASE-0.7.1.md).
+Previous patch: 0.7.2 adds selected-pedal Reset controls with Undo/Redo, preserving bypass, file and stable automation identity. See [reset](RELEASE-0.7.2.md).
 
-Previous milestone: 0.7.0 adds four complete file-free distortion/plate rigs, bringing the starter catalog to 18 built-in tones. See [0.7.0](RELEASE-0.7.0.md). Next work is real guitar audition, sustained interface/DAW testing, and closing release gates, followed by spring reverb and the remaining sound coverage.
+Previous patch: 0.7.1 adds an original dispersive spring-style reverb with compatible recall and independent controls. See [spring](RELEASE-0.7.1.md).
+
+Previous milestone: 0.7.0 adds four complete file-free distortion/plate rigs, bringing the starter catalog to 18 built-in tones. See [0.7.0](RELEASE-0.7.0.md).
 
 Previous patch: 0.6.2 adds an original plate-style stereo tank with independent controls, persistent recall and appended automation. See [plate reverb](RELEASE-0.6.2.md).
 
@@ -20,7 +22,7 @@ Previous patch: 0.5.5 adds searchable take notes and metadata rollback on failed
 
 Earlier patches: 0.5.2 adds take/version review waveforms; 0.5.3 adds sound-file and amp capture-type filters; 0.5.4 exports selected saved rigs without changing the playing tone. See [review waveforms](RELEASE-0.5.2.md), [library discovery](RELEASE-0.5.3.md) and [saved exports](RELEASE-0.5.4.md). Live audition, sustained interface/DAW evidence and cleared sound distribution remain outstanding.
 
-Current implementation: steps 1 and 2 are implemented, and steps 3/4 have a first bounded serial runtime/editor, independent controls, two NAM slots, pre/post lanes, reserved deletion slots, replacement, drag/arrow reorder, Undo/Redo, schema-3/scene-3 migrations and deduplicated seven-asset packs. Recorded ambience and safe sound-ZIP intake are also implemented. Legacy rigs retain fixed routing until explicitly converted. See [pedalboards](PEDALBOARD-STATE.md), [October intake](SOUND-INTAKE-OCTOBER.md), and [Play Along/navigation](PLAY-ALONG-NAVIGATION.md). The website remains deferred in [TODO.md](TODO.md). The complete-rig increment now includes 18 built-in complete rigs, 20 exact-capture recipes, sound discovery filters, automatic packaged-bank intake and video soundtrack WAV export; see [presets/shared sounds](PRESETS-AND-SHARED-SOUNDS.md) and [video audio](VIDEO-AUDIO-EXPORT.md). Public third-party bank distribution awaits per-asset source/permission records.
+Current implementation: steps 1 and 2 are implemented, and steps 3/4 have a first bounded serial runtime/editor, independent controls, two NAM slots, pre/post lanes, reserved deletion slots, replacement, drag/arrow reorder, Undo/Redo, schema-3/scene-3 migrations and deduplicated seven-asset packs. Recorded ambience and safe sound-ZIP intake are also implemented. Legacy rigs retain fixed routing until explicitly converted. See [pedalboards](PEDALBOARD-STATE.md), [October intake](SOUND-INTAKE-OCTOBER.md), and [Play Along/navigation](PLAY-ALONG-NAVIGATION.md). The website remains deferred in [TODO.md](TODO.md). The complete-rig increment now includes 22 built-in complete rigs, 20 exact-capture recipes, sound discovery filters, automatic packaged-bank intake and video soundtrack WAV export; see [presets/shared sounds](PRESETS-AND-SHARED-SOUNDS.md) and [video audio](VIDEO-AUDIO-EXPORT.md). Public third-party bank distribution awaits per-asset source/permission records.
 
 ## Historical baseline inspected on 2026-10-05
 
