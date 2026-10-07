@@ -66,6 +66,16 @@ void runTakeChecks()
         juce::AudioBuffer<float> audio(2,4800);require(reader->read(&audio,0,4800,0,true,true),"Video WAV must decode");
         const auto expected=.25f+.125f*juce::Decibels::decibelsToGain(-6.f);
         require(std::abs(audio.getSample(0,3000)-expected)<.002,"Export must mix the requested processed guitar and backing balance");
+        for (const auto& version : {juce::String("processed"),juce::String("dry")}) {
+            const auto guitarOnly=root.getChildFile("Quick guitar " + version + " " + juce::String(rate) + ".wav");
+            require(video.videoExport(id,version,guitarOnly,false,0,0,0,.1,.01).isEmpty(),"Quick guitar export must queue the full selected version");
+            waitFor([&]{return !static_cast<bool>(video.status()["exporting"]);});
+            reader.reset(formats.createReaderFor(guitarOnly));
+            require(reader && reader->sampleRate==48000 && reader->bitsPerSample==24 && reader->numChannels==2 && reader->lengthInSamples==4800 && reader->read(&audio,0,4800,0,true,true),"Quick guitar WAV must have the video-friendly format and full duration");
+            const auto guitarExpected=version=="dry"?.125f:.25f;
+            require(std::abs(audio.getSample(0,3000)-guitarExpected)<.002 && std::abs(audio.getSample(1,3000)-guitarExpected)<.002,"Quick export must exclude backing and retain the requested dry/processed guitar");
+            require(std::abs(audio.getSample(0,0))<1.e-6 && std::abs(audio.getSample(0,4799))<1.e-6,"Quick export must fade its edges without trimming duration");
+        }
         const auto loud=root.getChildFile("Video loud " + juce::String(rate) + ".wav");
         require(video.videoExport(id,"processed",loud,true,12,12).isEmpty(),"Hot export must queue");waitFor([&]{return !static_cast<bool>(video.status()["exporting"]);});
         reader.reset(formats.createReaderFor(loud));require(reader && reader->read(&audio,0,4800,0,true,true),"Protected export must decode");
@@ -144,6 +154,15 @@ void runTakeChecks()
         const auto saved = juce::JSON::parse(juce::File(version["rigPath"].toString()).loadFileAsString());
         require(saved["state"].toString() == snapshot["state"].toString(), "Reamp version must save its exact rig snapshot");
         const auto reampHash = juce::SHA256(juce::File(version["rigPath"].toString())).toHexString();
+        const auto audioHash = juce::SHA256(output).toHexString();
+        require(library.renameVersion(originalId,version["id"].toString(),"  Singing lead variation  ").isEmpty(),"A reamp version label must queue");
+        waitFor([&] {return catalog.loadFileAsString().contains("Singing lead variation");});
+        require(juce::SHA256(output).toHexString()==audioHash && juce::SHA256(juce::File(version["rigPath"].toString())).toHexString()==reampHash,"Version renaming must not rename or modify audio/snapshot files");
+        require(library.renameVersion(originalId,"processed","Original").isNotEmpty() && library.renameVersion(originalId,"missing","Unknown").isNotEmpty(),"Original and unknown versions cannot be renamed");
+        require(library.renameVersion(originalId,version["id"].toString()," ").isNotEmpty() && library.renameVersion(originalId,version["id"].toString(),juce::String::repeatedString("x",81)).isNotEmpty(),"Invalid version labels must reject");
+        { PracticeEngine anotherReview; TakeLibrary reopenedVersions(catalog,anotherReview); waitFor([&] {return reopenedVersions.list().size()==2;});
+          bool renamed=false; const auto list=reopenedVersions.list(); for(const auto& take:*list.getArray()) if(take["id"].toString()==originalId) renamed=take["versions"][0]["name"].toString()=="Singing lead variation";
+          require(renamed,"Reamp version labels must survive reopening the catalog"); }
         const auto recovered = recover(library, originalId, version["id"].toString());
         require(recovered["state"].toString() == saved["state"].toString(), "Recovery must read the chosen reamp, not the current rig");
         for (const auto& source : {juce::String("processed"), juce::String("dry")}) {
@@ -168,6 +187,7 @@ void runTakeChecks()
         require(library.readRigSnapshot(originalId,"missing",[](juce::var) {}).isNotEmpty(), "Unknown snapshot version must reject before queuing");
         require(library.readRigSnapshot("missing","processed",[](juce::var) {}).isNotEmpty(), "Unknown take must reject before queuing");
         require(library.reamp(originalId, juce::JSON::parse(originalRigFile.loadFileAsString())).isEmpty(), "Original schema-1 take snapshot must reamp");
+        require(library.renameVersion(originalId,version["id"].toString(),"Busy").isNotEmpty(),"Version rename must reject during export");
         waitFor([&] { return !static_cast<bool>(library.status()["exporting"]); });
         require(library.status()["error"].toString().isEmpty(), "Legacy take reamp must complete");
         juce::var oldVersion;
@@ -218,6 +238,12 @@ void runTakeChecks()
         require(library.readRigSnapshot("guarded","dry",[&](juce::var) {secondDone.store(true);}).isEmpty(),"One pending read may wait behind worker completion");
         require(library.readRigSnapshot("guarded","dry",[](juce::var) {}).isNotEmpty(),"Duplicate pending reads must reject");
         release.signal(); require(finished.wait(3000),"Blocked callback must complete"); waitFor([&]{return secondDone.load();});
+        require(library.renameVersion("guarded","outside","Kept label").isEmpty(),"Metadata edits do not require the version snapshot to load");
+        waitFor([&]{return guardedCatalog.loadFileAsString().contains("Kept label");});
+        require(guardedCatalog.replaceWithText("broken catalog"),"Failed version rename fixture must write");
+        require(library.renameVersion("guarded","outside","Failed label").isEmpty(),"A failing metadata write must reach the worker");
+        waitFor([&]{return library.status()["error"].toString().contains("catalog");});
+        require(first(library)["versions"][0]["name"].toString()=="Kept label" && guardedCatalog.loadFileAsString()=="broken catalog","Failed version labels must roll back without overwriting the catalog");
     }
     {
         const auto incomplete=root.getChildFile("Incomplete"); makeTake(incomplete);

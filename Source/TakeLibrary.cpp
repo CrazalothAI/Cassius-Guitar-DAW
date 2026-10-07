@@ -34,6 +34,14 @@ juce::String TakeLibrary::preview(const juce::String& id, const juce::String& ve
     Job job; job.type = "preview"; job.id = id; job.version = version; job.previewGeneration = ++reviewGeneration;
     jobs.push_back(std::move(job)); error.clear(); notify(); return {};
 }
+juce::String TakeLibrary::renameVersion(const juce::String& id, const juce::String& version, const juce::String& name)
+{
+    const auto title = name.trim(); if (title.isEmpty() || title.length() > 80) return "Use a version name between 1 and 80 characters.";
+    const juce::ScopedLock guard(lock);
+    if (!find(id).getChildWithProperty("id",version).hasType("REAMP")) return "Choose a reamp version to rename.";
+    if (exporting.load()) return "Finish or cancel the export before renaming a version.";
+    Job job; job.type = "renameVersion"; job.id = id; job.version = version; job.name = title; jobs.push_back(std::move(job)); notify(); return {};
+}
 void TakeLibrary::stopReview() { const juce::ScopedLock guard(lock); ++reviewGeneration; review.command("stop"); }
 juce::String TakeLibrary::readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)> completed)
 {
@@ -203,6 +211,17 @@ void TakeLibrary::run()
                 persist(job.id);
             }
             else if (job.type == "preview") playReview(job);
+            else if (job.type == "renameVersion") {
+                juce::var previous; bool hadName = false;
+                { const juce::ScopedLock guard(lock); auto version = find(job.id).getChildWithProperty("id",job.version); require(version.hasType("REAMP"),"Take version not found.");
+                  hadName = version.hasProperty("name"); previous = version["name"]; version.setProperty("name",job.name,nullptr); ++revision; }
+                try { persist(job.id); }
+                catch (...) {
+                    const juce::ScopedLock guard(lock); auto version = find(job.id).getChildWithProperty("id",job.version);
+                    if (hadName) version.setProperty("name",previous,nullptr); else version.removeProperty("name",nullptr);
+                    ++revision; throw;
+                }
+            }
             else if (job.type == "reamp") exportReamp(job);
             else if (job.type == "video") exportVideoAudio(job);
         } catch (const std::exception& e) { const juce::ScopedLock guard(lock); error = e.what(); }

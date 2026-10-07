@@ -60,6 +60,7 @@ public:
     void requestCabB(const juce::File&);
     bool selectAmpVoice(const juce::String&);
     juce::var getLibrary();
+    juce::var inspectRig(const juce::String& id);
     void importAssets(const juce::Array<juce::File>&, const juce::String& kind);
     juce::var getRig();
     juce::String applyRig(const juce::var&, bool preserveGlobals = true, bool matchLoudness = false);

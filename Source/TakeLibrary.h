@@ -12,6 +12,7 @@ public:
     ~TakeLibrary() override;
     void importFolder(const juce::File&);
     juce::String edit(const juce::String& id, const juce::String& name, bool favorite);
+    juce::String renameVersion(const juce::String& id, const juce::String& version, const juce::String& name);
     juce::String preview(const juce::String& id, const juce::String& version);
     // File reads finish on the take worker; the caller chooses its callback thread.
     juce::String readRigSnapshot(const juce::String& id, const juce::String& version, std::function<void(juce::var)>);

@@ -16,13 +16,15 @@ Use **Library → Import sound ZIPs** to add supported NAM/WAV collections witho
 
 **0.4.2 organizes saved rigs.** In Library → Presets, select your saved rig to rename it, add styles/gain/tags and notes, or duplicate its saved settings. Metadata edits preserve unsaved playing edits. See [saved-rig organization](docs/SAVED-RIG-ORGANIZATION.md).
 
+**0.5.0 improves the studio workflow.** Saved rigs load from the header; Library shows their referenced sounds and relink actions; reamp versions can be named; Takes offers sorting and quick guitar-only WAV export. See [the five-part update](docs/RELEASE-0.5.0.md).
+
 ## Download and launch
 
 This README describes the development source; public downloads can lag the current feature branch. Local milestone builds are not automatically published or merged.
 
 Download **[Cassian-Setup.exe](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/download/latest/Cassian-Setup.exe)** from [Latest Windows download](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/tag/latest), run it, and follow the installer. Then open **Cassian** from the Windows Start menu. Setup offers an optional desktop shortcut and VST3 plugin; administrator access is not required. It checks for Microsoft WebView2 and installs the runtime when missing (internet access is needed for that step).
 
-The current source version is **0.4.2 preview**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
+The current source version is **0.5.0 preview**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
 
 The app installs to `%LOCALAPPDATA%\Programs\Cassian`. Run a newer installer to update it in place; close Cassian and any DAW using its plugin first. Uninstall through **Windows Settings → Apps → Cassian**. Saved settings, managed captures/rigs, practice sections and recordings are retained. Optional VST3 installation uses `%LOCALAPPDATA%\Programs\Common\VST3\Cassian.vst3`; rescan your DAW and add that location to its plugin paths if needed.
 

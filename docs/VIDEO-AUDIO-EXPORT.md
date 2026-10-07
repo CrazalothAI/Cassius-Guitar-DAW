@@ -2,6 +2,8 @@
 
 Use Cassian for the audio and Clipchamp (or another editor) for the video. No camera capture or video encoder is required in Cassian.
 
+For a quick guitar-only export in 0.5.0, select a take version and press **Export guitar WAV**. This exports the full version (including a reamp tail) at 48 kHz / 24-bit stereo with neutral export gain, 10 ms edge fades and existing −1 dBFS peak protection. It excludes backing and clicks and ignores soundtrack trims/balance. Use the full workflow below when mixing recorded backing or trimming.
+
 1. Choose a complete rig. If you want backing in the exported soundtrack, load the backing audio in **Practice**. Browser/YouTube playback is not captured.
 2. Press **Record guitar take**, choose a folder and play. Stop to finish writing the files. Cassian saves mono `Guitar dry.wav`, stereo `Guitar processed.wav`, and a synchronized stereo `Backing track.wav`, plus the original rig and take metadata. With no backing loaded, that stem contains silence.
 3. Open **Takes**, select your recording and choose **Original processed**, **Dry DI**, or a reamp in **Take version**. Use Listen to check it.

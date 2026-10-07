@@ -21,6 +21,7 @@ export default function Library({ revision, loading = false, onClose, onPreset =
   const [previewFavorites, setPreviewFavorites] = useState(readFavorites);
   const [style, setStyle] = useState(''), [gain, setGain] = useState('all'), [speaker, setSpeaker] = useState(''), [pack, setPack] = useState('');
   const [rigType, setRigType] = useState(''), [sort, setSort] = useState('name');
+  const [rigDetails, setRigDetails] = useState(null);
   const clearFilters = () => { setSearch(''); setOwnership('All'); setFavorites(false); setStyle(''); setGain('all'); setSpeaker(''); setPack(''); setRigType(''); };
   const panel = useRef(null), actionPending = useRef(false);
   useEffect(() => {
@@ -39,6 +40,13 @@ export default function Library({ revision, loading = false, onClose, onPreset =
       .catch(() => { if (active) setError('Could not read the library.'); });
     return () => { active = false; };
   }, [revision]);
+  useEffect(() => {
+    let active = true; setRigDetails(null);
+    if (native && tab === 'rig' && catalog.rigs?.some(r => r.id === selected)) invoke('inspectRig', selected)
+      .then(result => { if (active) setRigDetails({id:selected, assets:result?.assets || [], error:result?.error}); })
+      .catch(() => { if (active) setRigDetails({id:selected, assets:[], error:'Could not inspect this saved rig.'}); });
+    return () => { active = false; };
+  }, [selected, tab, catalog]);
   const action = async run => {
     if (actionPending.current) return; actionPending.current = true; setBusy(true); setError('');
     try { const result = await run(); if (typeof result === 'string' && result) throw new Error(result); if (result === false) throw new Error('Could not complete the library action. Please try again.'); await refresh(); }
@@ -119,7 +127,7 @@ export default function Library({ revision, loading = false, onClose, onPreset =
           <button className="library-info" onClick={() => setSelected(row.id)}><strong>{row.name}</strong><small>{row.ownership}{row.starter ? ' · Complete starter rig' : row.preset ? ' · Control starting point' : ''}{row.missing ? ' · Missing file' : row.sampleRate > 0 ? ` · ${row.sampleRate / 1000} kHz` : ''}{row.gain ? ` · ${gainLabels[row.gain]}` : ''}{row.speaker ? ` · ${row.speaker}` : ''}</small></button>
           <button className="text-button quiet" aria-label={`Favorite ${row.name}`} aria-pressed={Boolean(row.favorite || previewFavorites[row.id])} disabled={busy} onClick={() => favorite(row)}>☆</button>
           {row.missing ? <button className="text-button" disabled={busy || !native} onClick={() => action(() => invoke('relinkAsset', row.id))}>Relink</button>
-            : <button className="text-button" disabled={busy || loading || row.unavailable || row.previewUnavailable} title={row.unavailable ? `Missing: ${row.missingSounds.join(', ')}` : undefined} onClick={() => use(row)}>Use</button>}
+            : <button className="text-button" disabled={busy || loading || row.unavailable || row.previewUnavailable || (rigDetails?.id === row.id && (Boolean(rigDetails.error) || rigDetails.assets.some(a => a.missing)))} title={row.unavailable ? `Missing: ${row.missingSounds.join(', ')}` : undefined} onClick={() => use(row)}>Use</button>}
           {row.kind === 'rig' && !row.preset && !row.starter && <button className="text-button quiet" disabled={busy} aria-label={`Remove rig ${row.name}`} onClick={() => action(async () => {
             if (native) await invoke('removeRig', row.id); else writePreviewRigs(previewRigs().filter(r => r.id !== row.id));
           })}>Remove</button>}
@@ -138,6 +146,15 @@ export default function Library({ revision, loading = false, onClose, onPreset =
         {detail.inputLevelDbu != null && <p>Capture input calibration: {detail.inputLevelDbu} dBu</p>}
         {detail.rights && <p>{detail.rights}</p>}
         {detail.path && <p className="library-path">{detail.path}</p>}
+        {rigDetails?.id === detail.id && <div aria-label="Saved rig sounds">
+          {rigDetails.error ? <p className="library-error" role="alert">{rigDetails.error}</p> : <>
+            <h4>Referenced sounds</h4>
+            {!rigDetails.assets.length && <p>No external sound files referenced.</p>}
+            {rigDetails.assets.map(a => <p key={a.stage}><strong>{a.stage === 'model' ? 'Amp' : a.stage.startsWith('ir') ? 'Cabinet' : a.stage.startsWith('ambience') ? 'Ambience' : 'Captured pedal'}:</strong> {a.name} · {a.missing ? 'Missing' : 'Available'} {a.missing && a.canRelink && <button disabled={busy || loading} className="text-button" aria-label={`Relink ${a.name}`} onClick={() => action(() => invoke('relinkAsset',a.id))}>Relink</button>}</p>)}
+            {rigDetails.assets.some(a => a.missing) && <p className="library-error">Restore the missing sounds before loading this rig. Relink the original file, or import its sound pack when no relink entry is available.</p>}
+            <p className="library-note">Checks file availability. Actual format, content and processing checks happen during loading.</p>
+          </>}
+        </div>}
         {detail.kind === 'cab' && <button className="text-button" disabled={!native || busy || detail.missing} onClick={() => action(async () => {
           if (!await invoke('selectAsset', detail.id, 'cabB')) return 'Cabinet is missing. Relink the original file first.';
         })}>Use as cabinet B</button>}

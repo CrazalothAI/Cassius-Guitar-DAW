@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 const bridge = vi.hoisted(() => ({ invoke: vi.fn(), entries: [] }));
 vi.mock('./juce/bridge.js', () => ({ native: true, invoke: bridge.invoke }));
 import Takes from './components/Takes.jsx';
@@ -124,4 +124,37 @@ it('blocks recovery during recording, export, rig loading and incomplete recordi
   await screen.findByText('This recording was interrupted. Check the audio before using it.');
   expect(screen.getByRole('button', {name: 'Load recorded rig'}).disabled).toBe(true);
   expect(bridge.invoke.mock.calls.some(([name]) => name === 'restoreTakeRig')).toBe(false);
+});
+it('sorts takes while keeping the selected take and version intact',async()=>{
+  bridge.entries[0].created='2026-10-06T12:00:00Z'; bridge.entries[1].created='2026-10-05T12:00:00Z';
+  render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Take version'),{target:{value:'v1'}});
+  const rows=()=>within(screen.getByLabelText('Recorded takes')).getAllByRole('button').map(b=>b.querySelector('strong').textContent);
+  expect(rows()).toEqual(['Lead take','★ Favorite clean']);
+  fireEvent.change(screen.getByLabelText('Take sort'),{target:{value:'favorites'}});
+  expect(rows()).toEqual(['★ Favorite clean','Lead take']);
+  expect(screen.getByLabelText('Take version').value).toBe('v1');
+  fireEvent.change(screen.getByLabelText('Take sort'),{target:{value:'name'}});
+  expect(rows()[0]).toBe('★ Favorite clean'); expect(screen.getByLabelText('Take name').value).toBe('Lead take');
+});
+it('renames only a selected reamp version and keeps original labels fixed',async()=>{
+  const {rerender}=render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.queryByLabelText('Reamp version name')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Take version'),{target:{value:'v1'}});
+  fireEvent.change(screen.getByLabelText('Reamp version name'),{target:{value:'  Singing lead  '}});
+  fireEvent.click(screen.getByRole('button',{name:'Rename version'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('renameTakeVersion','one','v1','Singing lead'));
+  rerender(<Takes status={{...status,takes:{...status.takes,exporting:true}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('button',{name:'Rename version'}).disabled).toBe(true);
+});
+it('quick-exports the full guitar version without backing, trim selections or mix gains',async()=>{
+  bridge.entries[0].hasBacking=true; bridge.entries[0].versions[0].frames=720000;
+  const {rerender}=render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Take version'),{target:{value:'v1'}});
+  fireEvent.change(screen.getByLabelText('Export start seconds'),{target:{value:'2'}});
+  fireEvent.change(screen.getByLabelText('Video guitar balance'),{target:{value:'6'}});
+  fireEvent.click(screen.getByRole('button',{name:'Export guitar WAV'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('exportVideoAudio','one','v1',false,0,0,0,15,.01));
+  rerender(<Takes status={{...status,practice:{recordMode:3}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('button',{name:'Export guitar WAV'}).disabled).toBe(true);
 });

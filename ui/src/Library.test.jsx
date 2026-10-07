@@ -7,6 +7,18 @@ beforeEach(() => { localStorage.clear(); applyPreset('Glass clean'); });
 afterEach(cleanup);
 const open = () => { const button = screen.getByRole('button', {name: 'Library'}); button.focus(); fireEvent.click(button); return screen.getByRole('dialog'); };
 describe('library preview', () => {
+  it('loads a saved header rig, preserves listening levels and includes it in arrow stepping', async () => {
+    localStorage.setItem('cassian-preview-rigs',JSON.stringify([{id:'one',name:'Saved clean',parameters:{DRIVE_GAIN:3}},{id:'two',name:'Saved lead',parameters:{DRIVE_GAIN:8}}]));
+    render(<App/>); const preset=screen.getByRole('combobox',{name:'Preset'});
+    await within(preset).findByRole('option',{name:'Saved clean'});
+    fireEvent.change(screen.getByRole('slider',{name:'Master'}),{target:{value:'-24'}});
+    fireEvent.change(preset,{target:{value:'one'}});
+    expect(screen.getByRole('slider',{name:'Drive'}).value).toBe('3');
+    expect(screen.getByRole('slider',{name:'Master'}).value).toBe('-24');
+    fireEvent.click(screen.getByRole('button',{name:'Next preset'}));
+    expect(screen.getByRole('slider',{name:'Drive'}).value).toBe('8');
+    expect(document.querySelector('.preset-name').textContent).toBe('Saved lead');
+  });
   it('filters complete starters and keeps listening controls when previewing a clean rig', async () => {
     render(<App/>); fireEvent.change(screen.getByRole('slider', {name: 'Master'}), {target: {value: '-28'}});
     const dialog = open(); fireEvent.click(within(dialog).getByRole('button', {name: 'Presets'}));

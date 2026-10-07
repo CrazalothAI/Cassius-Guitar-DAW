@@ -4,7 +4,7 @@ import MetronomePanel, { MetronomeButton } from './components/Metronome.jsx';
 import PresetBrowser from './components/PresetBrowser.jsx';
 import Stages from './components/Stages.jsx';
 import Pedalboard from './components/Pedalboard.jsx';
-import Library from './components/Library.jsx';
+import Library, { previewRigs } from './components/Library.jsx';
 import Practice from './components/Practice.jsx';
 import PlayAlong from './components/PlayAlong.jsx';
 import Takes from './components/Takes.jsx';
@@ -98,13 +98,14 @@ export default function App() {
   const [utility, setUtility] = useState(null);
   const [previewActive, setPreviewActive] = useState(null);
   const [presetAssets, setPresetAssets] = useState([]), [presetLoading, setPresetLoading] = useState(false);
+  const [savedRigs, setSavedRigs] = useState([]);
   const selectingPreset = useRef(false);
   useEffect(() => {
-    if (!native) return;
+    if (!native) { setSavedRigs(previewRigs()); return; }
     let active = true;
-    invoke('getLibrary').then(next => { if (active) setPresetAssets(next?.assets || []); }).catch(() => {});
+    invoke('getLibrary').then(next => { if (active) { setPresetAssets(next?.assets || []); setSavedRigs(next?.rigs || []); } }).catch(() => {});
     return () => { active = false; };
-  }, [status.libraryRevision]);
+  }, [status.libraryRevision, libraryOpen, previewActive]);
   const comparing = useRef(false);
   const [page, setPage] = useState('Amp');
   const [tonePage, setTonePage] = useState('Amp');
@@ -124,11 +125,13 @@ export default function App() {
   const dismiss = key => key === 'notice' ? setNotice(null) : setDismissed(status.message);
 
   const chooseTone = async name => {
-    if (startingRigs.some(r => r.id === name)) {
+    const saved = savedRigs.find(r => r.id === name);
+    if (saved || startingRigs.some(r => r.id === name)) {
       if (selectingPreset.current || status.rigLoading) return;
       selectingPreset.current = true; setPresetLoading(true);
       try {
-        if (native) { const error = await invoke('loadStartingRig', name); if (error) throw new Error(error); }
+        if (native) { const error = await invoke(saved ? 'loadRig' : 'loadStartingRig', name); if (error) throw new Error(error); }
+        else if (saved) { restoreSnapshot(saved.parameters); setPreviewActive(saved); }
         else setPreviewActive(applyStartingPreview(name));
         setChosen('');
       } catch (e) { setNotice({title: 'Couldn’t load the rig', text: e.message || 'Please try again.'}); }
@@ -179,7 +182,8 @@ export default function App() {
 
   // Recognise a preset from the parameters themselves, so the name survives reopening the editor.
   const matched = chosen ? matchPreset(values) : null, current = matched ?? (chosen || null), edited = !matched && Boolean(chosen);
-  const currentRig = startingRigs.find(r => r.id === (native ? status.activeRigId : previewActive?.id));
+  const activeId = native ? status.activeRigId : previewActive?.id;
+  const currentRig = startingRigs.find(r => r.id === activeId) || savedRigs.find(r => r.id === activeId);
   const { message } = status;
   const busy = /^(Loading|Restoring|Preparing|Packing|Importing)/.test(message);
   const footerMessage = !native || busy || message.startsWith('Load failed:') ? message
@@ -193,7 +197,7 @@ export default function App() {
   return <div className={`app-shell ${clean ? 'clean' : 'metal'}`}>
     <header>
       <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><h1>CASSIAN</h1></div>
-      <PresetBrowser current={currentRig ? null : current} currentRig={currentRig} rigs={resolveStartingRigs(presetAssets, !native)} loading={presetLoading || status.rigLoading} edited={currentRig ? (native ? status.activeRigEdited : previewEdited) : edited} onChoose={chooseTone} onRevert={() => chooseTone(currentRig?.id || current)}
+      <PresetBrowser current={currentRig ? null : current} currentRig={currentRig && {...currentRig, amp: currentRig.amp || identity, saved: savedRigs.some(r => r.id === currentRig.id)}} rigs={resolveStartingRigs(presetAssets, !native)} savedRigs={savedRigs} loading={presetLoading || status.rigLoading} edited={currentRig ? (native ? status.activeRigEdited : previewEdited) : edited} onChoose={chooseTone} onRevert={() => chooseTone(currentRig?.id || current)}
         compare={compare} compareSide={compareSide} onCompare={toggleCompare} showCompare={false} />
       <div className="header-tools">
         <MetronomeButton open={metronomeOpen} onToggle={() => setMetronomeOpen(!metronomeOpen)} status={status} />

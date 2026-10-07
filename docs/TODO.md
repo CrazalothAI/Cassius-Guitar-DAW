@@ -21,6 +21,7 @@
 - [x] Add 0.4.0 manual/envelope wah, two independent MIDI expression targets, compatible rig/scene migration, and built-in clean/lead starters.
 - [x] Add 0.4.1 recovery of original/reamp rigs from Takes while preserving calibration/listening controls and recorded files.
 - [x] Add 0.4.2 saved-rig renaming, searchable genre/gain/tags/notes, exact saved-tone duplication and persistence-failure rollback.
+- [x] Complete the 0.5.0 five-part workflow update: saved-rig header recall, dependency inspection/relinking, named reamp versions, take sorting and quick guitar-only WAV export.
 - [ ] Sign and validate a versioned preview on a fresh PC; complete sustained interface and real DAW checks before a paid release.
 - Validation and remaining limits: [Play Along and navigation](PLAY-ALONG-NAVIGATION.md).
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).

@@ -1113,6 +1113,28 @@ juce::String AmpSuiteAudioProcessor::persistLibrary(const juce::StringArray& rem
     try { sharedStore.save(library.tree, removed); return {}; }
     catch (const std::exception& e) { message = "Load failed: " + juce::String(e.what()); return e.what(); }
 }
+juce::var AmpSuiteAudioProcessor::inspectRig(const juce::String& id)
+{
+    auto result = std::make_unique<juce::DynamicObject>(); juce::Array<juce::var> assets;
+    const juce::ScopedLock lock(requestLock); const auto entry = library.find(id);
+    if (!entry.hasType("RIG")) { result->setProperty("error","Saved rig not found."); return juce::var(result.release()); }
+    const auto schema = entry.hasProperty("schema") ? entry["schema"].toString() : juce::String("1");
+    auto document = std::make_unique<juce::DynamicObject>(); document->setProperty("schema",schema.getIntValue()); document->setProperty("state",entry["state"]);
+    juce::ValueTree state;
+    const auto error = (schema != "1" && schema != "2" && schema != "3") ? juce::String("Unsupported saved rig format.") : readRig(juce::var(document.release()),state);
+    if (error.isNotEmpty()) { result->setProperty("error",error); return juce::var(result.release()); }
+    for (const auto* stage : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"}) {
+        const auto prefix = juce::String(stage), path = state[prefix+"Path"].toString(), assetId = state[prefix+"Id"].toString();
+        if (path.isEmpty() && assetId.isEmpty()) continue;
+        const auto managed = library.find(assetId);
+        const auto reference = managed.hasType("ASSET") ? managed : state.getChildWithName("LIBRARY").getChildWithProperty("id",assetId);
+        auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("stage",prefix); row->setProperty("id",assetId);
+        row->setProperty("name",reference["name"].toString().isNotEmpty() ? reference["name"].toString() : juce::File::isAbsolutePath(path) ? juce::File(path).getFileName() : prefix);
+        row->setProperty("missing",!(AssetLibrary::exists(path) || AssetLibrary::exists(reference["path"].toString())));
+        row->setProperty("canRelink",managed.hasType("ASSET")); assets.add(juce::var(row.release()));
+    }
+    result->setProperty("assets",assets); return juce::var(result.release());
+}
 juce::String AmpSuiteAudioProcessor::assetSourceName(const juce::ValueTree& asset, const juce::ValueTree& incoming)
 {
     const juce::ScopedLock lock(requestLock);

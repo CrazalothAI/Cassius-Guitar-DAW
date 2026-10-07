@@ -4,6 +4,10 @@ In standalone, open **Takes**. Finished guitar recordings enter automatically af
 
 Search names and creation dates, filter Favorites, select a take, edit its name and favorite flag, then press Save. Names do not rename files. The catalog lives at `takes.xml` under the existing shared library directory. It references recording folders rather than copying audio. Keep those folders available; a moved folder must be imported at its new location. Names and favorites persist across app launches. Independent catalog writes preserve other take entries; simultaneous edits to the same entry use the last saved entry.
 
+0.5.0 adds **Newest first**, **Name** and **Favorites first** sorting. Sorting and filtering leave the selected take/version unchanged. Select a reamp version to edit its label with **Rename version**; this changes the catalog only, never the WAV/snapshot filename or contents. Labels permit 1–80 characters and persist across reopening. Failed catalog writes roll back the label and report a worker error. Original processed and Dry DI keep their fixed labels.
+
+**Export guitar WAV** is a shortcut for the entire selected version: guitar only, neutral export gains, 48 kHz / 24-bit stereo, 10 ms edge fades and existing −1 dBFS peak protection. It includes any reamp tail and ignores the soundtrack range/mix controls. Backing and metronome are excluded. Use **Video soundtrack** for custom trimming and backing mix instead.
+
 ## Review
 
 Select Original processed, Dry DI or an exported reamp version, then press **Listen**. Review uses its own seek and volume controls, starting at −12 dB. It bypasses guitar processing, pauses backing playback and mutes live guitar and the metronome while playing. Master and the output limiter still protect monitoring. **Stop review** restores live monitoring; backing playback stays paused. Starting practice playback or recording stops pending/active reviews.
@@ -27,6 +31,8 @@ Select Original processed or Dry DI and press **Load recorded rig** to restore t
 Snapshot reads run on the take worker; full document validation and prepared rig recall use the existing engine path. Missing assets reject before changing the current rig. Corrupt assets may fail during preparation, retaining the current tone and reporting the engine error. Recording, exports, incomplete takes and rig loading block recovery. Older takes without a snapshot can still be reviewed and reamped. Recovery does not change WAV files, snapshots or catalog entries. Recording-time knob changes are not reconstructed.
 
 ## Verification
+
+0.5.0 checks on Windows on 2026-10-06: 150 UI tests, four native suites with the optional 103-file bank, Release standalone/VST3 builds, version checks and isolated install/upgrade/uninstall passed. Version-label checks cover reopening, file preservation and failed-write rollback; quick-export checks decode actual dry/processed WAVs across common rates. See [five-part update evidence](RELEASE-0.5.0.md).
 
 0.4.1 checks on Windows on 2026-10-06: 139 UI tests, all four native suites with the optional 103-file bank, Release standalone/VST3 builds, version checks and isolated installation/upgrade/uninstall passed. Recovery checks cover exact originals/reamps, legacy migration, unchanged listening/calibration controls and files, missing assets, invalid documents, pending reads and worker callbacks. See [0.4.1 evidence and limits](RELEASE-0.4.1.md).
 

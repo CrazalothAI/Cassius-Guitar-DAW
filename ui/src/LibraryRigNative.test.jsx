@@ -1,5 +1,5 @@
 import {beforeEach,afterEach,expect,it,vi} from 'vitest';
-import {cleanup,fireEvent,render,screen,waitFor} from '@testing-library/react';
+import {cleanup,fireEvent,render,screen,waitFor,within} from '@testing-library/react';
 const bridge=vi.hoisted(()=>({invoke:vi.fn(),rigs:[]}));
 vi.mock('./juce/bridge.js',()=>({native:true,invoke:bridge.invoke}));
 import Library from './components/Library.jsx';
@@ -43,4 +43,28 @@ it('disables saved-rig editing and duplication during loading and routes favorit
   rerender(<Library onClose={vi.fn()} loading={false}/>);
   fireEvent.click(screen.getByRole('button',{name:'Favorite My clean'}));
   await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('editRig','saved',{favorite:true}));
+});
+it('shows missing rig dependencies, relinks them and restores availability without loading',async()=>{
+  let missing=true;
+  bridge.invoke.mockImplementation(async(name,...args)=>{
+    if(name==='getLibrary') return {assets:[],rigs:bridge.rigs};
+    if(name==='inspectRig') return {assets:[{stage:'model',id:'amp:original',name:'Lead capture',missing,canRelink:true}]};
+    if(name==='relinkAsset') {missing=false;return true;}
+    return '';
+  });
+  await open();
+  await screen.findByRole('button',{name:'Relink Lead capture'});
+  const row=screen.getByRole('button',{name:'Favorite My clean'}).closest('article');
+  expect(within(row).getByRole('button',{name:'Use'}).disabled).toBe(true);
+  fireEvent.click(screen.getByRole('button',{name:'Relink Lead capture'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('relinkAsset','amp:original'));
+  await waitFor(()=>expect(screen.queryByRole('button',{name:'Relink Lead capture'})).toBeNull());
+  expect(within(row).getByRole('button',{name:'Use'}).disabled).toBe(false);
+  expect(bridge.invoke.mock.calls.some(([name])=>name==='loadRig')).toBe(false);
+});
+it('surfaces invalid saved rig inspection without allowing recall',async()=>{
+  bridge.invoke.mockImplementation(async name=>name==='getLibrary'?{assets:[],rigs:bridge.rigs}:name==='inspectRig'?{error:'Invalid saved rig.'}:'');
+  await open(); await screen.findByText('Invalid saved rig.');
+  const row=screen.getByRole('button',{name:'Favorite My clean'}).closest('article');
+  expect(within(row).getByRole('button',{name:'Use'}).disabled).toBe(true);
 });

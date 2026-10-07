@@ -24,6 +24,19 @@ beforeEach(() => {
 afterEach(cleanup);
 const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 describe('editor connected to the audio engine', () => {
+  it('loads saved rigs directly from the header and reverts through complete native recall', async () => {
+    engine.library.rigs=[{id:'saved-lead',name:'My lead'}];
+    engine.status={...engine.status,activeRigId:'saved-lead',activeRigName:'My lead',activeRigSaved:true,activeRigEdited:true};
+    render(<App/>); const preset=screen.getByRole('combobox',{name:'Preset'});
+    await within(preset).findByRole('option',{name:'My lead'});
+    await screen.findByRole('button',{name:'Revert to My lead'});
+    fireEvent.click(screen.getByRole('button',{name:'Revert to My lead'}));
+    await waitFor(()=>expect(engine.calls).toContainEqual(['loadRig','saved-lead']));
+    expect(engine.calls.some(([name,id])=>name==='loadStartingRig'&&id==='saved-lead')).toBe(false);
+    engine.calls=[]; engine.error='Missing model asset. Relink it in the Library first.';
+    fireEvent.change(preset,{target:{value:'saved-lead'}});
+    expect((await screen.findByText(engine.error)).textContent).toBe(engine.error);
+  });
   it('selects an exact capture rig in the header without the legacy amp switch', async () => {
     const recipe = (await import('./startingRigs.json')).default.captureRigs.find(r => r.id === 'factory.capture-red2-tight');
     engine.library.assets = Object.values(recipe.assets).map(a => ({...a,missing:false}));

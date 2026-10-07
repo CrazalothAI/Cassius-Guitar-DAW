@@ -22,6 +22,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("loadIR", [this](const auto&, auto complete) { chooseFile(1); complete(true); })
         .withNativeFunction("loadPedal", [this](const auto&, auto complete) { chooseFile(2); complete(true); })
         .withNativeFunction("getLibrary", [this](const auto&, auto complete) { complete(processor.getLibrary()); })
+        .withNativeFunction("inspectRig", [this](const auto& args, auto complete) { complete(processor.inspectRig(args.size() == 1 && args[0].isString() ? args[0].toString() : juce::String())); })
         .withNativeFunction("importAssets", [this](const auto& args, auto complete) {
             const auto kind = args.size() == 1 ? args[0].toString() : juce::String();
             const bool valid = kind == "amp" || kind == "pedal" || kind == "cab" || kind == "ambience" || kind == "pack";
@@ -130,6 +131,10 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         })
         .withNativeFunction("editTake", [this](const auto& args, auto complete) {
             complete(args.size() == 3 && args[0].isString() && args[1].isString() && args[2].isBool() ? processor.takes.edit(args[0].toString(), args[1].toString(), static_cast<bool>(args[2])) : juce::String("Invalid take edit."));
+        })
+        .withNativeFunction("renameTakeVersion", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish recording before renaming a take version in standalone.")); return; }
+            complete(args.size() == 3 && args[0].isString() && args[1].isString() && args[2].isString() ? processor.takes.renameVersion(args[0].toString(),args[1].toString(),args[2].toString()) : juce::String("Choose a reamp version and name."));
         })
         .withNativeFunction("previewTake", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish the take before reviewing audio in standalone.")); return; }

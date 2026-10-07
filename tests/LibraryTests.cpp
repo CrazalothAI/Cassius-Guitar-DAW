@@ -166,9 +166,18 @@ void runLibraryChecks(const juce::File& fixture)
     AmpSuiteAudioProcessor imported(false); dry(imported); set(imported, "AMP_SOURCE", 4);
     require(imported.importRig("Moved lead", wrap(missing)).isEmpty(), "Import must allow missing assets for later relinking");
     const auto importedRig = imported.getLibrary()["rigs"][0]["id"].toString();
+    const auto beforeInspection = imported.getRig()["state"].toString();
+    const auto dependencies = imported.inspectRig(importedRig);
+    require(!dependencies.hasProperty("error") && dependencies["assets"].size()==3,"Inspection must expose all saved amp/pedal/cab references");
+    bool missingModel=false;
+    for (const auto& row : *dependencies["assets"].getArray()) if (row["stage"].toString()=="model") missingModel=static_cast<bool>(row["missing"]) && static_cast<bool>(row["canRelink"]) && row["id"].toString()==missing["modelId"].toString();
+    require(missingModel && imported.getRig()["state"].toString()==beforeInspection,"Dependency inspection must identify relinkable missing sounds without changing the current rig");
+    require(imported.inspectRig("missing").hasProperty("error"),"Unknown saved rigs must reject inspection");
     require(!imported.loadRig(importedRig).isEmpty() && get(imported, "AMP_SOURCE") == 4, "Missing assets must leave current parameters intact");
     require(!imported.relinkAsset(missing["modelId"], wrong.getFile()).isEmpty(), "Relink must reject unrelated files");
     require(imported.relinkAsset(missing["modelId"], relocated.getFile()).isEmpty(), "Relink must recognize renamed original content");
+    const auto relocatedDependencies=imported.inspectRig(importedRig);
+    for (const auto& row : *relocatedDependencies["assets"].getArray()) require(!static_cast<bool>(row["missing"]),"Inspection must resolve relocated assets by stable identity");
     require(imported.loadRig(importedRig).isEmpty(), "Relinked rig must recall"); settle(imported);
     require(imported.status()["model"].toString() == relocated.getFile().getFileName(), "Rig must resolve the relocated model by ID");
 
