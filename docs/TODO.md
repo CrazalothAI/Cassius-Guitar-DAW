@@ -25,6 +25,7 @@
 - [x] Add 0.5.1 take audition pause/resume and A/B loops with loaded-version identity protection and unchanged recordings/export settings.
 - [x] Add 0.5.2 take/version review waveforms with pointer/keyboard seeking and stale-data protection.
 - [x] Add 0.5.3 sound-file availability and amp capture-type filters with relink refresh and routing explanations.
+- [x] Add 0.5.4 direct saved-rig reference/portable exports, picker-time snapshot preservation and relinked/legacy asset resolution.
 - [ ] Sign and validate a versioned preview on a fresh PC; complete sustained interface and real DAW checks before a paid release.
 - Validation and remaining limits: [Play Along and navigation](PLAY-ALONG-NAVIGATION.md).
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).

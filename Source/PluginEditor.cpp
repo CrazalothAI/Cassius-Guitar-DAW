@@ -43,10 +43,11 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("duplicateRig", [this](const auto& args, auto complete) { complete(args.size() == 2 && args[0].isString() && args[1].isString() ? processor.duplicateRig(args[0].toString(), args[1].toString()) : juce::String("Choose a saved rig and name for its copy.")); })
         .withNativeFunction("selectAsset", [this](const auto& args, auto complete) { complete((args.size() == 1 || (args.size() == 2 && args[1].toString() == "cabB")) && processor.selectAsset(args[0].toString(), args.size() == 2)); })
         .withNativeFunction("editAsset", [this](const auto& args, auto complete) { complete(args.size() == 2 && processor.editAsset(args[0].toString(), args[1])); })
-        .withNativeFunction("exportRig", [this](const auto&, auto complete) { chooseRigFile(true); complete(true); })
-        .withNativeFunction("importRig", [this](const auto&, auto complete) { chooseRigFile(false); complete(true); })
-        .withNativeFunction("exportRigPack", [this](const auto&, auto complete) { chooseRigFile(true, true); complete(true); })
-        .withNativeFunction("importRigPack", [this](const auto&, auto complete) { chooseRigFile(false, true); complete(true); })
+        .withNativeFunction("exportRig", [this](const auto&, auto complete) { complete(chooseRigFile(true)); })
+        .withNativeFunction("importRig", [this](const auto&, auto complete) { complete(chooseRigFile(false)); })
+        .withNativeFunction("exportRigPack", [this](const auto&, auto complete) { complete(chooseRigFile(true, true)); })
+        .withNativeFunction("importRigPack", [this](const auto&, auto complete) { complete(chooseRigFile(false, true)); })
+        .withNativeFunction("exportSavedRig", [this](const auto& args, auto complete) { complete(args.size() == 2 && args[0].isString() && args[0].toString().isNotEmpty() && args[1].isBool() ? chooseRigFile(true, static_cast<bool>(args[1]),args[0].toString()) : juce::String("Choose a saved rig and export format.")); })
         .withNativeFunction("relinkAsset", [this](const auto& args, auto complete) { if (args.size() == 1) chooseRelink(args[0].toString()); complete(args.size() == 1); })
         .withNativeFunction("selectAmpVoice", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.selectAmpVoice(args[0].toString())); })
         .withNativeFunction("clearStage", [this](const auto& args, auto complete)
@@ -293,13 +294,14 @@ void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
             safe->chooser.reset();
         });
 }
-void AmpSuiteAudioProcessorEditor::chooseRigFile(bool save, bool pack)
+juce::String AmpSuiteAudioProcessorEditor::chooseRigFile(bool save, bool pack, const juce::String& savedId)
 {
-    if (chooser) return;
-    const auto rig = save ? processor.getRig() : juce::var();
-    if (save && rig.hasProperty("error")) { processor.reportLibraryResult("Load failed: " + rig["error"].toString()); return; }
+    if (chooser) return "Finish the current file selection first.";
+    const auto rig = save ? (savedId.isEmpty() ? processor.getRig() : processor.getSavedRig(savedId)) : juce::var();
+    if (save && rig.hasProperty("error")) return rig["error"].toString();
+    const auto name = savedId.isEmpty() ? juce::String("My rig") : juce::File::createLegalFileName(rig["name"].toString());
     chooser = std::make_unique<juce::FileChooser>(pack ? (save ? "Export portable rig pack" : "Import portable rig pack") : save ? "Export rig references" : "Import Cassian rig",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(pack ? "My rig.cassian.zip" : "My rig.cassian.json"), pack ? "*.zip" : "*.json");
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile((name.isEmpty() ? juce::String("Saved rig") : name) + (pack ? ".cassian.zip" : ".cassian.json")), pack ? "*.zip" : "*.json");
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync((save ? juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting : juce::FileBrowserComponent::openMode)
         | juce::FileBrowserComponent::canSelectFiles, [safe, save, rig, pack](const juce::FileChooser& dialog)
@@ -308,7 +310,7 @@ void AmpSuiteAudioProcessorEditor::chooseRigFile(bool save, bool pack)
             const auto file = dialog.getResult();
             if (file != juce::File())
             {
-                if (pack) { safe->processor.requestRigPack(save, file); safe->chooser.reset(); return; }
+                if (pack) { safe->processor.requestRigPack(save, file, rig); safe->chooser.reset(); return; }
                 const auto error = save ? (file.replaceWithText(juce::JSON::toString(rig, false)) ? juce::String() : "Could not write the rig file.")
                     : file.getSize() > 4 * 1024 * 1024 ? juce::String("Rig file is too large.")
                     : safe->processor.importRig(file.getFileNameWithoutExtension().replace(".cassian", ""), juce::JSON::parse(file.loadFileAsString()));
@@ -316,6 +318,7 @@ void AmpSuiteAudioProcessorEditor::chooseRigFile(bool save, bool pack)
             }
             safe->chooser.reset();
         });
+    return {};
 }
 void AmpSuiteAudioProcessorEditor::chooseRelink(const juce::String& id)
 {

@@ -63,6 +63,7 @@ public:
     juce::var inspectRig(const juce::String& id);
     void importAssets(const juce::Array<juce::File>&, const juce::String& kind);
     juce::var getRig();
+    juce::var getSavedRig(const juce::String& id);
     juce::String applyRig(const juce::var&, bool preserveGlobals = true, bool matchLoudness = false);
     juce::String saveRig(const juce::String& name);
     juce::String updateActiveRig();
@@ -81,7 +82,7 @@ public:
     juce::String validateRigDocument(const juce::var& rig);
     // Validate and migrate on an isolated tree before live recall or pack writes.
     juce::String migrateRigDocument(const juce::var& rig, juce::ValueTree& state);
-    void requestRigPack(bool save, const juce::File& file);
+    void requestRigPack(bool save, const juce::File& file, const juce::var& snapshot = {});
     void reportLibraryResult(const juce::String& text) { const juce::ScopedLock lock(requestLock); message = text; }
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }

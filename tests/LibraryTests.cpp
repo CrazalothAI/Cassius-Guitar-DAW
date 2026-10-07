@@ -172,12 +172,19 @@ void runLibraryChecks(const juce::File& fixture)
     bool missingModel=false;
     for (const auto& row : *dependencies["assets"].getArray()) if (row["stage"].toString()=="model") missingModel=static_cast<bool>(row["missing"]) && static_cast<bool>(row["canRelink"]) && row["id"].toString()==missing["modelId"].toString();
     require(missingModel && imported.getRig()["state"].toString()==beforeInspection,"Dependency inspection must identify relinkable missing sounds without changing the current rig");
+    const auto savedMissing = imported.getSavedRig(importedRig);
+    require(!savedMissing.hasProperty("error") && static_cast<int>(savedMissing["schema"])==3 && unwrap(savedMissing)["modelPath"]==missing["modelPath"],"Saved reference export must migrate legacy snapshots and retain missing assets without loading");
+    juce::TemporaryFile relocatedPack(".cassian.zip"); require(relocatedPack.getFile().replaceWithText("keep existing export"),"Temporary rejected-pack sentinel must write");
+    require(imported.exportRigPack(relocatedPack.getFile(),savedMissing).isNotEmpty() && relocatedPack.getFile().loadFileAsString()=="keep existing export","Incomplete saved packs must reject without overwriting an existing destination");
     require(imported.inspectRig("missing").hasProperty("error"),"Unknown saved rigs must reject inspection");
     require(!imported.loadRig(importedRig).isEmpty() && get(imported, "AMP_SOURCE") == 4, "Missing assets must leave current parameters intact");
     require(!imported.relinkAsset(missing["modelId"], wrong.getFile()).isEmpty(), "Relink must reject unrelated files");
     require(imported.relinkAsset(missing["modelId"], relocated.getFile()).isEmpty(), "Relink must recognize renamed original content");
     const auto relocatedDependencies=imported.inspectRig(importedRig);
     for (const auto& row : *relocatedDependencies["assets"].getArray()) require(!static_cast<bool>(row["missing"]),"Inspection must resolve relocated assets by stable identity");
+    const auto beforePackExport=imported.getRig()["state"].toString();
+    require(imported.exportRigPack(relocatedPack.getFile(),savedMissing).isEmpty() && imported.getRig()["state"].toString()==beforePackExport,"Saved pack must resolve relinked stable IDs while retaining the current tone");
+    juce::ZipFile savedPack(relocatedPack.getFile()); require(savedPack.getNumEntries()==4,"Saved three-stage pack must contain its document and every distinct sound");
     require(imported.loadRig(importedRig).isEmpty(), "Relinked rig must recall"); settle(imported);
     require(imported.status()["model"].toString() == relocated.getFile().getFileName(), "Rig must resolve the relocated model by ID");
 
@@ -203,6 +210,10 @@ void runLibraryChecks(const juce::File& fixture)
         auto listed=owner.getLibrary()["rigs"][0];
         require(listed["name"].toString()=="Jazz practice" && listed["styles"].toString()=="jazz, clean" && listed["gain"].toString()=="clean" && static_cast<bool>(listed["favorite"]),"Metadata must normalize styles and retain categories/favorite");
         require(owner.status()["activeRigName"].toString()=="Jazz practice" && static_cast<bool>(owner.status()["activeRigEdited"]) && get(owner,"EQ_MUD")==-2,"Rename must update active identity without resetting edits or playing controls");
+        const auto exportedSaved = owner.getSavedRig(id); const auto exportedState = unwrap(exportedSaved);
+        require(!exportedSaved.hasProperty("error") && exportedSaved["name"].toString()=="Jazz practice" && static_cast<float>(exportedState.getChildWithProperty("id","EQ_MUD")["value"])==2,"Saved export must contain the stored tone and current saved name rather than unsaved playing edits");
+        require(exportedState.getChildWithName("ACTIVE_RIG")["id"].toString()==id && exportedState.getChildWithName("ACTIVE_RIG")["name"].toString()=="Jazz practice" && owner.status()["activeRigId"].toString()==id && static_cast<bool>(owner.status()["activeRigEdited"]) && get(owner,"EQ_MUD")==-2,"Reading saved export must preserve current identity, edited status and audio settings");
+        require(owner.getSavedRig("missing").hasProperty("error"),"Unknown saved exports must fail before opening a picker");
         juce::MemoryBlock organizedSession; owner.getStateInformation(organizedSession);
         AmpSuiteAudioProcessor sessionCopy(false); sessionCopy.setStateInformation(organizedSession.getData(),static_cast<int>(organizedSession.getSize())); settle(sessionCopy);
         require(sessionCopy.getLibrary()["rigs"][0]["notes"]==listed["notes"] && sessionCopy.status()["activeRigName"].toString()=="Jazz practice" && static_cast<bool>(sessionCopy.status()["activeRigEdited"]),"Native session restore must retain metadata, renamed identity and unsaved edits");

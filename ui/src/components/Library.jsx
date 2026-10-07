@@ -182,6 +182,11 @@ export default function Library({ revision, loading = false, onClose, onPreset =
           if (!original) return 'Saved rig not found.';
           writePreviewRigs([...previewRigs(), {...original, id: `preview-${Date.now()}-${Math.random()}`, name: copyName, favorite: false}]);
         })}>Duplicate saved rig</button>}
+        {detail.kind === 'rig' && !detail.starter && !detail.preset && <div className="saved-rig-exports">
+          <button className="text-button" disabled={!native || busy || loading || Boolean(rigDetails?.error)} onClick={() => action(() => invoke('exportSavedRig', detail.id, false))}>Export saved references</button>
+          <button className="text-button" disabled={!native || busy || loading || rigDetails?.id !== detail.id || Boolean(rigDetails.error) || rigDetails.assets.some(a => a.missing)} onClick={() => action(() => invoke('exportSavedRig', detail.id, true))}>Export saved pack</button>
+          <p className="library-note">Exports this saved tone without loading it or including current unsaved edits. References need the original sounds; packs include them. Share sound files only when you have distribution permission.</p>
+        </div>}
         {detail.kind === 'rig' && !detail.starter && !detail.preset && <form key={detail.id} aria-label="Saved rig metadata" onSubmit={e => {
           e.preventDefault(); const changes = Object.fromEntries(new FormData(e.currentTarget));
           changes.name = changes.name.trim(); changes.styles = [...new Set(changes.styles.toLowerCase().split(/[\s,;]+/).filter(Boolean))].join(', ');

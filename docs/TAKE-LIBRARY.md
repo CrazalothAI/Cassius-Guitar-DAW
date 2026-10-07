@@ -18,9 +18,9 @@ Review uses the practice engine's worker-side decoding and filtered resampling. 
 
 The review status names the loaded take/version even when you select another row or version. Seeking, pause/resume and loop controls remain disabled until your selection matches the loaded audio. Press Listen to load that selection; it resets the loop to the full version. Stop invalidates the loaded identity and cancels decoding or queued previews. Missing audio reports an error and leaves the controls unavailable. Review controls are blocked during recording. Loop bounds are temporary listening controls: they do not trim recordings, change reamp rendering or alter Video soundtrack export ranges. Review volume remains global.
 
-## Reamp versions
-
 0.5.2 adds a waveform for the loaded review version. Click to seek or use arrows (one second), Shift+arrows (ten seconds), Home and End. The cursor and A/B region follow review playback. Only the matching loaded version can expose or control its waveform; selection changes hide the previous envelope. Waveform failures leave the normal position slider usable. The existing decoder prepares at most 512 min/max pairs on its worker; playback-position polling does not rescan audio.
+
+## Reamp versions
 
 Set up the desired amp, pedals, cabinets and effects, then choose **Reamp with current rig**. A separate processor prepares the snapshot's assets and streams the original dry file through the guitar chain on a worker. It does not change the live rig or depend on audio callbacks. The current Input gain and guitar processing are included; Master, output limiter, accompaniment and clicks are excluded.
 

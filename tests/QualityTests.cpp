@@ -220,6 +220,27 @@ void runQualityChecks(const juce::File& fixture)
         set(reopened, "PEDAL_ON", 1); set(reopened, "CAB_MODE", 1); play(reopened);
         const auto portable = folder.root.getChildFile("Portable.cassian.zip"); require(reopened.exportRigPack(portable).isEmpty(), "Portable three-stage rig must export");
         juce::ZipFile exported(portable); require(exported.getNumEntries() == 4, "Portable pack must contain the document and all three stage files");
+        set(reopened,"EQ_MUD",2); require(reopened.saveRig("Saved export tone").isEmpty(),"Saved export fixture must persist");
+        const auto savedRows=reopened.getLibrary()["rigs"]; juce::String savedId;
+        for(const auto& row:*savedRows.getArray()) if(row["name"].toString()=="Saved export tone") savedId=row["id"].toString();
+        auto savedSnapshot=reopened.getSavedRig(savedId); require(!savedSnapshot.hasProperty("error"),"Saved snapshot must read independently of live processing");
+        set(reopened,"EQ_MUD",-2); const auto queued=folder.root.getChildFile("Saved queued.cassian.zip");
+        reopened.requestRigPack(true,queued,savedSnapshot);
+        savedSnapshot.getDynamicObject()->setProperty("state","caller changed its snapshot");
+        for(int n=0;n<1000 && reopened.status()["message"].toString()=="Packing rig...";++n) juce::Thread::sleep(5);
+        require(reopened.status()["message"].toString()=="Portable rig pack exported" && queued.existsAsFile(),"Worker must export the immutable supplied snapshot");
+        juce::ZipFile queuedPack(queued); std::unique_ptr<juce::InputStream> packedDocument(queuedPack.createStreamForEntry(queuedPack.getIndexOfFileName("rig.cassian.json")));
+        require(packedDocument!=nullptr,"Saved pack must contain its rig document");
+        const auto packedState=stateOf(juce::JSON::parse(packedDocument->readEntireStreamAsString()));
+        require(!packedState.getChildWithName("ACTIVE_RIG").isValid() && !packedState.toXmlString().contains(folder.root.getFullPathName()),"Portable packs must omit local comparison identities and source paths while retaining the tone");
+        require(static_cast<float>(packedState.getChildWithProperty("id","EQ_MUD")["value"])==2 && get(reopened,"EQ_MUD")==-2 && static_cast<bool>(reopened.status()["activeRigEdited"]),"Queued export must exclude later live/caller edits and leave the playing rig edited");
+        auto legacyState=packedState.createCopy();
+        // Reuse the managed files but mimic older references with no content IDs.
+        const auto currentState=stateOf(reopened.getRig());
+        for(const auto* stage:{"model","ir","pedal"}) {legacyState.setProperty(juce::String(stage)+"Path",currentState[juce::String(stage)+"Path"],nullptr);legacyState.removeProperty(juce::String(stage)+"Id",nullptr);}
+        auto legacyDocument=std::make_unique<juce::DynamicObject>();legacyDocument->setProperty("schema",3);legacyDocument->setProperty("state",legacyState.toXmlString());
+        const auto legacyPack=folder.root.getChildFile("Legacy IDs.cassian.zip");
+        require(reopened.exportRigPack(legacyPack,juce::var(legacyDocument.release())).isEmpty(),"Pack export must assign verified IDs to legacy path-only references");
         AmpSuiteAudioProcessor destination(true, folder.root.getChildFile("OtherLibrary")); neutral(destination);
         require(destination.importRigPack(portable).isEmpty(), "Portable rig must import into separate managed storage");
         auto rigs = destination.getLibrary()["rigs"]; require(rigs.size() == 1 && get(destination, "AMP_SOURCE") == 4, "Pack import must add a rig without changing the active tone");

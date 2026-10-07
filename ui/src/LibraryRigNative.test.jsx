@@ -101,3 +101,22 @@ it('keeps amp-type filters out of other tabs and file filters out of saved rigs'
   fireEvent.change(screen.getByLabelText('Library file status'),{target:{value:'available'}});
   expect(screen.getByText('Room cabinet')).toBeTruthy();expect(screen.queryByLabelText('Library capture type')).toBeNull();
 });
+it('exports the selected saved snapshot as references or a pack without recalling the tone',async()=>{
+  await open();
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Export saved pack'}).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button',{name:'Export saved references'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('exportSavedRig','saved',false));
+  await waitFor(()=>expect(screen.getByRole('button',{name:'Export saved pack'}).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button',{name:'Export saved pack'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('exportSavedRig','saved',true));
+  expect(bridge.invoke.mock.calls.some(([fn])=>['loadRig','saveRig','exportRig','exportRigPack'].includes(fn))).toBe(false);
+});
+it('permits missing-file reference exports, blocks incomplete packs, and surfaces chooser failures',async()=>{
+  bridge.invoke.mockImplementation(async fn=>fn==='getLibrary'?{assets:[],rigs:bridge.rigs}:fn==='inspectRig'?{assets:[{stage:'model',name:'Unavailable capture',missing:true}]}:fn==='exportSavedRig'?'Finish the current file selection first.':'');
+  await open();await screen.findByText(/Unavailable capture/);
+  expect(screen.getByRole('button',{name:'Export saved pack'}).disabled).toBe(true);
+  expect(screen.getByRole('button',{name:'Export saved references'}).disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button',{name:'Export saved references'}));
+  await screen.findByText('Finish the current file selection first.');
+  expect(bridge.invoke.mock.calls.filter(([fn])=>fn==='exportSavedRig')).toEqual([['exportSavedRig','saved',false]]);
+});

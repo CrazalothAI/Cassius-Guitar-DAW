@@ -18,4 +18,6 @@ The native detail panel now lists referenced sounds and their availability. A mi
 
 Browser preview implements these controls using local control snapshots. It does not provide native audio or a complete serial board. Saving subsequent preview tone edits retains your metadata.
 
+0.5.4 adds **Export saved references** and **Export saved pack** in the selected native saved-rig detail. They export its stored tone without loading it or capturing unsaved playing edits. Reference JSON can retain missing sounds; packs require every referenced sound and verify content hashes. Relinked managed paths resolve by stable ID. The document/picker snapshot remains fixed while choosing a destination. Library-entry tags/notes/styles remain outside exported documents, as with current-rig export. Preview cannot export native boards or assets. See [saved exports](RELEASE-0.5.4.md).
+
 The 0.4.2 update also fixes a Takes initialization race that could reset a quickly selected reamp version before export/recovery. Selection-dependent form resets now finish before display.

@@ -1257,6 +1257,23 @@ juce::String AmpSuiteAudioProcessor::updateActiveRig()
     else { entry.setProperty("state", previous, nullptr); if (hadSchema) entry.setProperty("schema", previousSchema, nullptr); else entry.removeProperty("schema", nullptr); }
     return error;
 }
+juce::var AmpSuiteAudioProcessor::getSavedRig(const juce::String& id)
+{
+    const juce::ScopedLock lock(requestLock); const auto entry = library.find(id);
+    auto result = std::make_unique<juce::DynamicObject>();
+    if (!entry.hasType("RIG")) { result->setProperty("error","Saved rig not found."); return juce::var(result.release()); }
+    const auto schema = entry.hasProperty("schema") ? entry["schema"].toString() : juce::String("1");
+    result->setProperty("schema",schema.getIntValue()); result->setProperty("state",entry["state"]);
+    auto document = std::make_unique<juce::DynamicObject>(); document->setProperty("schema",schema.getIntValue()); document->setProperty("state",entry["state"]);
+    juce::ValueTree state;
+    const auto error = schema != "1" && schema != "2" && schema != "3" ? juce::String("Unsupported saved rig format.") : readRig(juce::var(document.release()),state);
+    if (error.isNotEmpty()) { result->setProperty("error",error); return juce::var(result.release()); }
+    ActiveRig identity; identity.set(id,entry["name"].toString(),state);
+    const auto previous = state.getChildWithName("ACTIVE_RIG"); if (previous.isValid()) state.removeChild(previous,nullptr);
+    state.addChild(identity.save(),-1,nullptr);
+    result->setProperty("schema",3); result->setProperty("state",state.toXmlString()); result->setProperty("name",entry["name"]);
+    return juce::var(result.release());
+}
 juce::String AmpSuiteAudioProcessor::loadRig(const juce::String& id)
 {
     juce::var state; int schema = 1;

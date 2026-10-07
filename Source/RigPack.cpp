@@ -19,15 +19,25 @@ juce::String AmpSuiteAudioProcessor::exportRigPack(const juce::File& destination
         if (const auto failure = migrateRigDocument(rig, state); failure.isNotEmpty()) return failure;
         juce::ZipFile::Builder builder; juce::StringArray ids;
         for (const auto* label : {"model", "ir", "pedal", "irB", "pedal1", "ambience", "ambience1"}) {
-            const juce::String stage(label), path = state[stage + "Path"].toString();
-            if (path.isEmpty()) continue;
-            const auto id = state[stage + "Id"].toString(), kind = assetKind(stage), entry = entryName(id, kind);
-            const juce::File file(path);
-            if (!file.existsAsFile() || file.getSize() > 64 * 1024 * 1024 || id != kind + ":" + juce::SHA256(file).toHexString())
+            const juce::String stage(label); auto path = state[stage + "Path"].toString(), id = state[stage + "Id"].toString();
+            if (path.isEmpty() && id.isEmpty()) continue;
+            if (!AssetLibrary::exists(path)) {
+                const juce::ScopedLock lock(requestLock); auto asset = library.find(id);
+                if (!asset.hasType("ASSET")) asset = state.getChildWithName("LIBRARY").getChildWithProperty("id",id);
+                path = asset["path"].toString();
+            }
+            if (!AssetLibrary::exists(path)) return "Rig asset is missing. Relink the original file before packaging.";
+            const juce::File file(path); const auto kind = assetKind(stage);
+            if (file.getSize() > 64 * 1024 * 1024 || !file.hasFileExtension(kind == "cab" || kind == "ambience" ? "wav" : "nam")) return "Rig asset is too large or has an invalid format.";
+            const auto expected = kind + ":" + juce::SHA256(file).toHexString();
+            if (id.isEmpty()) { id = expected; state.setProperty(stage+"Id",id,nullptr); }
+            if (id != expected)
                 return "Rig asset is missing, changed, or too large to package";
+            const auto entry = entryName(id,kind);
             if (!ids.contains(id)) { builder.addFile(file, 6, entry); ids.add(id); } state.setProperty(stage + "Path", entry, nullptr);
         }
         auto libraryTree = state.getChildWithName("LIBRARY");
+        libraryTree.removeProperty("removedIds",nullptr);
         for (int i = libraryTree.getNumChildren(); --i >= 0;) {
             auto item = libraryTree.getChild(i);
             if (!ids.contains(item["id"].toString())) libraryTree.removeChild(i, nullptr);
@@ -36,6 +46,9 @@ juce::String AmpSuiteAudioProcessor::exportRigPack(const juce::File& destination
                 item.removeProperty("aliases", nullptr);
             }
         }
+        // Comparison baselines contain local paths and identities. The receiving
+        // library creates its own identity without changing the saved tone.
+        const auto identity = state.getChildWithName("ACTIVE_RIG"); if (identity.isValid()) state.removeChild(identity,nullptr);
         auto object = std::make_unique<juce::DynamicObject>(); object->setProperty("schema", 3); object->setProperty("state", state.createXml()->toString());
         juce::TemporaryFile document(".json");
         if (!document.getFile().replaceWithText(juce::JSON::toString(juce::var(object.release())))) return "Could not write the pack document";
@@ -116,10 +129,10 @@ juce::String AmpSuiteAudioProcessor::importRigPack(const juce::File& source)
     } catch (const std::exception& e) { return e.what(); }
 }
 
-void AmpSuiteAudioProcessor::requestRigPack(bool save, const juce::File& file)
+void AmpSuiteAudioProcessor::requestRigPack(bool save, const juce::File& file, const juce::var& supplied)
 {
-    const auto snapshot = save ? getRig() : juce::var();
+    const auto snapshot = save ? (supplied.isVoid() ? getRig() : supplied) : juce::var();
     const juce::ScopedLock lock(requestLock);
     if (snapshot.hasProperty("error")) { message = "Load failed: " + snapshot["error"].toString(); return; }
-    pendingPacks.push_back({file, save, snapshot}); message = save ? "Packing rig..." : "Importing rig pack..."; notify();
+    pendingPacks.push_back({file, save, juce::JSON::parse(juce::JSON::toString(snapshot))}); message = save ? "Packing rig..." : "Importing rig pack..."; notify();
 }

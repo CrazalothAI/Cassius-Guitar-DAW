@@ -8,7 +8,7 @@ public:
     void resized() override;
 private:
     void chooseFile(int);
-    void chooseRigFile(bool save, bool pack = false);
+    juce::String chooseRigFile(bool save, bool pack = false, const juce::String& savedId = {});
     void chooseRelink(const juce::String& id);
     void chooseImports(const juce::String& kind);
     void choosePractice(bool recording);
