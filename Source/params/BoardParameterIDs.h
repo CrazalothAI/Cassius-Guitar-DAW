@@ -8,8 +8,8 @@
 // their original positions. A block's position never determines its parameter ID.
 namespace BoardParams {
 inline constexpr int slotsPerType = 2;
-inline const juce::StringArray types {"compressor", "overdrive", "neural-pedal", "eq", "modulation", "chorus", "delay", "reverb", "ambience", "wah", "distortion"};
-inline const std::array<juce::StringArray, 11> controls {{
+inline const juce::StringArray types {"compressor", "overdrive", "neural-pedal", "eq", "modulation", "chorus", "delay", "reverb", "ambience", "wah", "distortion", "plate"};
+inline const std::array<juce::StringArray, 12> controls {{
     {"CLEAN_COMP", "COMP_THRESH", "COMP_RATIO", "COMP_ATTACK", "COMP_RELEASE", "COMP_MAKEUP"},
     {"OD_ON", "OD_DRIVE", "OD_TONE", "OD_LEVEL", "OD_TIGHT"},
     {"PEDAL_ON", "PEDAL_INPUT", "PEDAL_OUTPUT"},
@@ -20,7 +20,8 @@ inline const std::array<juce::StringArray, 11> controls {{
     {"REVERB_MIX", "REVERB_SIZE", "REVERB_STYLE", "REVERB_DAMP", "REVERB_PREDELAY"},
     {"AMBIENCE_MIX"},
     {"WAH_MODE", "WAH_POSITION", "WAH_SENSITIVITY", "WAH_RESONANCE", "WAH_MIX"},
-    {"DIST_MODE", "DIST_DRIVE", "DIST_TONE", "DIST_TIGHT", "DIST_MIX"}
+    {"DIST_MODE", "DIST_DRIVE", "DIST_TONE", "DIST_TIGHT", "DIST_MIX"},
+    {"PLATE_DECAY", "PLATE_TONE", "PLATE_PREDELAY", "PLATE_WIDTH", "PLATE_MIX"}
 }};
 inline juce::String prefix(int kind, int slot) { return "BOARD_" + types[kind].replaceCharacter('-', '_').toUpperCase() + "_" + juce::String(slot) + "_"; }
 inline juce::String parameter(int kind, int slot, const juce::String& original) { return slot == 0 && kind < 8 ? original : prefix(kind, slot) + original; }
@@ -51,6 +52,13 @@ inline const std::vector<Definition>& definitions() {
                 result.push_back({parameter(kind, slot, "DIST_TONE"), title + "tone", 0, 100, 50, "%", 0});
                 result.push_back({parameter(kind, slot, "DIST_TIGHT"), title + "low cut", 20, 250, 80, "Hz", 80});
                 result.push_back({parameter(kind, slot, "DIST_MIX"), title + "blend", 0, 100, 100, "%", 0});
+            }
+            if (kind == 11) {
+                result.push_back({parameter(kind, slot, "PLATE_DECAY"), title + "decay", .3f, 8, 2.2f, "s", 2});
+                result.push_back({parameter(kind, slot, "PLATE_TONE"), title + "tone", 0, 100, 55, "%", 0});
+                result.push_back({parameter(kind, slot, "PLATE_PREDELAY"), title + "pre-delay", 0, 150, 20, "ms", 0});
+                result.push_back({parameter(kind, slot, "PLATE_WIDTH"), title + "width", 0, 100, 80, "%", 0});
+                result.push_back({parameter(kind, slot, "PLATE_MIX"), title + "blend", 0, 100, 18, "%", 0});
             }
             if (slot == 1) for (const auto& id : controls[static_cast<size_t>(kind)]) for (const auto& old : Params::definitions) if (id == old.id)
                 result.push_back({parameter(kind, slot, id), title + old.name, old.min, old.max, old.initial, old.unit, old.centre});
@@ -83,7 +91,7 @@ inline bool hasWah(const juce::ValueTree& state) {
 // require complete controls, so truncated current rigs cannot silently recall.
 inline bool appendedFamilyAbsent(const juce::String& id, const juce::ValueTree& state) {
     const auto board = state.hasType("PEDALBOARD") ? state : state.getChildWithName("PEDALBOARD");
-    for (const auto* type : {"wah", "distortion"}) {
+    for (const auto* type : {"wah", "distortion", "plate"}) {
         const auto family = "BOARD_" + juce::String(type).toUpperCase() + "_";
         if (id.startsWith(family)) { for (const auto& block : board) if (block["type"].toString() == type) return false; return true; }
     }

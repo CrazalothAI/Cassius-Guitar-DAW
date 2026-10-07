@@ -33,6 +33,8 @@
 
 - [x] Add 0.6.1 original 4x oversampled distortion, independent duplicate controls and compatible old rig/scene recall.
 
+- [x] Add 0.6.2 original stereo plate-style reverb with independent instances, old-state migration and complete rig/scene/pack recall.
+
 ## After the app is more mature
 
 - Plan and build a polished Cassian website for promotion, demos, easy Windows downloads, documentation, support and suggestions.

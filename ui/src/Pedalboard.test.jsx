@@ -10,6 +10,16 @@ afterEach(() => { cleanup(); bridge.native = true; bridge.invoke.mockReset(); })
 const block = (type, slot, lane = 'post') => { const kind = boardTypes.indexOf(type); return {id: `${type}.${slot}`, type, automationSlot: slot, lane, enabledId: boardOnId(kind, slot), trimId: `BOARD_${type.replaceAll('-', '_').toUpperCase()}_${slot}_TRIM`}; };
 const status = rows => ({board: {serial: true, blocks: rows, reserved: rows.length, canUndo: true, canRedo: false}, libraryRevision: 1});
 describe('independent serial pedalboard', () => {
+  it('adds plate after the cabinet and keeps duplicate decay controls independent',async()=>{
+    bridge.invoke.mockResolvedValue('');setParameter('BOARD_PLATE_0_PLATE_DECAY',3);
+    render(<Pedalboard status={status([block('plate',0),block('plate',1)])}/>);
+    fireEvent.click(screen.getByRole('button',{name:/02 Plate 2/}));const inspector=within(screen.getByRole('region',{name:'Selected pedal controls'}));
+    fireEvent.change(inspector.getByRole('slider',{name:'Decay'}),{target:{value:'6'}});
+    expect(readParameter('BOARD_PLATE_1_PLATE_DECAY')).toBe(6);expect(readParameter('BOARD_PLATE_0_PLATE_DECAY')).toBe(3);
+    fireEvent.change(screen.getByRole('combobox',{name:'New pedal type'}),{target:{value:'plate'}});expect(screen.getByRole('combobox',{name:'New pedal position'}).value).toBe('post');
+    fireEvent.click(screen.getByRole('button',{name:'Add pedal'}));await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('boardCommand','add',{type:'plate',lane:'post'}));
+    expect(screen.getByText(/Pre-delay leaves room for the pick attack/)).toBeTruthy();
+  });
   it('adds distortion before the amp and edits its duplicate independently', async () => {
     bridge.invoke.mockResolvedValue(''); setParameter('BOARD_DISTORTION_0_DIST_DRIVE',35);
     render(<Pedalboard status={status([block('distortion',0,'pre'),block('distortion',1,'pre')])}/>);

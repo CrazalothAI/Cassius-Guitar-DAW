@@ -1,12 +1,12 @@
 # Pedalboards and state compatibility
 
-Implementation checkpoint: 2026-10-06. Cassian supports the original fixed chain and an explicitly enabled serial board. Automatic migration preserves the fixed audio path; conversion is a user action.
+Implementation checkpoint: 2026-10-07. Cassian supports the original fixed chain and an explicitly enabled serial board. Automatic migration preserves the fixed audio path; conversion is a user action.
 
 ## Editing a serial board
 
 In **Board**, choose **Enable serial editing**. Pedals appear in **Before amp** and **After cabinet** lanes. Select a pedal to edit its controls, assign captured files, duplicate, replace, remove or move between lanes. Drag cards or use the accessible arrow buttons to reorder. Bypass ramps over 30 ms; the bypassed signal is exactly dry after the ramp settles. Output trim belongs to each instance.
 
-The runtime supports compressor, built-in overdrive, captured NAM pedal, EQ, modulation, chorus, delay, reverb and recorded ambience. Overdrive and NAM pedals are restricted to the mono pre-amp lane. Other effects can run mono before the amp or stereo after the cabinet. One amp and the existing parallel cabinet A/B stage remain shared.
+The runtime supports compressor, built-in overdrive, captured NAM pedal, EQ, modulation, chorus, delay, reverb, recorded ambience, wah, dedicated distortion and plate-style reverb. Overdrive, distortion and NAM pedals are restricted to the mono pre-amp lane. Other effects can run mono before the amp or stereo after the cabinet. One amp and the existing parallel cabinet A/B stage remain shared.
 
 There are two kind-qualified automation slots per type, with at most 16 reserved blocks across the board. Removal creates a tombstone and does not release the slot. Replacement reserves a new identity/slot. Reordering never changes parameter identity. If both slots for a type are reserved, Undo can restore a removed pedal; choose another saved rig to start another board. This prevents old automation from silently controlling a newly added effect.
 
@@ -16,7 +16,7 @@ Conversion moves the neural pedal ahead of the amp's drive/tight processing and 
 
 ## Document and automation contracts
 
-New external documents and saved library rigs write integer `schema: 3` and `AmpSuiteState` XML. All 159 PARAM rows are required: the original 87 IDs and host indices are unchanged, and 72 append-only controls follow them. Slot 0 reuses its original kind's parameters; slot 1 uses IDs such as `BOARD_EQ_1_EQ_FOCUS`. Types lacking an existing switch gain kind-qualified ON controls; every slot has a `BOARD_<TYPE>_<SLOT>_TRIM`. Ambience has new slot-qualified mix controls.
+New external documents and saved library rigs write integer `schema: 3` and `AmpSuiteState` XML. Current complete documents contain 201 PARAM rows: the original 87 IDs and host indices are unchanged, and 114 append-only controls follow them. Missing controls from the appended wah/distortion/plate families default only when their block type is absent, including reserved/deleted blocks; other required rows must be present. Slot 0 reuses its original kind's parameters; slot 1 uses IDs such as `BOARD_EQ_1_EQ_FOCUS`. Types lacking an existing switch gain kind-qualified ON controls; every slot has a `BOARD_<TYPE>_<SLOT>_TRIM`. Ambience has new slot-qualified mix controls.
 
 Schema 1 still requires its original first 41 controls and defaults later ones. Schema 2 requires the original complete controls and a fixed board. Both default missing independent controls. Native sparse fixed sessions retain historical handling. New serial sessions validate a complete isolated document and prepare the graph before replacing the live state. Present invalid/future boards never fall back to fixed routing.
 
@@ -39,6 +39,8 @@ Recorded ambience preserves file length, channel timing and amplitude: no automa
 The metronome, backing buses, listening-only Guitar balance/Focus, Master and output protection remain outside the recorded/reamped guitar board.
 
 ## Verification and limits
+
+0.6.1 adds two independent original distortion slots and 0.6.2 adds two independent plate slots, appending host controls after all prior slots. Absent-family migration applies to rigs and scenes; documents using these types must contain complete controls. See [distortion](RELEASE-0.6.1.md) and [plate](RELEASE-0.6.2.md).
 
 0.4.0 appends two independent wah slots and their controls after the existing host parameters. Pre-0.4 rigs/scenes without wah blocks default the new family; wah-containing boards require complete wah controls. Manual and envelope modes work in both lanes, with linked stereo detection after the cabinet. See [wah compatibility and setup](WAH-PEDAL.md).
 

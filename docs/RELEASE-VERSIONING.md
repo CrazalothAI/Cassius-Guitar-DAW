@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 0.6.1 is a development preview. The distortion pedal is documented in [0.6.1 notes](RELEASE-0.6.1.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 0.6.2 is a development preview. Plate-style reverb is documented in [0.6.2 notes](RELEASE-0.6.2.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 
@@ -10,7 +10,7 @@ For the next version, run `npm version <major.minor.patch> --no-git-tag-version`
 
 ## Identify each download
 
-Normal packaging retains `Cassian-Setup.exe`, `Cassian-Windows.zip` and the root `Cassian.exe`. It also emits `Cassian-0.6.1-Setup.exe`, `Cassian-0.6.1-Windows.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` (using the current version). Versioned copies are byte-identical to their convenient aliases. The ZIP still opens directly to Cassian.exe.
+Normal packaging retains `Cassian-Setup.exe`, `Cassian-Windows.zip` and the root `Cassian.exe`. It also emits `Cassian-0.6.2-Setup.exe`, `Cassian-0.6.2-Windows.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` (using the current version). Versioned copies are byte-identical to their convenient aliases. The ZIP still opens directly to Cassian.exe.
 
 The checksum file covers the versioned installer and ZIP. Build metadata records the version, checkout at packaging, tracked source modifications, private-bank status, sound count and those hashes. Checksums establish file integrity, not publisher authenticity; they are not a substitute for code signing. A checkout reference identifies packaging context and is not proof that an arbitrary supplied executable was compiled from that commit.
 
@@ -20,7 +20,7 @@ The pinned JUCE build originally omitted the version-information input from its 
 
 ## GitHub previews
 
-The workflow builds/tests before publishing. Main continues to replace the `latest` development prerelease with easy download aliases plus versioned files, metadata and checksums. A separately authorized push of a tag such as `v0.6.1` must match the source version and produces a versioned prerelease; it does not overwrite an existing versioned release. This update does not create or push a release tag, merge main, sign binaries or publish third-party sounds.
+The workflow builds/tests before publishing. Main continues to replace the `latest` development prerelease with easy download aliases plus versioned files, metadata and checksums. A separately authorized push of a tag such as `v0.6.2` must match the source version and produces a versioned prerelease; it does not overwrite an existing versioned release. This update does not create or push a release tag, merge main, sign binaries or publish third-party sounds.
 
 Regression checks cover package/lock mismatch, invalid versions, stale binaries, version resources, checksum/alias consistency, installed version registration during upgrade and removal of the isolated registration on uninstall. These tests do not establish fresh-PC prerequisite readiness or audible performance.
 

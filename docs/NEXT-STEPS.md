@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest patch: 0.6.1 adds original oversampled distortion with append-only automation and absent-family rig/scene migration. See [distortion](RELEASE-0.6.1.md).
+Latest patch: 0.6.2 adds an original plate-style stereo tank with independent controls, persistent recall and appended automation. See [plate reverb](RELEASE-0.6.2.md).
+
+Previous patch: 0.6.1 adds original oversampled distortion with append-only automation and absent-family rig/scene migration. See [distortion](RELEASE-0.6.1.md).
 
 Previous milestone: 0.6.0 connects saved review sections to trimmed guitar/video WAV export and reports actual output duration and peak attenuation. It includes 0.5.5 take notes and 0.5.6 persistent review sections. See [0.6.0](RELEASE-0.6.0.md).
 

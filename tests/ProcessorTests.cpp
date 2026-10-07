@@ -13,6 +13,7 @@ void runTakeChecks();
 void runMidiChecks();
 void runWahChecks();
 void runDistortionChecks();
+void runPlateChecks();
 void runModulationChecks();
 void runSceneChecks();
 void runPracticeSectionChecks();
@@ -664,6 +665,7 @@ int main(int argc, char** argv)
         runMidiChecks();
         runWahChecks();
         runDistortionChecks();
+        runPlateChecks();
         runModulationChecks();
         runSceneChecks();
         runPracticeSectionChecks();
