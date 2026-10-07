@@ -38,6 +38,8 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("loadRig", [this](const auto& args, auto complete) { complete(args.size() == 1 ? processor.loadRig(args[0].toString()) : "Rig not found."); })
         .withNativeFunction("loadStartingRig", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isString() ? processor.loadStartingRig(args[0].toString()) : juce::String("Choose a starter rig.")); })
         .withNativeFunction("removeRig", [this](const auto& args, auto complete) { complete(args.size() == 1 && processor.removeRig(args[0].toString())); })
+        .withNativeFunction("editRig", [this](const auto& args, auto complete) { complete(args.size() == 2 && args[0].isString() ? processor.editRig(args[0].toString(), args[1]) : juce::String("Choose a saved rig and valid metadata.")); })
+        .withNativeFunction("duplicateRig", [this](const auto& args, auto complete) { complete(args.size() == 2 && args[0].isString() && args[1].isString() ? processor.duplicateRig(args[0].toString(), args[1].toString()) : juce::String("Choose a saved rig and name for its copy.")); })
         .withNativeFunction("selectAsset", [this](const auto& args, auto complete) { complete((args.size() == 1 || (args.size() == 2 && args[1].toString() == "cabB")) && processor.selectAsset(args[0].toString(), args.size() == 2)); })
         .withNativeFunction("editAsset", [this](const auto& args, auto complete) { complete(args.size() == 2 && processor.editAsset(args[0].toString(), args[1])); })
         .withNativeFunction("exportRig", [this](const auto&, auto complete) { chooseRigFile(true); complete(true); })

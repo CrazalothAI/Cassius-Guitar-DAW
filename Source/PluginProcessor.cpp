@@ -1271,9 +1271,56 @@ bool AmpSuiteAudioProcessor::removeRig(const juce::String& id)
     const juce::ScopedLock lock(requestLock); auto rig = library.find(id); if (!rig.hasType("RIG")) return false;
     library.tree.removeChild(rig, nullptr); ++library.revision; return persistLibrary({id}).isEmpty();
 }
+juce::String AmpSuiteAudioProcessor::editRig(const juce::String& id, const juce::var& changes)
+{
+    if (changes.getDynamicObject() == nullptr) return "Use valid saved-rig metadata.";
+    for (const auto& property : changes.getDynamicObject()->getProperties()) {
+        const auto key = property.name.toString();
+        if (key == "favorite") { if (!property.value.isBool()) return "Use a valid favorite flag."; }
+        else if (key == "name" || key == "tags" || key == "styles" || key == "gain" || key == "notes") {
+            if (!property.value.isString() || property.value.toString().length() > (key == "name" ? 80 : 1000)) return "Rig names allow 80 characters; tags and notes allow 1,000.";
+        } else return "Unsupported saved-rig metadata field.";
+    }
+    if (changes.hasProperty("name") && changes["name"].toString().trim().isEmpty()) return "Give the rig a name.";
+    if (changes.hasProperty("gain") && !juce::StringArray {"", "clean", "breakup", "crunch", "high-gain", "drive", "fuzz"}.contains(changes["gain"].toString())) return "Choose a supported gain category.";
+    const juce::ScopedLock lock(requestLock);
+    if (rigLoading.load()) return "Finish loading the rig before editing its metadata.";
+    auto entry = library.find(id); if (!entry.hasType("RIG")) return "Saved rig not found.";
+    const auto previous = entry.createCopy();
+    for (const auto& property : changes.getDynamicObject()->getProperties()) {
+        auto value = property.value;
+        if (property.name == juce::Identifier("name")) value = value.toString().trim();
+        if (property.name == juce::Identifier("styles")) {
+            auto styles = juce::StringArray::fromTokens(value.toString().toLowerCase(), ",; \t\r\n", "");
+            styles.removeEmptyStrings(); styles.removeDuplicates(false); value = styles.joinIntoString(", ");
+        }
+        entry.setProperty(property.name,value,nullptr);
+    }
+    ++library.revision;
+    if (const auto error = persistLibrary(); error.isNotEmpty()) { entry.copyPropertiesAndChildrenFrom(previous,nullptr); ++library.revision; return error; }
+    // Metadata edits retain the comparison baseline and all unsaved tone edits.
+    if (activeRig.id == id) activeRig.name = entry["name"].toString();
+    return {};
+}
+juce::String AmpSuiteAudioProcessor::duplicateRig(const juce::String& id, const juce::String& name)
+{
+    const auto title = name.trim(); if (title.isEmpty() || title.length() > 80) return "Give the copy a name of 1 to 80 characters.";
+    const juce::ScopedLock lock(requestLock);
+    if (rigLoading.load()) return "Finish loading the rig before duplicating it.";
+    const auto original = library.find(id); if (!original.hasType("RIG")) return "Saved rig not found.";
+    const auto schema = original.hasProperty("schema") ? original["schema"].toString() : juce::String("1");
+    if (schema != "1" && schema != "2" && schema != "3") return "Unsupported saved rig format.";
+    auto document = std::make_unique<juce::DynamicObject>(); document->setProperty("schema",schema.getIntValue()); document->setProperty("state",original["state"]);
+    juce::ValueTree validated; if (const auto error = readRig(juce::var(document.release()),validated); error.isNotEmpty()) return error;
+    auto copy = original.createCopy(); copy.setProperty("id",juce::Uuid().toString(),nullptr); copy.setProperty("name",title,nullptr); copy.setProperty("favorite",false,nullptr);
+    library.tree.addChild(copy,-1,nullptr); ++library.revision;
+    if (const auto error = persistLibrary(); error.isNotEmpty()) { library.tree.removeChild(copy,nullptr); ++library.revision; return error; }
+    return {};
+}
 bool AmpSuiteAudioProcessor::editAsset(const juce::String& id, const juce::var& changes)
 {
     const juce::ScopedLock lock(requestLock); auto asset = library.find(id); if (!asset.isValid()) return false;
+    if (asset.hasType("RIG")) return editRig(id,changes).isEmpty();
     if (!changes.isObject()) return false;
     if (changes.hasProperty("gain")) {
         const juce::StringArray choices {"", "clean", "breakup", "crunch", "high-gain", "drive", "fuzz"};

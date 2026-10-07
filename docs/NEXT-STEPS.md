@@ -6,7 +6,7 @@ Current implementation: steps 1 and 2 are implemented, and steps 3/4 have a firs
 
 ## Historical baseline inspected on 2026-10-05
 
-Milestone follow-up: 0.3.0 adds reamp tails and soundtrack trimming/fades; 0.4.0 adds manual/envelope wah, independent MIDI expression targets and two built-in clean/lead starters. 0.4.1 adds recovery of saved original/reamp tones from Takes; see [take recovery](TAKE-LIBRARY.md). The wah portion of step 9 is implemented. See [0.4.0 notes](RELEASE-0.4.0.md). Sustained interface/DAW validation, sound permissions and signing remain priorities; other advanced routing/pitch work stays on the roadmap.
+Milestone follow-up: 0.3.0 adds reamp tails and soundtrack trimming/fades; 0.4.0 adds manual/envelope wah, independent MIDI expression targets and two built-in clean/lead starters. 0.4.1 adds recovery of saved original/reamp tones from Takes; see [take recovery](TAKE-LIBRARY.md). 0.4.2 adds saved-rig renaming, searchable categories/notes and exact saved-tone duplication; see [organization](SAVED-RIG-ORGANIZATION.md). The wah portion of step 9 is implemented. See [0.4.0 notes](RELEASE-0.4.0.md). Sustained interface/DAW validation, sound permissions and signing remain priorities; other advanced routing/pitch work stays on the roadmap.
 
 - Current checkout: `codex/guitar-mix-focus`, committed HEAD `ab08c87` (Windows installer and named practice sections), plus existing uncommitted Play Along / GuitarMix work.
 - Remote `main` was checked directly and remains `c5e6586`, eight commits behind this branch. Local feature work is not yet represented by the main-branch download.

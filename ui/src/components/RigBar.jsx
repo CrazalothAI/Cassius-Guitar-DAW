@@ -17,8 +17,9 @@ export default function RigBar({status, previewActive, previewEdited, onPreviewR
         const error = await invoke(asNew ? 'saveRig' : 'updateActiveRig', ...(asNew ? [name.trim()] : []));
         if (error) throw new Error(error);
       } else {
-        const row = {id: asNew ? `preview-${Date.now()}-${Math.random()}` : previewActive.id, name: asNew ? name.trim() : activeName, parameters: snapshotParameters()};
-        const list = previewRigs(); writePreviewRigs([...list.filter(x => x.id !== row.id), row]); onPreviewRig(row);
+        const list = previewRigs();
+        const row = {...list.find(x => x.id === previewActive?.id), id: asNew ? `preview-${Date.now()}-${Math.random()}` : previewActive.id, name: asNew ? name.trim() : activeName, parameters: snapshotParameters()};
+        writePreviewRigs([...list.filter(x => x.id !== row.id), row]); onPreviewRig(row);
       }
       setSaving(false);
     } catch (error) { const text = error.message || 'Could not save this rig. Please try again.'; if (saving) setError(text); else onError({title: 'Save rig', text}); }

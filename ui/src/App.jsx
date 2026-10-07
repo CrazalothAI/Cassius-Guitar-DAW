@@ -219,7 +219,7 @@ export default function App() {
         {view === 'Practice' ? <Practice status={status} onError={setNotice} onTakes={() => navigate('Takes')}/> : view === 'Takes' ? <section className="takes-workspace" aria-label="Take library"><div className="practice-heading"><h2>Your take library</h2><button className="text-button" onClick={() => navigate('Practice')}>Record a take</button></div><Takes status={status} onError={setNotice}/></section> : view === 'Board' && status.board?.serial ? <Pedalboard status={status} onError={setNotice}/> : <Stages page={view === 'Tone' ? tonePage : page} onPage={view === 'Tone' ? setTonePage : setPage} availablePages={view === 'Tone' ? ['Amp', 'Cab'] : undefined} showScenes={view === 'Board'} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice}/>}
       </div>
     </main>
-    {libraryOpen && <Library revision={status.libraryRevision} loading={status.rigLoading} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive}/>}
+    {libraryOpen && <Library revision={status.libraryRevision} loading={status.rigLoading} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive} previewActiveId={previewActive?.id}/>}
     {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
     <footer>
       <span role="status">{footerMessage}</span>

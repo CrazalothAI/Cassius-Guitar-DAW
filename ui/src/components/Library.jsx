@@ -14,7 +14,7 @@ export const previewRigs = () => { try { return JSON.parse(localStorage.getItem(
 export const writePreviewRigs = rigs => localStorage.setItem('cassian-preview-rigs', JSON.stringify(rigs));
 const readFavorites = () => { try { return JSON.parse(localStorage.getItem('cassian-factory-favorites') || '{}'); } catch { return {}; } };
 
-export default function Library({ revision, loading = false, onClose, onPreset = applyPreset, onPreviewRig = () => {} }) {
+export default function Library({ revision, loading = false, onClose, onPreset = applyPreset, onPreviewRig = () => {}, previewActiveId }) {
   const [tab, setTab] = useState('amp'), [search, setSearch] = useState(''), [ownership, setOwnership] = useState('All');
   const [favorites, setFavorites] = useState(false), [selected, setSelected] = useState(null), [name, setName] = useState('');
   const [catalog, setCatalog] = useState({ assets: [], rigs: [] }), [error, setError] = useState(''), [busy, setBusy] = useState(false);
@@ -22,7 +22,7 @@ export default function Library({ revision, loading = false, onClose, onPreset =
   const [style, setStyle] = useState(''), [gain, setGain] = useState('all'), [speaker, setSpeaker] = useState(''), [pack, setPack] = useState('');
   const [rigType, setRigType] = useState(''), [sort, setSort] = useState('name');
   const clearFilters = () => { setSearch(''); setOwnership('All'); setFavorites(false); setStyle(''); setGain('all'); setSpeaker(''); setPack(''); setRigType(''); };
-  const panel = useRef(null);
+  const panel = useRef(null), actionPending = useRef(false);
   useEffect(() => {
     const previous = document.activeElement;
     panel.current?.querySelector('button')?.focus();
@@ -40,10 +40,10 @@ export default function Library({ revision, loading = false, onClose, onPreset =
     return () => { active = false; };
   }, [revision]);
   const action = async run => {
-    if (busy) return; setBusy(true); setError('');
+    if (actionPending.current) return; actionPending.current = true; setBusy(true); setError('');
     try { const result = await run(); if (typeof result === 'string' && result) throw new Error(result); if (result === false) throw new Error('Could not complete the library action. Please try again.'); await refresh(); }
     catch (e) { setError(e.message || 'Could not complete the library action.'); }
-    finally { setBusy(false); }
+    finally { actionPending.current = false; setBusy(false); }
   };
   const use = row => action(async () => {
     if (row.starter) {
@@ -72,7 +72,7 @@ export default function Library({ revision, loading = false, onClose, onPreset =
       const next = {...prev, [row.id]: !prev[row.id]};
       localStorage.setItem('cassian-factory-favorites', JSON.stringify(next)); return next;
     });
-    else if (native) await invoke('editAsset', row.id, {favorite: !row.favorite});
+    else if (native) return invoke(row.kind === 'rig' ? 'editRig' : 'editAsset', row.id, {favorite: !row.favorite});
     else writePreviewRigs(previewRigs().map(r => r.id === row.id ? {...r, favorite: !r.favorite} : r));
   });
   const rows = tab === 'rig' ? [
@@ -152,6 +152,34 @@ export default function Library({ revision, loading = false, onClose, onPreset =
           <label>Source URL<input name="sourceURL" defaultValue={detail.sourceURL || ''} key={`url-${detail.id}`} /></label>
           <label>Capture settings / mic / pickup notes<textarea name="notes" defaultValue={detail.notes || ''} key={`notes-${detail.id}`} /></label>
           <button className="text-button" disabled={busy}>Save metadata</button>
+        </form>}
+        {detail.kind === 'rig' && !detail.starter && !detail.preset && <button className="text-button quiet" disabled={busy || loading} aria-label={`Duplicate rig ${detail.name}`} onClick={() => action(async () => {
+          const copyName = `${detail.name.slice(0, 75)} copy`;
+          if (native) return invoke('duplicateRig', detail.id, copyName);
+          const original = previewRigs().find(r => r.id === detail.id);
+          if (!original) return 'Saved rig not found.';
+          writePreviewRigs([...previewRigs(), {...original, id: `preview-${Date.now()}-${Math.random()}`, name: copyName, favorite: false}]);
+        })}>Duplicate saved rig</button>}
+        {detail.kind === 'rig' && !detail.starter && !detail.preset && <form key={detail.id} aria-label="Saved rig metadata" onSubmit={e => {
+          e.preventDefault(); const changes = Object.fromEntries(new FormData(e.currentTarget));
+          changes.name = changes.name.trim(); changes.styles = [...new Set(changes.styles.toLowerCase().split(/[\s,;]+/).filter(Boolean))].join(', ');
+          action(async () => {
+            if (!changes.name) return 'Give the rig a name.';
+            if (native) return invoke('editRig', detail.id, changes);
+            const original = previewRigs().find(r => r.id === detail.id);
+            if (!original) return 'Saved rig not found.';
+            const updated = {...original, ...changes};
+            writePreviewRigs(previewRigs().map(r => r.id === detail.id ? updated : r));
+            if (previewActiveId === detail.id) onPreviewRig(updated);
+          });
+        }}>
+          <label>Saved rig name<input name="name" defaultValue={detail.name} maxLength={80} required disabled={busy || loading}/></label>
+          <label>Rig tags<input name="tags" defaultValue={detail.tags || ''} maxLength={1000} disabled={busy || loading}/></label>
+          <label>Rig styles (comma separated)<input name="styles" defaultValue={detail.styles.join(', ')} maxLength={1000} disabled={busy || loading}/></label>
+          <label>Rig gain<select name="gain" defaultValue={detail.gain} disabled={busy || loading}>{Object.entries(gainLabels).map(([id,label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+          <label>Rig notes<textarea name="notes" defaultValue={detail.notes || ''} maxLength={1000} disabled={busy || loading}/></label>
+          <button className="text-button" disabled={busy || loading}>Save rig metadata</button>
+          <p className="library-note">Changes names and search categories only. Duplicate copies the saved tone; current unsaved edits stay in your playing rig.</p>
         </form>}
       </aside>}</div>
       <div className="library-footer">

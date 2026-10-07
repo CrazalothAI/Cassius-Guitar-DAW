@@ -24,6 +24,8 @@ Output trims were adjusted using repeatable synthetic signals. Input calibration
 
 ## Distribution and installation
 
+For your own presets, 0.4.2 adds renaming, searchable style/gain/tags/notes and exact saved-tone duplication. Select a saved rig in Library → Presets to organize it without resaving its tone. See [saved-rig organization](SAVED-RIG-ORGANIZATION.md).
+
 `scripts/prepare-sound-bank.ps1` creates a portable `Sounds` directory from a managed library. The bank contains a relative, content-addressed manifest, the selected original files and notices. It excludes user paths, rig/session settings, favorites and recordings. The app validates every hash before importing the bank into the new user's own managed library; repeat launches do not duplicate entries or replace edited metadata. Installed standalone and VST3 share that user library. Portable users extract the whole ZIP, keeping Sounds beside Cassian.exe.
 
 Public bank preparation requires a per-asset source, redistribution permission record and original license/permission file. An example rights record has this shape (use actual evidence, never this placeholder):

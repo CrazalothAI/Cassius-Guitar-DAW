@@ -70,6 +70,8 @@ public:
     static juce::var startingRigCatalog();
     juce::String loadStartingRig(const juce::String& id);
     bool removeRig(const juce::String& id);
+    juce::String editRig(const juce::String& id, const juce::var& changes);
+    juce::String duplicateRig(const juce::String& id, const juce::String& name);
     bool editAsset(const juce::String& id, const juce::var& changes);
     bool selectAsset(const juce::String& id, bool cabinetB = false);
     juce::String relinkAsset(const juce::String& id, const juce::File& file);

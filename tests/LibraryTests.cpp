@@ -176,5 +176,55 @@ void runLibraryChecks(const juce::File& fixture)
     juce::AudioProcessor::copyXmlToBinary(*old.createXml(), session);
     imported.setStateInformation(session.getData(), static_cast<int>(session.getSize()));
     require(get(imported, "AMP_SOURCE") == 0 && get(imported, "CAB_MODE") == 0 && get(imported, "CAPTURE_KIND") == 0, "Old host sessions must keep their original routing defaults");
+    // Organizing a saved rig never captures unsaved playing edits or clears the
+    // comparison baseline. Shared metadata and copies survive an app restart.
+    {
+        const auto base=juce::File::getSpecialLocation(juce::File::tempDirectory);
+        const auto root=base.getNonexistentChildFile("Cassian-rig-organization-"+juce::Uuid().toString(),"",false);
+        require(root.createDirectory().wasOk(),"Rig organization storage must create");
+        struct Cleanup { juce::File root, base; ~Cleanup() {if(root.isAChildOf(base)) root.deleteRecursively();} } cleanup {root,base};
+        AmpSuiteAudioProcessor owner(true,root); dry(owner); set(owner,"AMP_SOURCE",4); set(owner,"EQ_MUD",2);
+        require(owner.saveRig("Saved clean").isEmpty(),"Organization fixture must save");
+        const auto id=owner.getLibrary()["rigs"][0]["id"].toString();
+        auto stored=juce::ValueTree::fromXml(*juce::XmlDocument::parse(root.getChildFile("library.xml"))).getChildWithProperty("id",id);
+        const auto tone=stored["state"].toString();
+        set(owner,"EQ_MUD",-2); require(static_cast<bool>(owner.status()["activeRigEdited"]),"Fixture must contain unsaved tone edits");
+        const auto metadata=juce::JSON::parse(R"({"name":"  Jazz practice  ","styles":"JAZZ, clean; jazz","gain":"clean","tags":"neck pickup","notes":"Warm sound for backing tracks","favorite":true})");
+        require(owner.editRig(id,metadata).isEmpty(),"Saved-rig metadata must persist");
+        auto listed=owner.getLibrary()["rigs"][0];
+        require(listed["name"].toString()=="Jazz practice" && listed["styles"].toString()=="jazz, clean" && listed["gain"].toString()=="clean" && static_cast<bool>(listed["favorite"]),"Metadata must normalize styles and retain categories/favorite");
+        require(owner.status()["activeRigName"].toString()=="Jazz practice" && static_cast<bool>(owner.status()["activeRigEdited"]) && get(owner,"EQ_MUD")==-2,"Rename must update active identity without resetting edits or playing controls");
+        juce::MemoryBlock organizedSession; owner.getStateInformation(organizedSession);
+        AmpSuiteAudioProcessor sessionCopy(false); sessionCopy.setStateInformation(organizedSession.getData(),static_cast<int>(organizedSession.getSize())); settle(sessionCopy);
+        require(sessionCopy.getLibrary()["rigs"][0]["notes"]==listed["notes"] && sessionCopy.status()["activeRigName"].toString()=="Jazz practice" && static_cast<bool>(sessionCopy.status()["activeRigEdited"]),"Native session restore must retain metadata, renamed identity and unsaved edits");
+        require(owner.duplicateRig(id,"Jazz alternate").isEmpty(),"Saved rig must duplicate");
+        auto rigs=owner.getLibrary()["rigs"]; require(rigs.size()==2,"Duplication must create a second ID");
+        const auto copyId=rigs[1]["id"].toString();
+        require(copyId!=id && rigs[1]["styles"]==listed["styles"] && rigs[1]["notes"]==listed["notes"] && !static_cast<bool>(rigs[1]["favorite"]),"Copy must inherit searchable metadata with an independent ID and favorite");
+        const auto disk=juce::ValueTree::fromXml(*juce::XmlDocument::parse(root.getChildFile("library.xml")));
+        require(disk.getChildWithProperty("id",id)["state"].toString()==tone && disk.getChildWithProperty("id",copyId)["state"].toString()==tone,"Metadata and duplication must preserve the saved snapshot byte-for-byte");
+        require(owner.status()["activeRigId"].toString()==id && get(owner,"EQ_MUD")==-2,"Duplication must not activate the copy or include unsaved edits");
+        AmpSuiteAudioProcessor reopened(true,root);
+        require(reopened.getLibrary()["rigs"].size()==2 && reopened.getLibrary()["rigs"][0]["notes"]==listed["notes"],"Categories, notes and copies must survive restart");
+        require(reopened.loadRig(copyId).isEmpty(),"Copied saved tone must recall"); settle(reopened);
+        require(get(reopened,"EQ_MUD")==2 && reopened.status()["activeRigId"].toString()==copyId && reopened.status()["activeRigName"].toString()=="Jazz alternate","Copy recall must load saved audio settings with the new identity");
+        require(reopened.saveRig("Another instance's rig").isEmpty(),"Another instance must save an independent entry");
+        require(owner.editRig(id,metadata).isEmpty() && owner.getLibrary()["rigs"].size()==3,"Metadata writes must preserve another instance's added rig");
+        const auto before=juce::JSON::toString(owner.getLibrary());
+        for (const auto& invalid : {juce::String(R"({"name":" "})"),juce::String(R"({"gain":"extreme"})"),juce::String(R"({"favorite":1})"),juce::String(R"({"state":"overwrite"})"),juce::String(R"({"notes":12})")})
+            require(owner.editRig(id,juce::JSON::parse(invalid)).isNotEmpty(),"Invalid metadata must reject before changing a rig");
+        auto longName=std::make_unique<juce::DynamicObject>();longName->setProperty("name",juce::String::repeatedString("x",81));
+        require(owner.editRig(id,juce::var(longName.release())).isNotEmpty() && juce::JSON::toString(owner.getLibrary())==before,"Overlong name and invalid fields must leave metadata intact");
+        require(owner.duplicateRig("missing","Copy").isNotEmpty() && owner.duplicateRig(id," ").isNotEmpty() && owner.duplicateRig(id,juce::String::repeatedString("x",81)).isNotEmpty(),"Unknown rigs and invalid copy names must reject");
+        require(owner.editRig("missing",metadata).isNotEmpty(),"Unknown metadata targets must reject");
+        // A corrupt shared manifest forces persistence failure without granting
+        // the new metadata/copy or overwriting the damaged file.
+        require(root.getChildFile("library.xml").replaceWithText("broken manifest"),"Persistence failure fixture must write");
+        const auto failureState=juce::JSON::toString(owner.getLibrary());
+        require(owner.editRig(id,juce::JSON::parse(R"({"name":"Should not stick"})")).isNotEmpty(),"Failed metadata write must report an error");
+        require(owner.duplicateRig(id,"Failed copy").isNotEmpty(),"Failed duplication must report an error");
+        require(juce::JSON::toString(owner.getLibrary()["rigs"])==juce::JSON::toString(juce::JSON::parse(failureState)["rigs"]) && owner.status()["activeRigName"].toString()=="Jazz practice","Persistence failures must roll back metadata and copies");
+        require(root.getChildFile("library.xml").loadFileAsString()=="broken manifest","Failures must not overwrite the shared manifest");
+    }
     std::cout << "Library, universal amp, and complete rig checks passed\n";
 }

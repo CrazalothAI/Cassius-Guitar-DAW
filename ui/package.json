@@ -1,5 +1,5 @@
 {
-  "name": "cassian-ui", "version": "0.4.1", "private": true, "type": "module",
+  "name": "cassian-ui", "version": "0.4.2", "private": true, "type": "module",
   "author": "Crazaloth",
   "scripts": { "dev": "vite --host 127.0.0.1", "build": "vite build --configLoader runner", "preview": "vite preview --host 127.0.0.1", "test": "vitest run --configLoader runner" },
   "dependencies": { "react": "19.0.0", "react-dom": "19.0.0" },

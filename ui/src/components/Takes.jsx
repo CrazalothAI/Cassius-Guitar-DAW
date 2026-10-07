@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
 
 const clock = x => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, '0')}`;
@@ -18,7 +18,7 @@ export default function Takes({ status, onError }) {
   const rigBusy = recovering || status.rigLoading;
   const duration = chosen ? (selectedVersion?.frames ?? chosen.frames) / chosen.sampleRate : 0;
   const rangeValid = Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start && end <= duration + 1e-6;
-  useEffect(() => { setStart(0); setEnd(duration); }, [selected, version, duration]);
+  useLayoutEffect(() => { setStart(0); setEnd(duration); }, [selected, version, duration]);
   useEffect(() => {
     let active = true;
     if (available) invoke('getTakes').then(list => {
@@ -28,7 +28,7 @@ export default function Takes({ status, onError }) {
     }).catch(() => { if (active) onError({title: 'Takes', text: 'Couldn’t read your take library.'}); });
     return () => { active = false; };
   }, [available, status.takes?.revision]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setName(chosen?.name ?? ''); setFavorite(!!chosen?.favorite); setVersion('processed');
     setIncludeBacking(Boolean(chosen?.hasBacking)); setGuitarDb(0); setBackingDb(0);
     setFadeMs(10);
