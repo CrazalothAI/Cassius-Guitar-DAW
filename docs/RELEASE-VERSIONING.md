@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 0.7.0 is a development preview. The distortion, plate and complete-starter milestone is documented in [0.7.0 notes](RELEASE-0.7.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 0.7.1 is a development preview. Spring reverb is documented in [0.7.1 notes](RELEASE-0.7.1.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 

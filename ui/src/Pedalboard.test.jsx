@@ -10,6 +10,16 @@ afterEach(() => { cleanup(); bridge.native = true; bridge.invoke.mockReset(); })
 const block = (type, slot, lane = 'post') => { const kind = boardTypes.indexOf(type); return {id: `${type}.${slot}`, type, automationSlot: slot, lane, enabledId: boardOnId(kind, slot), trimId: `BOARD_${type.replaceAll('-', '_').toUpperCase()}_${slot}_TRIM`}; };
 const status = rows => ({board: {serial: true, blocks: rows, reserved: rows.length, canUndo: true, canRedo: false}, libraryRevision: 1});
 describe('independent serial pedalboard', () => {
+  it('adds spring after the cabinet and gives its duplicate separate drip controls',async()=>{
+    bridge.invoke.mockResolvedValue('');setParameter('BOARD_SPRING_0_SPRING_DRIP',25);
+    render(<Pedalboard status={status([block('spring',0),block('spring',1)])}/>);
+    fireEvent.click(screen.getByRole('button',{name:/02 Spring 2/}));
+    fireEvent.change(within(screen.getByRole('region',{name:'Selected pedal controls'})).getByRole('slider',{name:'Drip'}),{target:{value:'80'}});
+    expect(readParameter('BOARD_SPRING_1_SPRING_DRIP')).toBe(80);expect(readParameter('BOARD_SPRING_0_SPRING_DRIP')).toBe(25);
+    fireEvent.change(screen.getByRole('combobox',{name:'New pedal type'}),{target:{value:'spring'}});
+    expect(screen.getByRole('combobox',{name:'New pedal position'}).value).toBe('post');
+    fireEvent.click(screen.getByRole('button',{name:'Add pedal'}));await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('boardCommand','add',{type:'spring',lane:'post'}));
+  });
   it('adds plate after the cabinet and keeps duplicate decay controls independent',async()=>{
     bridge.invoke.mockResolvedValue('');setParameter('BOARD_PLATE_0_PLATE_DECAY',3);
     render(<Pedalboard status={status([block('plate',0),block('plate',1)])}/>);

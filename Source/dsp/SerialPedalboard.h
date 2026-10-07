@@ -9,6 +9,7 @@
 #include "WahPedal.h"
 #include "DistortionPedal.h"
 #include "PlateReverb.h"
+#include "SpringReverb.h"
 
 // Construct/prepare/retire on the loader thread. The callback reads cached
 // atomic parameters and uses bounded scratch storage; it never touches trees.
@@ -21,7 +22,7 @@ class SerialPedalboard {
         juce::AudioBuffer<float> wet, room;
         StudioCompressor compressor; Overdrive drive; PedalEq eq;
         ModulationPedal modulation; StereoChorus chorus;
-        WahPedal wah; DistortionPedal distortion; PlateReverb plate;
+        WahPedal wah; DistortionPedal distortion; PlateReverb plate; SpringReverb spring;
         juce::dsp::DelayLine<float, juce::dsp::DelayLineInterpolationTypes::Linear> delay, roomDelay;
         juce::dsp::Reverb reverb;
         std::unique_ptr<juce::dsp::Convolution> ambience;
@@ -46,6 +47,7 @@ class SerialPedalboard {
                     rv.damping = v(3) / 100; rv.wetLevel = v(0) / 100; rv.dryLevel = 0; reverb.setParameters(rv);
                     mix.setTargetValue(v(0) / 100); predelay.setTargetValue(v(4) * static_cast<float>(rate) / 1000); break;
                 }
+                case 12: spring.configure({v(0), v(1), v(2), v(3), v(4)}); break;
                 case 11: plate.configure({v(0), v(1), v(2), v(3), v(4)}); break;
                 case 10: distortion.configure({v(0), v(1), v(2), v(3), v(4)}); break;
                 case 9: wah.configure({juce::roundToInt(v(0)), v(1), v(2), v(3), v(4)}); break;
@@ -99,6 +101,7 @@ class SerialPedalboard {
                     }
                     ambience->prepare(spec); mix.setCurrentAndTargetValue(saved[0] / 100); break;
                 }
+                case 12: spring.prepare(spec, {saved[0], saved[1], saved[2], saved[3], saved[4]}); break;
                 case 11: plate.prepare(spec, {saved[0], saved[1], saved[2], saved[3], saved[4]}); break;
                 case 10: distortion.prepare(rate, static_cast<int>(spec.maximumBlockSize), {saved[0], saved[1], saved[2], saved[3], saved[4]}); break;
                 case 9: wah.prepare(spec, {juce::roundToInt(saved[0]), saved[1], saved[2], saved[3], saved[4]}); break;
@@ -132,6 +135,7 @@ class SerialPedalboard {
                 case 3: eq.process(chunk); break;
                 case 4: modulation.process(chunk); break;
                 case 5: chorus.process(context); break;
+                case 12: spring.process(chunk); break;
                 case 11: plate.process(chunk); break;
                 case 10: distortion.process(chunk.getWritePointer(0), n); break;
                 case 9: wah.process(chunk); break;

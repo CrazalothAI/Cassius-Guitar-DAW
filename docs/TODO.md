@@ -38,6 +38,8 @@
 - [x] Add 0.6.2 original stereo plate-style reverb with independent instances, old-state migration and complete rig/scene/pack recall.
 - [x] Add 0.7.0 four file-free distortion/plate starter rigs with complete recall and reference-level checks.
 
+- [x] Add 0.7.1 original spring-style reverb with separate dispersion controls, appended automation and compatible recall.
+
 ## After the app is more mature
 
 - Plan and build a polished Cassian website for promotion, demos, easy Windows downloads, documentation, support and suggestions.
