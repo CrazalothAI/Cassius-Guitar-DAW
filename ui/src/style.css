@@ -619,3 +619,6 @@ footer .warn { color: #efb86a; }
 .midi-learning { color: var(--gold); font-size: 11px; }
 .video-export { border-top: 1px solid #353b3a; padding-top: 10px; margin-top: 8px; }
 .video-export summary { cursor: pointer; color: #cdd7d3; font-weight: 600; }
+.take-range { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin: 12px 0; }
+.take-range label { display: grid; gap: 5px; flex: 1; min-width: 110px; }
+.take-range input { width: 100%; min-width: 0; background: #101211; border: 1px solid #504739; color: #e4dfd4; border-radius: 4px; padding: 7px 9px; font-size: 11px; }

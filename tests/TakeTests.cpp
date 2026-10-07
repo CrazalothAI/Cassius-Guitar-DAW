@@ -8,13 +8,16 @@ template <typename Predicate> void waitFor(Predicate ready) {
     require(false, "Take library worker timed out");
 }
 void set(AmpSuiteAudioProcessor& p, const char* id, float value) { auto* param = p.apvts.getParameter(id); param->setValueNotifyingHost(param->convertTo0to1(value)); }
-void write(const juce::File& file, int channels, int frames, double rate, float value) {
+void write(const juce::File& file, int channels, int frames, double rate, float value, bool step = false) {
     juce::WavAudioFormat format; auto stream = file.createOutputStream();
     std::unique_ptr<juce::AudioFormatWriter> writer(format.createWriterFor(stream.release(), rate, static_cast<unsigned>(channels), 32, {}, 0));
     require(writer != nullptr, "Take fixture writer must open");
     juce::AudioBuffer<float> audio(channels, 1024);
     for (int ch = 0; ch < channels; ++ch) for (int i = 0; i < 1024; ++i) audio.setSample(ch, i, value);
-    for (int offset = 0; offset < frames; offset += 1024) require(writer->writeFromAudioSampleBuffer(audio, 0, juce::jmin(1024, frames - offset)), "Take fixture must write");
+    for (int offset = 0; offset < frames; offset += 1024) {
+        if (step) for (int ch = 0; ch < channels; ++ch) for (int i = 0; i < 1024; ++i) audio.setSample(ch,i,offset+i < frames/2 ? value * .4f : value);
+        require(writer->writeFromAudioSampleBuffer(audio, 0, juce::jmin(1024, frames - offset)), "Take fixture must write");
+    }
 }
 void makeTake(const juce::File& folder, int frames = 4096, double rate = 48000) {
     require(folder.createDirectory().wasOk(), "Take fixture directory must create");
@@ -42,7 +45,7 @@ void runTakeChecks()
     for (double rate : {44100., 48000., 96000.}) {
         const auto videoFolder = root.getChildFile("Video take " + juce::String(rate)); makeTake(videoFolder, static_cast<int>(rate / 10), rate);
         require(videoFolder.getChildFile("Guitar processed.wav").deleteFile(), "Replace temporary video fixture");
-        write(videoFolder.getChildFile("Guitar processed.wav"),2,static_cast<int>(rate / 10),rate,.25f);
+        write(videoFolder.getChildFile("Guitar processed.wav"),2,static_cast<int>(rate / 10),rate,.25f,true);
         write(videoFolder.getChildFile("Backing track.wav"),2,static_cast<int>(rate / 10),rate,.125f);
         PracticeEngine review; TakeLibrary video({},review); video.importFolder(videoFolder);
         waitFor([&] {return video.list().size()==1;}); const auto id=video.list()[0]["id"].toString();
@@ -60,6 +63,22 @@ void runTakeChecks()
         require(audio.getMagnitude(0,4800)<.892f && audio.getMagnitude(0,4800)>.88f,"Hot mixed soundtrack must retain -1 dBFS peak headroom");
         const auto hash=juce::SHA256(destination).toHexString();require(video.videoExport(id,"processed",destination,false,0,0).isNotEmpty() && juce::SHA256(destination).toHexString()==hash,"Video export must never overwrite an existing file");
         require(video.videoExport(id,"missing",root.getChildFile("no.wav"),false,0,0).isNotEmpty(),"Unknown video take version must reject");
+        const auto trimmed=root.getChildFile("Trimmed " + juce::String(rate) + ".wav");
+        require(video.videoExport(id,"processed",trimmed,true,0,-6,.02,.08,.01).isEmpty(),"Trimmed mix must queue");
+        waitFor([&]{return !static_cast<bool>(video.status()["exporting"]);});
+        reader.reset(formats.createReaderFor(trimmed));
+        require(reader && reader->lengthInSamples==2880,"Trimmed mix duration must be exact at every source rate");
+        require(reader->read(&audio,0,2880,0,true,true),"Trimmed mix must decode");
+        require(std::abs(audio.getSample(0,0))<1.e-6 && std::abs(audio.getSample(0,2879))<1.e-6,"Fades must silence both boundary samples");
+        require(std::abs(audio.getSample(0,2000)-expected)<.002,"Trim must seek both passes and preserve interior balance");
+        require(std::abs(audio.getSample(0,1000)-(.1f+.125f*juce::Decibels::decibelsToGain(-6.f)))<.002,"Trimmed content must retain its original timeline");
+        for (const auto range : {std::pair<double,double>{-.1,.08}, {.08,.02}, {0,.2}})
+            require(video.videoExport(id,"processed",root.getChildFile("invalid.wav"),false,0,0,range.first,range.second,.01).isNotEmpty(),"Invalid export bounds must reject before queuing");
+        require(video.videoExport(id,"processed",root.getChildFile("invalid.wav"),false,0,0,0,-1,.101).isNotEmpty(),"Oversized fades must reject");
+        const auto cancelledFile=root.getChildFile("Cancelled " + juce::String(rate) + ".wav");
+        video.videoExport(id,"processed",cancelledFile,true,0,0); video.cancelExport();
+        waitFor([&]{return !static_cast<bool>(video.status()["exporting"]);});
+        require(!cancelledFile.exists(),"Cancelled video mix must discard partial output");
     }
     // Original snapshots from before board metadata are migrated in the isolated
     // renderer. The original take and its reference document remain untouched.
@@ -130,6 +149,51 @@ void runTakeChecks()
             require(oldRendered.getSample(channel, sample) == rendered.getSample(channel, sample), "Legacy and new take snapshots must render identical audio");
         require(juce::SHA256(originalRigFile).toHexString() == originalRigHash, "Reamping must never rewrite a legacy Original rig.json");
         require(juce::SHA256(folder.getChildFile("Guitar dry.wav")).toHexString() == dryHash && juce::SHA256(folder.getChildFile("Guitar processed.wav")).toHexString() == wetHash, "Reamping must leave both originals byte-identical");
+    }
+    // Reamp tails preserve effects, align the original backing and survive reopening.
+    {
+        const auto tailFolder = root.getChildFile("Tail take"), tailCatalog = root.getChildFile("tail.xml"); makeTake(tailFolder);
+        write(tailFolder.getChildFile("Backing track.wav"),2,4096,48000,.125f);
+        const auto originalHash = juce::SHA256(tailFolder.getChildFile("Guitar dry.wav")).toHexString();
+        juce::String versionId;
+        {
+            PracticeEngine review; TakeLibrary library(tailCatalog,review); imported(library,tailFolder);
+            const auto id=first(library)["id"].toString();
+            AmpSuiteAudioProcessor p(false); set(p,"AMP_SOURCE",4); set(p,"CAB_MODE",3); set(p,"GATE_ON",0);
+            set(p,"DELAY_TIME",40); set(p,"DELAY_MIX",50); set(p,"DELAY_FEEDBACK",50);
+            const auto snapshot=p.getRig();
+            for (double invalid : {-1.,31.,std::numeric_limits<double>::quiet_NaN()})
+                require(library.reamp(id,snapshot,invalid).isNotEmpty(),"Invalid tails must reject before queuing");
+            require(library.reamp(id,snapshot,.25).isEmpty(),"Reamp with tail must queue");
+            waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(library.status()["error"].toString().isEmpty(),"Tail render must complete");
+            const auto version=first(library)["versions"][0]; versionId=version["id"].toString();
+            require(static_cast<juce::int64>(version["frames"])==16096 && static_cast<double>(version["tailSeconds"])==.25,"Tail duration must be cataloged exactly");
+            juce::AudioFormatManager formats; formats.registerBasicFormats();
+            std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(juce::File(version["path"].toString())));
+            juce::AudioBuffer<float> audio(2,16096); require(reader && reader->lengthInSamples==16096 && reader->read(&audio,0,16096,0,true,true),"Extended reamp must decode");
+            require(audio.getMagnitude(4096,4000)>.001f,"Delay must ring into appended silence");
+            const auto guitarOnly=root.getChildFile("Tail guitar.wav"), withBacking=root.getChildFile("Tail mix.wav");
+            require(library.videoExport(id,versionId,guitarOnly,false,0,0).isEmpty(),"Extended guitar export must queue");
+            waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(library.videoExport(id,versionId,withBacking,true,0,0).isEmpty(),"Original backing must mix with extended reamp");
+            waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(library.status()["error"].toString().isEmpty(),"Extended backing export must succeed");
+            reader.reset(formats.createReaderFor(guitarOnly)); juce::AudioBuffer<float> guitar(2,16096);
+            require(reader && reader->read(&guitar,0,16096,0,true,true),"Tail guitar soundtrack must decode");
+            reader.reset(formats.createReaderFor(withBacking)); require(reader && reader->lengthInSamples==16096 && reader->read(&audio,0,16096,0,true,true),"Tail mix must retain duration");
+            require(std::abs(audio.getSample(0,2000)-guitar.getSample(0,2000)-.125f)<.002f,"Backing must stay aligned before its end");
+            require(std::abs(audio.getSample(0,8000)-guitar.getSample(0,8000))<.00001f,"Backing must be silent throughout the appended tail");
+            const auto tailOnly=root.getChildFile("Tail only.wav");
+            require(library.videoExport(id,versionId,tailOnly,true,0,0,.15,.25,.1).isEmpty(),"A short selection entirely in the tail must queue");
+            waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(library.status()["error"].toString().isEmpty(),"Tail selection beyond backing end must export");
+            reader.reset(formats.createReaderFor(tailOnly)); require(reader && reader->lengthInSamples==4800 && reader->read(&audio,0,4800,0,true,true),"Short selection must clamp fades and preserve duration");
+            require(std::abs(audio.getSample(0,0))<1.e-6 && std::abs(audio.getSample(0,4799))<1.e-6,"Clamped fades must silence boundaries");
+            require(juce::SHA256(tailFolder.getChildFile("Guitar dry.wav")).toHexString()==originalHash,"Tail rendering must preserve the dry recording");
+        }
+        PracticeEngine review; TakeLibrary reopened(tailCatalog,review); waitFor([&]{return reopened.list().size()==1;});
+        require(first(reopened)["versions"][0]["id"].toString()==versionId && static_cast<juce::int64>(first(reopened)["versions"][0]["frames"])==16096,"Tail metadata must survive restart");
     }
     // New processor recordings automatically enter the catalog with their rig.
     {

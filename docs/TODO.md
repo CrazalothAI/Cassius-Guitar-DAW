@@ -17,6 +17,7 @@
 - [x] Record synchronized backing stems and export selected takes/reamps as 48 kHz / 24-bit stereo audio for video editing.
 - [ ] Verify a real exported take with camera footage in Clipchamp.
 - [x] Unify app/plugin/editor/installer versions; add versioned download copies, checksums, build metadata and installer registration checks.
+- [x] Add 0.3.0 reamp effect tails and non-destructive soundtrack ranges/fades, including synchronized backing with extended versions.
 - [ ] Sign and validate a versioned preview on a fresh PC; complete sustained interface and real DAW checks before a paid release.
 - Validation and remaining limits: [Play Along and navigation](PLAY-ALONG-NAVIGATION.md).
 - Pedalboard contract and next stage: [Pedalboard state](PEDALBOARD-STATE.md). Capture evidence: [Sound intake](SOUND-INTAKE.md).

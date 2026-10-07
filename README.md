@@ -8,13 +8,15 @@ The current source adds listening-only Play Along controls and clear Tone, Board
 
 Use **Library → Import sound ZIPs** to add supported NAM/WAV collections without extracting folders. Amps, captured drives, cabinets and recorded ambience have separate library categories. In a serial board, assign a captured pedal or ambience response in its selected-pedal inspector, then switch it on. The [October sound intake](docs/SOUND-INTAKE-OCTOBER.md) records the supplied packs and their limits.
 
+**0.3.0 improves audio for video editing.** Reamps can retain delay/reverb tails, and soundtrack exports support start/end trimming with adjustable edge fades. Recordings stay untouched, including when mixing original backing with an extended reamp. See [0.3.0 release notes](docs/RELEASE-0.3.0.md).
+
 ## Download and launch
 
 This README describes the development source; public downloads can lag the current feature branch. Local milestone builds are not automatically published or merged.
 
 Download **[Cassian-Setup.exe](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/download/latest/Cassian-Setup.exe)** from [Latest Windows download](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/tag/latest), run it, and follow the installer. Then open **Cassian** from the Windows Start menu. Setup offers an optional desktop shortcut and VST3 plugin; administrator access is not required. It checks for Microsoft WebView2 and installs the runtime when missing (internet access is needed for that step).
 
-The current source version is **0.2.0 preview**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
+The current source version is **0.3.0 preview**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
 
 The app installs to `%LOCALAPPDATA%\Programs\Cassian`. Run a newer installer to update it in place; close Cassian and any DAW using its plugin first. Uninstall through **Windows Settings → Apps → Cassian**. Saved settings, managed captures/rigs, practice sections and recordings are retained. Optional VST3 installation uses `%LOCALAPPDATA%\Programs\Common\VST3\Cassian.vst3`; rescan your DAW and add that location to its plugin paths if needed.
 

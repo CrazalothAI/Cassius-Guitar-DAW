@@ -1,5 +1,6 @@
 #include "TakeLibrary.h"
 #include "PluginProcessor.h"
+#include <cmath>
 
 namespace {
 void require(bool condition, const juce::String& reason) { if (!condition) throw std::runtime_error(reason.toStdString()); }
@@ -34,8 +35,9 @@ juce::String TakeLibrary::preview(const juce::String& id, const juce::String& ve
     jobs.push_back(std::move(job)); error.clear(); notify(); return {};
 }
 void TakeLibrary::stopReview() { const juce::ScopedLock guard(lock); ++reviewGeneration; review.command("stop"); }
-juce::String TakeLibrary::reamp(const juce::String& id, const juce::var& rig)
+juce::String TakeLibrary::reamp(const juce::String& id, const juce::var& rig, double tailSeconds)
 {
+    if (!std::isfinite(tailSeconds) || tailSeconds < 0 || tailSeconds > 30) return "Choose a reamp tail between 0 and 30 seconds.";
     const juce::ScopedLock guard(lock);
     if (!find(id).isValid()) return "Take not found.";
     if (static_cast<bool>(find(id)["incomplete"])) return "Check this incomplete recording before using it; choose a complete take to reamp.";
@@ -43,7 +45,7 @@ juce::String TakeLibrary::reamp(const juce::String& id, const juce::var& rig)
     if (!rig.isObject() || rig.hasProperty("error")) return "Finish loading your rig before reamping.";
     if (exporting.exchange(true)) return "An export is already running.";
     cancelled.store(false); progress.store(0); activeId = id; error.clear();
-    Job job; job.type = "reamp"; job.id = id; job.rig = juce::JSON::parse(juce::JSON::toString(rig)); jobs.push_back(std::move(job)); notify(); return {};
+    Job job; job.type = "reamp"; job.id = id; job.tailSeconds = tailSeconds; job.rig = juce::JSON::parse(juce::JSON::toString(rig)); jobs.push_back(std::move(job)); notify(); return {};
 }
 void TakeLibrary::importTake(const juce::File& folder)
 {
@@ -108,6 +110,8 @@ void TakeLibrary::exportReamp(const Job& job)
     juce::AudioFormatManager formats; formats.registerBasicFormats();
     std::unique_ptr<juce::AudioFormatReader> dry(formats.createReaderFor(folder.getChildFile("Guitar dry.wav")));
     require(dry && dry->numChannels == 1 && dry->lengthInSamples > 0 && dry->sampleRate >= 8000 && dry->sampleRate <= 384000 && dry->lengthInSamples * 8. < 4293918720., "Dry take is missing or too large to reamp to a standard WAV.");
+    const auto frames = dry->lengthInSamples + static_cast<juce::int64>(std::llround(job.tailSeconds * dry->sampleRate));
+    require(frames * 8. < 4293918720., "Take including its tail is too large for a standard WAV.");
     AmpSuiteAudioProcessor renderer(false); renderer.setNonRealtime(true); renderer.prepareToPlay(dry->sampleRate, 1024);
     const auto failure = renderer.applyRig(job.rig, false); require(failure.isEmpty(), failure);
     const auto deadline = juce::Time::getMillisecondCounterHiRes() + 30000;
@@ -127,12 +131,14 @@ void TakeLibrary::exportReamp(const Job& job)
     std::unique_ptr<juce::AudioFormatWriter> writer(wav.createWriterFor(stream.get(), dry->sampleRate, 2, 32, {}, 0));
     require(writer != nullptr, "Could not create reamp WAV writer."); stream.release();
     juce::AudioBuffer<float> audio(2, 1024);
-    for (juce::int64 offset = 0; offset < dry->lengthInSamples; offset += 1024) {
+    for (juce::int64 offset = 0; offset < frames; offset += 1024) {
         if (cancelled.load() || threadShouldExit()) return; // TemporaryFile removes the partial file.
-        const int n = static_cast<int>(juce::jmin<juce::int64>(1024, dry->lengthInSamples - offset));
-        audio.clear(); require(dry->read(&audio, 0, n, offset, true, false), "Could not read the dry take.");
+        const int n = static_cast<int>(juce::jmin<juce::int64>(1024, frames - offset));
+        audio.clear();
+        const int input = static_cast<int>(juce::jlimit<juce::int64>(0, n, dry->lengthInSamples - offset));
+        if (input > 0) require(dry->read(&audio, 0, input, offset, true, false), "Could not read the dry take.");
         renderer.renderGuitarOffline(audio, n);
-        require(writer->writeFromAudioSampleBuffer(audio, 0, n), "Reamp disk write failed."); progress.store((offset + n) / static_cast<double>(dry->lengthInSamples));
+        require(writer->writeFromAudioSampleBuffer(audio, 0, n), "Reamp disk write failed."); progress.store((offset + n) / static_cast<double>(frames));
     }
     writer.reset();
     if (cancelled.load() || threadShouldExit()) return;
@@ -140,6 +146,7 @@ void TakeLibrary::exportReamp(const Job& job)
     require(rigFile.replaceWithText(juce::JSON::toString(job.rig)), "Reamp audio saved, but its rig snapshot could not be saved.");
     { const juce::ScopedLock guard(lock); auto take = find(job.id); juce::ValueTree version("REAMP");
       version.setProperty("id", id, nullptr); version.setProperty("path", destination.getFullPathName(), nullptr);
+      version.setProperty("frames", frames, nullptr); version.setProperty("tailSeconds", job.tailSeconds, nullptr);
       version.setProperty("name", "Reamp " + juce::Time::getCurrentTime().formatted("%H:%M:%S"), nullptr); version.setProperty("rigPath", rigFile.getFullPathName(), nullptr);
       take.addChild(version, -1, nullptr); ++revision; }
     persist(job.id);

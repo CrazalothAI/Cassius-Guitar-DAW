@@ -127,14 +127,20 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("reampTake", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Reamping is available in the standalone app.")); return; }
             if (static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish the recording before starting an export.")); return; }
-            complete(args.size() == 1 && args[0].isString() ? processor.takes.reamp(args[0].toString(), processor.getRig()) : juce::String("Choose a take to reamp."));
+            const auto numeric = [](const juce::var& v) { return v.isInt() || v.isInt64() || v.isDouble(); };
+            complete((args.size() == 1 || (args.size() == 2 && numeric(args[1]))) && args[0].isString() ? processor.takes.reamp(args[0].toString(), processor.getRig(), args.size() == 2 ? static_cast<double>(args[1]) : 0) : juce::String("Choose a take and valid tail to reamp."));
         })
         .withNativeFunction("cancelReamp", [this](const auto&, auto complete) { processor.takes.cancelExport(); complete(juce::String()); })
         .withNativeFunction("exportVideoAudio", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish recording in standalone before exporting.")); return; }
-            if (args.size() != 5 || !args[0].isString() || !args[1].isString() || !args[2].isBool()
-                || !(args[3].isInt() || args[3].isDouble()) || !(args[4].isInt() || args[4].isDouble())) { complete(juce::String("Invalid video export request.")); return; }
-            chooseVideoAudio(args[0].toString(), args[1].toString(), static_cast<bool>(args[2]), static_cast<float>(args[3]), static_cast<float>(args[4])); complete(juce::String());
+            const auto numeric = [](const juce::var& v) { return (v.isInt() || v.isInt64() || v.isDouble()) && std::isfinite(static_cast<double>(v)); };
+            if ((args.size() != 5 && args.size() != 8) || !args[0].isString() || !args[1].isString() || !args[2].isBool()
+                || !numeric(args[3]) || !numeric(args[4]) || (args.size() == 8 && (!numeric(args[5]) || !numeric(args[6]) || !numeric(args[7])))) { complete(juce::String("Invalid video export request.")); return; }
+            const auto start = args.size() == 8 ? static_cast<double>(args[5]) : 0;
+            const auto end = args.size() == 8 ? static_cast<double>(args[6]) : -1;
+            const auto fade = args.size() == 8 ? static_cast<double>(args[7]) : 0;
+            if (start < 0 || (end != -1 && end <= start) || fade < 0 || fade > .1 || static_cast<double>(args[3]) < -60 || static_cast<double>(args[3]) > 12 || static_cast<double>(args[4]) < -60 || static_cast<double>(args[4]) > 12) { complete(juce::String("Invalid export range, fade or balance.")); return; }
+            chooseVideoAudio(args[0].toString(), args[1].toString(), static_cast<bool>(args[2]), static_cast<float>(args[3]), static_cast<float>(args[4]), start, end, fade); complete(juce::String());
         })
         .withNativeFunction("revealVideoExport", [this](const auto&, auto complete) { complete(processor.takes.revealExport()); })
         .withNativeFunction("revealTake", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isString() ? processor.takes.reveal(args[0].toString()) : juce::String("Take not found.")); })
@@ -176,19 +182,19 @@ AmpSuiteAudioProcessorEditor::~AmpSuiteAudioProcessorEditor()
         processor.midiControl.learn(-1);
 }
 void AmpSuiteAudioProcessorEditor::resized() { webView->setBounds(getLocalBounds()); }
-void AmpSuiteAudioProcessorEditor::chooseVideoAudio(const juce::String& id, const juce::String& version, bool backing, float guitarDb, float backingDb)
+void AmpSuiteAudioProcessorEditor::chooseVideoAudio(const juce::String& id, const juce::String& version, bool backing, float guitarDb, float backingDb, double start, double end, double fade)
 {
     if (chooser) return;
     chooser = std::make_unique<juce::FileChooser>("Save video soundtrack (48 kHz / 24-bit stereo WAV)",
         juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Cassian soundtrack.wav"), "*.wav");
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
-        [safe, id, version, backing, guitarDb, backingDb](const juce::FileChooser& dialog) {
+        [safe, id, version, backing, guitarDb, backingDb, start, end, fade](const juce::FileChooser& dialog) {
             if (safe == nullptr) return;
             const auto destination = dialog.getResult();
             if (destination != juce::File()) {
                 const auto failure = static_cast<int>(safe->processor.practice.status()["recordMode"]) != 0 ? juce::String("Finish recording before exporting.")
-                    : safe->processor.takes.videoExport(id, version, destination.withFileExtension("wav"), backing, guitarDb, backingDb);
+                    : safe->processor.takes.videoExport(id, version, destination.withFileExtension("wav"), backing, guitarDb, backingDb, start, end, fade);
                 if (failure.isNotEmpty()) safe->processor.reportLibraryResult("Load failed: " + failure);
             }
             safe->chooser.reset();

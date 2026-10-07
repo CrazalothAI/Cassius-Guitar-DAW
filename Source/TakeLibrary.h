@@ -12,8 +12,8 @@ public:
     void importFolder(const juce::File&);
     juce::String edit(const juce::String& id, const juce::String& name, bool favorite);
     juce::String preview(const juce::String& id, const juce::String& version);
-    juce::String reamp(const juce::String& id, const juce::var& rig);
-    juce::String videoExport(const juce::String& id, const juce::String& version, const juce::File& destination, bool backing, float guitarDb, float backingDb);
+    juce::String reamp(const juce::String& id, const juce::var& rig, double tailSeconds = 0);
+    juce::String videoExport(const juce::String& id, const juce::String& version, const juce::File& destination, bool backing, float guitarDb, float backingDb, double startSeconds = 0, double endSeconds = -1, double fadeSeconds = 0);
     void stopReview();
     void cancelExport() { cancelled.store(true); }
     juce::var list();
@@ -21,7 +21,7 @@ public:
     juce::String reveal(const juce::String& id);
     juce::String revealExport();
 private:
-    struct Job { juce::String type, id, name, version; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; juce::var rig; unsigned previewGeneration = 0; };
+    struct Job { juce::String type, id, name, version; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; double tailSeconds = 0, startSeconds = 0, endSeconds = -1, fadeSeconds = 0; juce::var rig; unsigned previewGeneration = 0; };
     void run() override;
     void importTake(const juce::File&);
     void exportReamp(const Job&);
