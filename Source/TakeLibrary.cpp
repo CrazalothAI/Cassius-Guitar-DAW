@@ -156,9 +156,11 @@ void TakeLibrary::persist(const juce::String& changedId)
     { const juce::ScopedLock guard(lock); changed = find(changedId).createCopy(); }
     const auto old = merged.getChildWithProperty("id", changedId); if (old.isValid()) merged.removeChild(old, nullptr);
     merged.addChild(changed, 0, nullptr); require(merged.getNumChildren() <= 2048, "The shared take library is full.");
+    const auto serialized = merged.createXml()->toString();
+    require(serialized.getNumBytesAsUTF8() <= 8 * 1024 * 1024, "Take catalog would exceed 8 MiB. Shorten notes or other metadata before saving.");
     require(catalogFile.getParentDirectory().createDirectory().wasOk(), "Could not create the take catalog folder.");
     juce::TemporaryFile temporary(catalogFile);
-    require(temporary.getFile().replaceWithText(merged.createXml()->toString()) && temporary.overwriteTargetFileWithTemporary(), "Could not save the take catalog.");
+    require(temporary.getFile().replaceWithText(serialized) && temporary.overwriteTargetFileWithTemporary(), "Could not save the take catalog.");
     { const juce::ScopedLock guard(lock); entries = merged; ++revision; }
 }
 void TakeLibrary::playReview(const Job& job)
@@ -307,7 +309,7 @@ juce::var TakeLibrary::list()
 juce::var TakeLibrary::status()
 {
     auto o = std::make_unique<juce::DynamicObject>();
-    { const juce::ScopedLock guard(lock); o->setProperty("error", error); o->setProperty("activeId", activeId); o->setProperty("reviewId", reviewId); o->setProperty("reviewVersion", reviewVersion); o->setProperty("reviewLoading", reviewLoading); o->setProperty("lastExportPath", lastExportPath); }
+    { const juce::ScopedLock guard(lock); o->setProperty("error", error); o->setProperty("activeId", activeId); o->setProperty("reviewId", reviewId); o->setProperty("reviewVersion", reviewVersion); o->setProperty("reviewLoading", reviewLoading); o->setProperty("lastExportPath", lastExportPath); o->setProperty("lastExportReport", lastExportReport); }
     o->setProperty("revision", static_cast<int>(revision.load())); o->setProperty("exporting", exporting.load()); o->setProperty("progress", progress.load()); return juce::var(o.release());
 }
 juce::String TakeLibrary::reveal(const juce::String& id)

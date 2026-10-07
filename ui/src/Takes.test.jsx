@@ -9,6 +9,49 @@ beforeEach(() => {
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
+it('copies the exact loaded review range for export without following later loop edits', async () => {
+  bridge.entries[0].versions[0].frames = 720000;
+  const loaded = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'v1'}, review: {...status.review, a: 2.125, b: 13.75}};
+  const view=render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByRole('button', {name: 'Use review A–B'}).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Take version'), {target: {value: 'v1'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Use review A–B'}));
+  expect(screen.getByLabelText('Export start seconds').value).toBe('2.125'); expect(screen.getByLabelText('Export end seconds').value).toBe('13.75');
+  view.rerender(<Takes status={{...loaded, review: {...loaded.review, a: 4, b: 10}}} onError={vi.fn()}/>);
+  expect(screen.getByLabelText('Export start seconds').value).toBe('2.125');
+  fireEvent.change(screen.getByLabelText('Export fade milliseconds'), {target: {value: '30'}});
+  fireEvent.change(screen.getByLabelText('Video guitar balance'), {target: {value: '9'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Export range as guitar WAV'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('exportVideoAudio','one','v1',false,0,0,2.125,13.75,.03));
+  fireEvent.change(screen.getByLabelText('Take version'), {target: {value: 'dry'}});
+  expect(screen.getByLabelText('Export end seconds').value).toBe('10'); expect(screen.getByRole('button', {name: 'Use review A–B'}).disabled).toBe(true);
+});
+it('blocks out-of-bounds and startup review ranges while permitting manual trims', async () => {
+  const loaded={...status, takes:{...status.takes, reviewId:'one', reviewVersion:'processed'}, review:{...status.review, a:2, b:20}};
+  const view=render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByRole('button',{name:'Use review A–B'}).disabled).toBe(true);
+  for(const state of [{a:2,b:2.01},{a:2,b:5,starting:true},{a:2,b:5,counting:true}]) {
+    view.rerender(<Takes status={{...loaded,review:{...loaded.review,...state}}} onError={vi.fn()}/>);
+    expect(screen.getByRole('button',{name:'Use review A–B'}).disabled).toBe(true);
+  }
+  view.rerender(<Takes status={{...loaded,review:{...loaded.review,a:2,b:10.00002}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('button',{name:'Use review A–B'}).disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button',{name:'Use review A–B'})); expect(screen.getByLabelText('Export end seconds').value).toBe('10');
+  fireEvent.change(screen.getByLabelText('Export start seconds'),{target:{value:'3'}}); fireEvent.change(screen.getByLabelText('Export end seconds'),{target:{value:'7'}});
+  expect(screen.getByRole('button',{name:'Export range as guitar WAV'}).disabled).toBe(false);
+  fireEvent.change(screen.getByLabelText('Export end seconds'),{target:{value:'2'}});
+  expect(screen.getByRole('button',{name:'Export range as guitar WAV'}).disabled).toBe(true);
+});
+it('shows the last completed export and measured peak protection independently of selection', async () => {
+  const last={...status,takes:{...status.takes,lastExportPath:'C:/Video/solo.wav',lastExportReport:{source:'Lead take · Dry DI',duration:1.75,backing:false,attenuationDb:3.123}}};
+  const view=render(<Takes status={last} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByText(/Lead take · Dry DI · 1.75 seconds · guitar only/)).toBeTruthy();
+  expect(screen.getByText(/reduced this export by 3.12 dB/)).toBeTruthy(); fireEvent.click(screen.getByText('★ Favorite clean'));
+  expect(screen.getByText(/Lead take · Dry DI · 1.75 seconds/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Show exported audio'})); await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('revealVideoExport'));
+  view.rerender(<Takes status={{...last,takes:{...last.takes,lastExportReport:{...last.takes.lastExportReport,attenuationDb:0}}}} onError={vi.fn()}/>);
+  expect(screen.getByText(/No peak attenuation was needed/)).toBeTruthy();
+});
 it('shows sections only for the loaded version and discards selection when versions change', async () => {
   const loaded = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'processed'}, review: {...status.review, sectionRevision: 1, a: 1, b: 4, sections: [{id: 'phrase', name: 'Fast phrase', a: 1, b: 4}]}};
   const view = render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');

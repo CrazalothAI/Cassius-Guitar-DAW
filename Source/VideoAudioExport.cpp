@@ -22,6 +22,7 @@ juce::String TakeLibrary::videoExport(const juce::String& id, const juce::String
     if (exporting.exchange(true)) return "An export is already running.";
     cancelled.store(false); progress.store(0); activeId = id; error.clear();
     Job job; job.type = "video"; job.id = id; job.version = version; job.folder = destination; job.backing = backing; job.guitarDb = guitarDb; job.backingDb = backingDb;
+    job.name = take["name"].toString() + " · " + (version == "processed" ? juce::String("Original processed") : version == "dry" ? juce::String("Dry DI") : selected["name"].toString());
     job.startSeconds = startSeconds; job.endSeconds = endSeconds; job.fadeSeconds = fadeSeconds;
     jobs.push_back(std::move(job)); notify(); return {};
 }
@@ -86,5 +87,12 @@ void TakeLibrary::exportVideoAudio(const Job& job) {
     }
     writer.reset(); if (cancelled.load() || threadShouldExit()) return;
     require(!job.folder.exists() && temporary.overwriteTargetFileWithTemporary(), "Could not finalize video WAV; choose a new filename.");
-    const juce::ScopedLock guard(lock); lastExportPath = job.folder.getFullPathName(); ++revision;
+    auto report = std::make_unique<juce::DynamicObject>();
+    report->setProperty("source", job.name); report->setProperty("takeId", job.id); report->setProperty("version", job.version);
+    report->setProperty("frames", frames); report->setProperty("duration", frames / 48000.);
+    report->setProperty("start", start / guitar->sampleRate); report->setProperty("end", end / guitar->sampleRate);
+    report->setProperty("backing", job.backing); report->setProperty("guitarDb", job.guitarDb); report->setProperty("backingDb", job.backingDb);
+    const auto ceiling = juce::Decibels::decibelsToGain(-1.f);
+    report->setProperty("attenuationDb", peak > ceiling ? juce::Decibels::gainToDecibels(peak / ceiling) : 0.f);
+    const juce::ScopedLock guard(lock); lastExportPath = job.folder.getFullPathName(); lastExportReport = juce::var(report.release()); ++revision;
 }

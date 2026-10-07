@@ -42,3 +42,4 @@
 
 - [x] Add 0.5.5 searchable take notes with persistent metadata and failed-save rollback.
 - [x] Add 0.5.6 persistent take review sections with worker-side storage, captured ranges and stale-request rejection.
+- [x] Add 0.6.0 review-to-export selections, guitar excerpt WAVs and measured export completion reports.

@@ -92,6 +92,19 @@ void runTakeChecks()
         waitFor([&]{return review.status()["sections"].size()==0;});
         require(juce::SHA256(sectionFolder.getChildFile("Guitar processed.wav")).toHexString()==sectionAudioHash,"Section edits must preserve original audio");
     }
+    {
+        // A valid nearly-full catalog must not become unreadable after saving
+        // an otherwise valid annotation. Count serialized UTF-8, including XML.
+        const auto limited = root.getChildFile("limited-catalog.xml"); juce::ValueTree tree("TAKES"), take("TAKE");
+        take.setProperty("id","capacity",nullptr); take.setProperty("name","Kept",nullptr); take.setProperty("notes","",nullptr); take.setProperty("padding","",nullptr); tree.addChild(take,-1,nullptr);
+        const auto remaining = 8 * 1024 * 1024 - tree.toXmlString().getNumBytesAsUTF8() - 50;
+        take.setProperty("padding",juce::String::repeatedString("x",remaining),nullptr);
+        require(limited.replaceWithText(tree.toXmlString()) && limited.getSize() <= 8 * 1024 * 1024,"Nearly-full catalog must be readable");
+        const auto before = juce::SHA256(limited).toHexString(); PracticeEngine review; TakeLibrary library(limited,review); waitFor([&]{return library.list().size()==1;});
+        require(library.annotate("capacity",juce::String::repeatedString("&",100)).isEmpty(),"Valid-size note must queue before serialized capacity checking");
+        waitFor([&]{return library.status()["error"].toString().contains("exceed 8 MiB");});
+        require(first(library)["notes"].toString().isEmpty() && juce::SHA256(limited).toHexString()==before,"Rejected oversized catalog must preserve disk and in-memory metadata");
+    }
     // Video exports work at common interface rates and keep backing separate
     // until the export stage. No live Master/Play Along controls enter this mix.
     for (double rate : {44100., 48000., 96000.}) {
@@ -109,6 +122,8 @@ void runTakeChecks()
         juce::AudioBuffer<float> audio(2,4800);require(reader->read(&audio,0,4800,0,true,true),"Video WAV must decode");
         const auto expected=.25f+.125f*juce::Decibels::decibelsToGain(-6.f);
         require(std::abs(audio.getSample(0,3000)-expected)<.002,"Export must mix the requested processed guitar and backing balance");
+        const auto report = video.status()["lastExportReport"];
+        require(report["takeId"].toString()==id && report["version"].toString()=="processed" && static_cast<bool>(report["backing"]) && static_cast<juce::int64>(report["frames"])==4800 && std::abs(static_cast<double>(report["duration"])-.1)<1.e-6 && static_cast<double>(report["attenuationDb"])==0,"Successful export must report its actual duration, source and absence of attenuation");
         for (const auto& version : {juce::String("processed"),juce::String("dry")}) {
             const auto guitarOnly=root.getChildFile("Quick guitar " + version + " " + juce::String(rate) + ".wav");
             require(video.videoExport(id,version,guitarOnly,false,0,0,0,.1,.01).isEmpty(),"Quick guitar export must queue the full selected version");
@@ -123,6 +138,8 @@ void runTakeChecks()
         require(video.videoExport(id,"processed",loud,true,12,12).isEmpty(),"Hot export must queue");waitFor([&]{return !static_cast<bool>(video.status()["exporting"]);});
         reader.reset(formats.createReaderFor(loud));require(reader && reader->read(&audio,0,4800,0,true,true),"Protected export must decode");
         require(audio.getMagnitude(0,4800)<.892f && audio.getMagnitude(0,4800)>.88f,"Hot mixed soundtrack must retain -1 dBFS peak headroom");
+        const auto measuredReduction = juce::Decibels::gainToDecibels((.25f+.125f)*juce::Decibels::decibelsToGain(12.f) / audio.getSample(0,3000));
+        require(std::abs(static_cast<double>(video.status()["lastExportReport"]["attenuationDb"])-measuredReduction)<.02,"Export report must describe the attenuation actually written");
         const auto hash=juce::SHA256(destination).toHexString();require(video.videoExport(id,"processed",destination,false,0,0).isNotEmpty() && juce::SHA256(destination).toHexString()==hash,"Video export must never overwrite an existing file");
         require(video.videoExport(id,"missing",root.getChildFile("no.wav"),false,0,0).isNotEmpty(),"Unknown video take version must reject");
         const auto trimmed=root.getChildFile("Trimmed " + juce::String(rate) + ".wav");
@@ -134,6 +151,8 @@ void runTakeChecks()
         require(std::abs(audio.getSample(0,0))<1.e-6 && std::abs(audio.getSample(0,2879))<1.e-6,"Fades must silence both boundary samples");
         require(std::abs(audio.getSample(0,2000)-expected)<.002,"Trim must seek both passes and preserve interior balance");
         require(std::abs(audio.getSample(0,1000)-(.1f+.125f*juce::Decibels::decibelsToGain(-6.f)))<.002,"Trimmed content must retain its original timeline");
+        const auto trimmedReport = juce::JSON::toString(video.status()["lastExportReport"]);
+        require(std::abs(static_cast<double>(video.status()["lastExportReport"]["duration"])-.06)<1.e-6 && std::abs(static_cast<double>(video.status()["lastExportReport"]["start"])-.02)<1.e-6,"Trim report must retain source timeline and output duration");
         for (const auto range : {std::pair<double,double>{-.1,.08}, {.08,.02}, {0,.2}})
             require(video.videoExport(id,"processed",root.getChildFile("invalid.wav"),false,0,0,range.first,range.second,.01).isNotEmpty(),"Invalid export bounds must reject before queuing");
         require(video.videoExport(id,"processed",root.getChildFile("invalid.wav"),false,0,0,0,-1,.101).isNotEmpty(),"Oversized fades must reject");
@@ -141,6 +160,7 @@ void runTakeChecks()
         video.videoExport(id,"processed",cancelledFile,true,0,0); video.cancelExport();
         waitFor([&]{return !static_cast<bool>(video.status()["exporting"]);});
         require(!cancelledFile.exists(),"Cancelled video mix must discard partial output");
+        require(juce::JSON::toString(video.status()["lastExportReport"])==trimmedReport && video.status()["lastExportPath"].toString()==trimmed.getFullPathName(),"Cancelled exports must retain the last successful report and path");
     }
     // Original snapshots from before board metadata are migrated in the isolated
     // renderer. The original take and its reference document remain untouched.

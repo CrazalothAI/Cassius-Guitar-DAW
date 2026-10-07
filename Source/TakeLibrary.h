@@ -44,6 +44,7 @@ private:
     std::vector<Job> jobs;
     PracticeEngine& review;
     juce::String error, activeId, reviewId, reviewVersion, lastExportPath;
+    juce::var lastExportReport;
     bool reviewLoading = false;
     std::atomic<bool> exporting {false}, cancelled {false};
     std::atomic<bool> snapshotPending {false};

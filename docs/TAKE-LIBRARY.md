@@ -50,10 +50,14 @@ Live interface listening, long-run recording/export stress and Linux/DAW host te
 
 ## Take notes
 
-Open Take notes to save up to 2,000 characters of tuning, tempo, song and performance reminders. Search takes matches saved notes as well as names/dates. Notes live in the local take catalog, survive app restarts and are preserved by name/favorite edits and repeated folder imports. They do not enter rig snapshots or modify WAV files. Failed catalog writes restore the previous metadata and report an error.
+Open Take notes to save up to 2,000 characters of tuning, tempo, song and performance reminders. Search takes matches saved notes as well as names/dates. Notes live in the local take catalog, survive app restarts and are preserved by name/favorite edits and repeated folder imports. They do not enter rig snapshots or modify WAV files. Failed catalog writes restore the previous metadata and report an error. Writes also enforce the 8 MiB serialized UTF-8 catalog limit, including XML escaping, so adding notes cannot produce a catalog that the app cannot reopen.
 
 ## Saved review sections
 
 After listening to a take version, set A and B, open Sections and save a name. Recall pauses at A and enables looping; Resume starts listening. Replace or delete a selected section using the same controls. Up to 32 sections per audio file and 48 characters per name are supported. Saves run on the take worker and preserve the range at the time of the request. Switching/stopping the review cancels queued requests for the previous version. Errors appear in Takes.
 
 The standalone stores section JSON under the managed library `take-sections` directory, separately from backing-track sections, the take catalog and tone rigs. Sections follow exact WAV file contents: identical renamed copies share them; edited audio or different dry/processed/reamp files have different identities. Selecting a different version resets section selection. Existing catalogs and host states need no migration; there are no new automation parameters. Sections are local annotations and are not embedded in exported WAVs or rig packs.
+
+## Export a reviewed phrase (0.6.0)
+
+Recall a saved section or set A-B while reviewing the selected version. Under Video soundtrack, press Use review A–B to copy it into Start/End. Export range as guitar WAV saves that excerpt with neutral export gain and the chosen edge fade; Export for video includes the requested guitar/backing balance. Copying requires the selected version to be loaded and the range to fit its actual duration. Switching take/version resets export bounds; subsequent review loop edits do not silently change them. The completion report shows actual written duration and applied peak attenuation. See [video export](VIDEO-AUDIO-EXPORT.md).

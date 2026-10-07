@@ -25,7 +25,7 @@ export default function PracticeSections({p, available, disabled, onError, takeI
       <button type="submit" disabled={blocked || !name.trim() || (p.b || 0) - (p.a || 0) < .05 || (!selected && rows.length >= 32)}>{selected ? 'Replace section' : 'Save loop'}</button>
       <button type="button" disabled={blocked || !selected} onClick={() => action('recallPracticeSection', selected)}>Recall section</button>
       <button type="button" disabled={blocked || !selected} onClick={() => action('removePracticeSection', selected)}>Delete section</button>
-      <p className="practice-note">Save the current A–B range. Recall pauses at A and enables looping; press Play when ready. Sections follow the same file contents, including renamed copies, and stay separate from tone rigs.{takeId && ' Take sections are saved separately from backing-track sections.'}</p>
+      <p className="practice-note">Save the current A–B range. Recall pauses at A and enables looping; press {takeId ? 'Resume' : 'Play'} when ready. Sections follow the same file contents, including renamed copies, and stay separate from tone rigs.{takeId && ' Take sections are saved separately from backing-track sections.'}</p>
     </form>}
     {p.sectionError && <p className="practice-error" role="alert">{p.sectionError}</p>}
   </section>;
