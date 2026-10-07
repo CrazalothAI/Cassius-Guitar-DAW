@@ -618,6 +618,8 @@ footer .warn { color: #efb86a; }
 .midi-monitor { font-size: 11px; color: #aaa393; margin-top: 12px; }
 .midi-learning { color: var(--gold); font-size: 11px; }
 .video-export { border-top: 1px solid #353b3a; padding-top: 10px; margin-top: 8px; }
+.take-notes { margin-bottom: 10px; }
+.take-notes textarea { display: block; width: 100%; box-sizing: border-box; resize: vertical; background: #111211; color: #e4dfd4; border: 1px solid #504739; border-radius: 4px; padding: 6px; font: inherit; }
 .video-export summary { cursor: pointer; color: #cdd7d3; font-weight: 600; }
 .take-range { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin: 12px 0; }
 .take-range label { display: grid; gap: 5px; flex: 1; min-width: 110px; }

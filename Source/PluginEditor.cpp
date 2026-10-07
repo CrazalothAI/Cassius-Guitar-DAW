@@ -134,6 +134,9 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("editTake", [this](const auto& args, auto complete) {
             complete(args.size() == 3 && args[0].isString() && args[1].isString() && args[2].isBool() ? processor.takes.edit(args[0].toString(), args[1].toString(), static_cast<bool>(args[2])) : juce::String("Invalid take edit."));
         })
+        .withNativeFunction("saveTakeNotes", [this](const auto& args, auto complete) {
+            complete(args.size() == 2 && args[0].isString() && args[1].isString() ? processor.takes.annotate(args[0].toString(), args[1].toString()) : juce::String("Choose a take and valid notes."));
+        })
         .withNativeFunction("renameTakeVersion", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish recording before renaming a take version in standalone.")); return; }
             complete(args.size() == 3 && args[0].isString() && args[1].isString() && args[2].isString() ? processor.takes.renameVersion(args[0].toString(),args[1].toString(),args[2].toString()) : juce::String("Choose a reamp version and name."));

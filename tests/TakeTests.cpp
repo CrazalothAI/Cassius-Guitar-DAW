@@ -126,6 +126,11 @@ void runTakeChecks()
         waitFor([&] { return catalog.loadFileAsString().contains("Second take"); });
         library.edit(originalId, "Favorite lead", true);
         waitFor([&] { return catalog.loadFileAsString().contains("Favorite lead"); });
+        require(library.annotate(originalId, "  Drop D, 140 bpm\nCheck the alternate picking.  ").isEmpty(), "Take notes must queue");
+        waitFor([&] { return catalog.loadFileAsString().contains("alternate picking"); });
+        require(library.annotate(originalId, juce::String::repeatedString("x", 2001)).isNotEmpty() && library.annotate("missing", "note").isNotEmpty(), "Oversized notes and unknown takes must reject");
+        library.edit(originalId, "Favorite lead", true);
+        waitFor([&] { return !library.status()["error"].toString().isNotEmpty() && first(library)["notes"].toString().contains("alternate picking"); });
         require(catalog.loadFileAsString().contains("Second take"), "Catalog edits must preserve another instance's take");
     }
     {
@@ -134,6 +139,8 @@ void runTakeChecks()
         auto entries = library.list(); bool found = false;
         for (const auto& take : *entries.getArray()) if (take["id"].toString() == originalId) found = take["name"].toString() == "Favorite lead" && static_cast<bool>(take["favorite"]);
         require(found, "Take names and favorites must survive restart");
+        bool notesFound = false; for (const auto& take : *entries.getArray()) if (take["id"].toString() == originalId) notesFound = take["notes"].toString() == "Drop D, 140 bpm\nCheck the alternate picking.";
+        require(notesFound, "Multiline notes must survive restart and name edits");
         // Review processed audio bypasses all guitar effects, while stop cancels
         // queued previews instead of letting a stale request start playback.
         require(library.preview(originalId, "processed").isEmpty(), "Processed take preview must queue");
@@ -280,6 +287,12 @@ void runTakeChecks()
         require(library.renameVersion("guarded","outside","Failed label").isEmpty(),"A failing metadata write must reach the worker");
         waitFor([&]{return library.status()["error"].toString().contains("catalog");});
         require(first(library)["versions"][0]["name"].toString()=="Kept label" && guardedCatalog.loadFileAsString()=="broken catalog","Failed version labels must roll back without overwriting the catalog");
+        const auto metadataBefore = juce::JSON::toString(library.list());
+        const auto beforeNotesRevision = static_cast<int>(library.status()["revision"]);
+        require(library.annotate(first(library)["id"].toString(), "Must roll back").isEmpty(), "Notes must queue for disk validation");
+        waitFor([&]{return static_cast<int>(library.status()["revision"]) >= beforeNotesRevision + 2 && library.status()["error"].toString().contains("catalog");});
+        require(juce::JSON::toString(library.list()) == metadataBefore, "Failed notes must restore the previous in-memory entry");
+        require(guardedCatalog.loadFileAsString()=="broken catalog", "Failed notes must not overwrite an unreadable catalog");
     }
     {
         const auto incomplete=root.getChildFile("Incomplete"); makeTake(incomplete);

@@ -12,6 +12,7 @@ public:
     ~TakeLibrary() override;
     void importFolder(const juce::File&);
     juce::String edit(const juce::String& id, const juce::String& name, bool favorite);
+    juce::String annotate(const juce::String& id, const juce::String& notes);
     juce::String renameVersion(const juce::String& id, const juce::String& version, const juce::String& name);
     juce::String preview(const juce::String& id, const juce::String& version);
     juce::String reviewControl(const juce::String& id, const juce::String& version, const juce::String& command, double amount);
@@ -27,7 +28,7 @@ public:
     juce::String reveal(const juce::String& id);
     juce::String revealExport();
 private:
-    struct Job { juce::String type, id, name, version; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; double tailSeconds = 0, startSeconds = 0, endSeconds = -1, fadeSeconds = 0; juce::var rig; unsigned previewGeneration = 0; std::function<void(juce::var)> completed; };
+    struct Job { juce::String type, id, name, version, notes; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; double tailSeconds = 0, startSeconds = 0, endSeconds = -1, fadeSeconds = 0; juce::var rig; unsigned previewGeneration = 0; std::function<void(juce::var)> completed; };
     juce::var loadRigSnapshot(const Job&);
     void run() override;
     void importTake(const juce::File&);

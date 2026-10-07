@@ -47,3 +47,7 @@ Snapshot reads run on the take worker; full document validation and prepared rig
 Windows checks on 2026-10-06: all four CTest suites (with the optional 103-file bank) and 134 UI tests pass, with Release VST3 and side-by-side standalone builds. Native regressions cover catalog reopening, metadata edits, stored-audio review, cancellation, automatic recording registration and actual offline WAV rendering. Reamp checks include current Input gain, Master exclusion, exact rig snapshots, byte-identical originals, optional delay tails and persisted extended durations. Soundtrack checks include trimming at 44.1/48/96 kHz, boundary fades, clamping, synchronized backing and tail silence. See [0.3.0 notes](RELEASE-0.3.0.md).
 
 Live interface listening, long-run recording/export stress and Linux/DAW host testing remain outstanding. This is a development update rather than a commercial-release qualification.
+
+## Take notes
+
+Open Take notes to save up to 2,000 characters of tuning, tempo, song and performance reminders. Search takes matches saved notes as well as names/dates. Notes live in the local take catalog, survive app restarts and are preserved by name/favorite edits and repeated folder imports. They do not enter rig snapshots or modify WAV files. Failed catalog writes restore the previous metadata and report an error.

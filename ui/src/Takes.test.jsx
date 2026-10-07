@@ -9,6 +9,26 @@ beforeEach(() => {
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
+it('searches saved notes, edits them separately and loads notes from another take', async () => {
+  bridge.entries[0].notes = 'Drop D, 140 bpm'; bridge.entries[1].notes = 'Fingerstyle';
+  render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByLabelText('Take notes').value).toBe('Drop D, 140 bpm');
+  fireEvent.change(screen.getByLabelText('Search takes'), {target: {value: '140 bpm'}});
+  expect(screen.queryByText('★ Favorite clean')).toBeNull();
+  fireEvent.change(screen.getByLabelText('Take notes'), {target: {value: 'Drop D\nPractice the solo'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Save notes'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('saveTakeNotes', 'one', 'Drop D\nPractice the solo'));
+  fireEvent.change(screen.getByLabelText('Search takes'), {target: {value: ''}}); fireEvent.click(screen.getByText('★ Favorite clean'));
+  expect(screen.getByLabelText('Take notes').value).toBe('Fingerstyle');
+});
+it('reports note-save failures without losing the draft on ordinary polls', async () => {
+  const onError = vi.fn(), view = render(<Takes status={status} onError={onError}/>); await screen.findByText('Lead take');
+  fireEvent.change(screen.getByLabelText('Take notes'), {target: {value: 'Unfinished draft'}});
+  view.rerender(<Takes status={{...status, review: {...status.review, position: 20}}} onError={onError}/>);
+  expect(screen.getByLabelText('Take notes').value).toBe('Unfinished draft');
+  bridge.invoke.mockResolvedValue('Could not save the take catalog.'); fireEvent.click(screen.getByRole('button', {name: 'Save notes'}));
+  await waitFor(() => expect(onError).toHaveBeenCalledWith({title: 'Takes', text: 'Could not save the take catalog.'}));
+});
 it('lists and filters takes by name and favorite', async () => {
   render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
   fireEvent.change(screen.getByLabelText('Search takes'), {target: {value: 'clean'}});

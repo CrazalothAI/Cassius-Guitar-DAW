@@ -7,6 +7,7 @@ export default function Takes({ status, onError }) {
   const [takes, setTakes] = useState([]), [selected, setSelected] = useState('');
   const [query, setQuery] = useState(''), [favorites, setFavorites] = useState(false);
   const [sort, setSort] = useState('newest'), [versionName, setVersionName] = useState('');
+  const [notes, setNotes] = useState('');
   const [name, setName] = useState(''), [favorite, setFavorite] = useState(false), [version, setVersion] = useState('processed');
   const [includeBacking, setIncludeBacking] = useState(false), [guitarDb, setGuitarDb] = useState(0), [backingDb, setBackingDb] = useState(0);
   const [tail, setTail] = useState(2), [start, setStart] = useState(0), [end, setEnd] = useState(0), [fadeMs, setFadeMs] = useState(10);
@@ -25,6 +26,7 @@ export default function Takes({ status, onError }) {
   const duration = chosen ? (selectedVersion?.frames ?? chosen.frames) / chosen.sampleRate : 0;
   const rangeValid = Number.isFinite(start) && Number.isFinite(end) && start >= 0 && end > start && end <= duration + 1e-6;
   useLayoutEffect(() => { setVersionName(selectedVersion?.name || ''); }, [selected, version, selectedVersion?.name]);
+  useLayoutEffect(() => { setNotes(chosen?.notes || ''); }, [selected, chosen?.notes]);
   useLayoutEffect(() => { setStart(0); setEnd(duration); }, [selected, version, duration]);
   useEffect(() => {
     let active = true;
@@ -54,7 +56,7 @@ export default function Takes({ status, onError }) {
     finally { recoveryPending.current = false; setRecovering(false); }
   };
   const newest = (a,b) => (Date.parse(b.created) || 0) - (Date.parse(a.created) || 0);
-  const filtered = takes.filter(t => (!favorites || t.favorite) && `${t.name} ${t.created}`.toLowerCase().includes(query.toLowerCase()))
+  const filtered = takes.filter(t => (!favorites || t.favorite) && `${t.name} ${t.created} ${t.notes || ''}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a,b) => (sort === 'name' ? a.name.localeCompare(b.name) : (sort === 'favorites' ? Number(Boolean(b.favorite)) - Number(Boolean(a.favorite)) : 0) || newest(a,b)) || a.id.localeCompare(b.id));
   return <div className="take-browser">
     <div className="take-filters"><input aria-label="Search takes" placeholder="Search your takes…" value={query} onChange={e => setQuery(e.target.value)}/><label><input type="checkbox" checked={favorites} onChange={e => setFavorites(e.target.checked)}/> Favorites</label><select aria-label="Take sort" value={sort} onChange={e => setSort(e.target.value)}><option value="newest">Newest first</option><option value="name">Name</option><option value="favorites">Favorites first</option></select><button disabled={!available || recording} onClick={() => action('importTake')}>Import take folder</button></div>
@@ -63,6 +65,7 @@ export default function Takes({ status, onError }) {
       {filtered.map(t => <button key={t.id} className={`take-row${selected === t.id ? ' selected' : ''}`} aria-pressed={selected === t.id} onClick={() => setSelected(t.id)}><strong>{t.favorite ? '★ ' : ''}{t.name}</strong><small>{clock(t.frames / t.sampleRate)} · {(t.sampleRate / 1000).toFixed(1)} kHz{t.incomplete ? ' · Incomplete' : ''}</small></button>)}
       {!filtered.length && <p className="practice-note">{takes.length ? 'No takes match your search.' : 'Finished recordings appear here automatically. You can also import an earlier Cassian take folder.'}</p>}
     </div>{chosen && <div className="take-detail">
+      <details className="take-notes"><summary>Take notes{chosen.notes ? ' · Saved' : ''}</summary><form onSubmit={e => { e.preventDefault(); action('saveTakeNotes', chosen.id, notes); }}><label>Notes<textarea aria-label="Take notes" value={notes} maxLength={2000} rows={3} disabled={!available} onChange={e => setNotes(e.target.value)}/></label><button disabled={!available || notes === (chosen.notes || '')}>Save notes</button><p className="practice-note">Track tuning, tempo, song and what to improve. Notes are searchable and saved in your take library; the recordings stay intact.</p></form></details>
       <form className="take-name" onSubmit={e => { e.preventDefault(); action('editTake', chosen.id, name, favorite); }}><input aria-label="Take name" maxLength={80} value={name} onChange={e => setName(e.target.value)}/><label><input type="checkbox" aria-label="Favorite take" checked={favorite} onChange={e => setFavorite(e.target.checked)}/> ★</label><button disabled={!name.trim()}>Save</button></form>
       <div className="take-review"><select aria-label="Take version" value={version} onChange={e => setVersion(e.target.value)}><option value="processed">Original processed</option><option value="dry">Dry DI</option>{(chosen.versions ?? []).map(v => <option key={v.id} value={v.id}>{v.name}</option>)}</select><button disabled={!available || recording || status.takes?.reviewLoading} onClick={() => action('previewTake', chosen.id, version)}>Listen</button><button disabled={!reviewLoaded} onClick={() => reviewAction(review.playing ? 'pause' : 'play')}>{review.playing ? 'Pause review' : 'Resume review'}</button><button onClick={() => action('reviewControl', 'stop', 0)}>Stop review</button></div>
       {selectedVersion && <form className="take-name" onSubmit={e => { e.preventDefault(); if (versionName.trim()) action('renameTakeVersion',chosen.id,version,versionName.trim()); }}><input aria-label="Reamp version name" value={versionName} maxLength={80} disabled={recording || exporting} onChange={e => setVersionName(e.target.value)}/><button disabled={recording || exporting || !versionName.trim()}>Rename version</button></form>}

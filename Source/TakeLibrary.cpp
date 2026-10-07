@@ -26,6 +26,12 @@ juce::String TakeLibrary::edit(const juce::String& id, const juce::String& name,
     const juce::ScopedLock guard(lock); if (!find(id).isValid()) return "Take not found.";
     Job job; job.type = "edit"; job.id = id; job.name = title; job.favorite = favorite; jobs.push_back(std::move(job)); notify(); return {};
 }
+juce::String TakeLibrary::annotate(const juce::String& id, const juce::String& notes)
+{
+    if (notes.length() > 2000) return "Keep take notes within 2000 characters.";
+    const juce::ScopedLock guard(lock); if (!find(id).isValid()) return "Take not found.";
+    Job job; job.type = "notes"; job.id = id; job.notes = notes.trim(); jobs.push_back(std::move(job)); notify(); return {};
+}
 juce::String TakeLibrary::preview(const juce::String& id, const juce::String& version)
 {
     const juce::ScopedLock guard(lock); const auto take = find(id);
@@ -232,9 +238,16 @@ void TakeLibrary::run()
         }
         try {
             if (job.type == "import") importTake(job.folder);
-            else if (job.type == "edit") {
-                { const juce::ScopedLock guard(lock); auto take = find(job.id); require(take.isValid(), "Take not found."); take.setProperty("name", job.name, nullptr); take.setProperty("favorite", job.favorite, nullptr); ++revision; }
-                persist(job.id);
+            else if (job.type == "edit" || job.type == "notes") {
+                juce::ValueTree previous;
+                { const juce::ScopedLock guard(lock); auto take = find(job.id); require(take.isValid(), "Take not found."); previous = take.createCopy();
+                  if (job.type == "notes") take.setProperty("notes", job.notes, nullptr);
+                  else { take.setProperty("name", job.name, nullptr); take.setProperty("favorite", job.favorite, nullptr); } ++revision; }
+                try { persist(job.id); }
+                catch (...) {
+                    const juce::ScopedLock guard(lock); auto take = find(job.id);
+                    take.copyPropertiesAndChildrenFrom(previous, nullptr); ++revision; throw;
+                }
             }
             else if (job.type == "preview") playReview(job);
             else if (job.type == "renameVersion") {

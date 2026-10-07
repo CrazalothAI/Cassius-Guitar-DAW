@@ -39,3 +39,5 @@
 - Keep user downloads separate from source archives. Connect the site to tested versioned release assets; GitHub documents [direct release download links](https://docs.github.com/en/repositories/releasing-projects-on-github/linking-to-releases).
 - Define visual design, content ownership, moderation, accessibility, privacy, hosting, administration and maintenance requirements when website work begins.
 - Website work is deferred at the owner's request. No site, domain purchase, deployment, account or paid service is authorized by this TODO.
+
+- [x] Add 0.5.5 searchable take notes with persistent metadata and failed-save rollback.
