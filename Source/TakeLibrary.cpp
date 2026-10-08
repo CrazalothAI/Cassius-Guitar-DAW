@@ -17,6 +17,12 @@ juce::ValueTree readCatalog(const juce::File& file) {
 TakeLibrary::TakeLibrary(juce::File file, PracticeEngine& player) : Thread("Cassian take library"), catalogFile(std::move(file)), review(player)
 { startThread(); }
 TakeLibrary::~TakeLibrary() { cancelled.store(true); stopReview(); signalThreadShouldExit(); notify(); stopThread(-1); }
+juce::String TakeLibrary::maintenance(std::function<void()> work) {
+    const juce::ScopedLock guard(lock);
+    if (!work || exporting.load() || snapshotPending.load() || maintenancePending.load()) return "Finish the current export/recovery before starting a backup or restore.";
+    maintenancePending.store(true); Job job; job.type = "maintenance"; job.maintenance = std::move(work); jobs.push_back(std::move(job)); notify(); return {};
+}
+void TakeLibrary::waitForMaintenance() { while (maintenancePending.load()) juce::Thread::sleep(5); }
 juce::ValueTree TakeLibrary::find(const juce::String& id) { return entries.getChildWithProperty("id", id); }
 void TakeLibrary::importFolder(const juce::File& folder)
 { const juce::ScopedLock guard(lock); Job job; job.type = "import"; job.folder = folder; jobs.push_back(std::move(job)); notify(); }
@@ -115,6 +121,7 @@ juce::String TakeLibrary::reamp(const juce::String& id, const juce::var& rig, do
 {
     if (!std::isfinite(tailSeconds) || tailSeconds < 0 || tailSeconds > 30) return "Choose a reamp tail between 0 and 30 seconds.";
     const juce::ScopedLock guard(lock);
+    if (maintenancePending.load()) return "Finish backup/recovery before reamping.";
     if (!find(id).isValid()) return "Take not found.";
     if (static_cast<bool>(find(id)["incomplete"])) return "Check this incomplete recording before using it; choose a complete take to reamp.";
     if (find(id).getNumChildren() >= 64) return "This take already has 64 reamp versions.";
@@ -240,6 +247,13 @@ void TakeLibrary::run()
         { const juce::ScopedLock guard(lock); if (!jobs.empty()) { job = std::move(jobs.front()); jobs.erase(jobs.begin()); ready = true; } }
         if (!ready) { wait(250); continue; }
         { const juce::ScopedLock guard(lock); error.clear(); }
+        if (job.type == "maintenance") {
+            try {
+                job.maintenance();
+                if (catalogFile != juce::File()) { const auto loaded = readCatalog(catalogFile); const juce::ScopedLock guard(lock); entries = loaded; ++revision; }
+            } catch (const std::exception& e) { const juce::ScopedLock guard(lock); error = e.what(); }
+            maintenancePending.store(false); continue;
+        }
         if (job.type == "snapshot") {
             juce::var result;
             try { result = loadRigSnapshot(job); }

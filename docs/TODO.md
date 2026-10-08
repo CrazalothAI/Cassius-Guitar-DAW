@@ -5,7 +5,8 @@
 - [x] Complete 1.0.0 RC2: independent VST3 validation, isolated host-test storage, reproducible reports and CI evidence.
 - Signing is deferred at the owner's request on 2026-10-08; continue unsigned candidate builds. The stable-release signature check remains pending rather than being marked passed.
 - [ ] Run and record the fresh-install/real-upgrade and actual DAW/MIDI/export acceptance matrix.
-- [ ] After stable release, add complete library/take backup and recovery before advanced 1.1 DSP/routing features.
+- [x] Add the 1.1.0 preview personal backup/recovery workflow with sound/take relocation, verified streaming archives, additive restores and progress/cancellation.
+- [ ] Validate backup/restore on a second PC and large real libraries; add ZIP64/subsets, automatic snapshots and retention in follow-up work.
 
 - [x] Prepare 1.0.0 RC1: in-app Help/setup, AGPL licensing, matching source, publisher attribution, signing support and stable-release gate.
 - [ ] Complete the acceptance evidence and signatures in [commercial release](COMMERCIAL-RELEASE.md) before stable sale publication.

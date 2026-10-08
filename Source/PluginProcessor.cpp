@@ -73,7 +73,7 @@ AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File li
     midiControl.start([this](const auto& mapping, int amount) { return handleMidiAction(mapping, amount); });
     startThread();
 }
-AmpSuiteAudioProcessor::~AmpSuiteAudioProcessor() { midiControl.shutdown(); signalThreadShouldExit(); notify(); stopThread(-1); }
+AmpSuiteAudioProcessor::~AmpSuiteAudioProcessor() { backupCancelled.store(true); takes.waitForMaintenance(); midiControl.shutdown(); signalThreadShouldExit(); notify(); stopThread(-1); }
 
 bool AmpSuiteAudioProcessor::isBusesLayoutSupported(const BusesLayout& b) const
 {

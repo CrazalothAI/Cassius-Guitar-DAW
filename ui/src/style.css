@@ -149,7 +149,7 @@
 .slot-choice select, .library-panel input, .library-panel select, .library-panel textarea { background: #111211; color: #e4dfd4; border: 1px solid #504739; border-radius: 4px; padding: 6px 8px; font-size: 12px; }
 .slot-note { font-size: 10px; color: #aaa393; max-width: 450px; line-height: 1.5; }
 .library-overlay { position: fixed; inset: 0; z-index: 30; background: #000a; display: grid; place-items: center; padding: 20px; }
-.library-panel { width: min(980px, 100%); max-height: calc(100vh - 40px); display: flex; flex-direction: column; background: #171714; border: 1px solid #726248; border-radius: 12px; padding: 22px; box-shadow: 0 20px 80px #000a; }
+.library-panel { width: min(980px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; display: flex; flex-direction: column; background: #171714; border: 1px solid #726248; border-radius: 12px; padding: 22px; box-shadow: 0 20px 80px #000a; }
 .library-heading { display: flex; justify-content: space-between; align-items: center; }
 .library-heading h2 { margin: 0; color: #dfc69a; font: 24px Georgia, serif; }
 .library-tabs, .library-filters { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
@@ -637,3 +637,12 @@ footer .warn { color: #efb86a; }
 .help-audio p { flex-basis: 100%; }
 .help-panel nav { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
 .help-panel a { color: var(--gold); }
+/* Library maintenance stays compact until explicitly opened. */
+.library-backup { flex-shrink: 0; border: 1px solid #ffffff20; border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 12px; }
+.library-backup summary { cursor: pointer; font-weight: 600; }
+.library-backup p { margin: 8px 0; line-height: 1.5; }
+.backup-actions, .backup-progress { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.backup-confirm { border-left: 2px solid #cfab76; padding-left: 10px; }
+.backup-confirm button { margin-right: 8px; }
+.backup-progress label { flex: 1; min-width: 160px; }
+.backup-progress progress { display: block; width: 100%; margin-top: 6px; accent-color: #cfab76; }

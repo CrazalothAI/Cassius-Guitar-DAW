@@ -1,5 +1,7 @@
 # Cassian
 
+**1.1.0 Preview adds personal backup and recovery.** Open Library → Backup & recovery to save verified archives of rigs, sounds, recorded takes and reamps, then restore additional copies while preserving the current tone and existing work. [Instructions and limits](docs/BACKUP-AND-RECOVERY.md) · [1.1.0 release notes](docs/RELEASE-1.1.0.md).
+
 Cassian is a guitar processor with a tube-head interface, built-in clean and high-gain amps, Neural Amp Modeler (NAM) support, cabinet convolution, and stereo effects. It runs as a Windows standalone app or VST3 plugin, with a JUCE/C++20 audio engine and an embedded React editor.
 
 The current source adds listening-only Play Along controls and clear Tone, Board, Practice, and Takes views, with a persistent saved rig name and direct Save/Save As. Standalone practice includes backing-track playback, paired guitar recording, a searchable take library, and offline reamping. The sound engine includes dual-IR cabinets, built-in overdrive, compression, modulation and stereo effects, plus prepared complete rig recall, a shared managed library and portable rig packs. It is a development build; the remaining work toward a commercial release is tracked in the [expansion roadmap](docs/EXPANSION-ROADMAP.md) and [next steps](docs/NEXT-STEPS.md).
@@ -54,7 +56,7 @@ This README describes the development source; public downloads can lag the curre
 
 Download **[Cassian-Setup.exe](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/download/latest/Cassian-Setup.exe)** from [Latest Windows download](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/tag/latest), run it, and follow the installer. Then open **Cassian** from the Windows Start menu. Setup offers an optional desktop shortcut and VST3 plugin; administrator access is not required. It checks for Microsoft WebView2 and installs the runtime when missing (internet access is needed for that step).
 
-The current source version is **1.0.0 RC2**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version and candidate label. Help & setup opens the user guide and support links. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
+The current source version is **1.1.0 Preview**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version and preview/candidate label. Help & setup opens the user guide and support links. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
 
 The app installs to `%LOCALAPPDATA%\Programs\Cassian`. Run a newer installer to update it in place; close Cassian and any DAW using its plugin first. Uninstall through **Windows Settings → Apps → Cassian**. Saved settings, managed captures/rigs, practice sections and recordings are retained. Optional VST3 installation uses `%LOCALAPPDATA%\Programs\Common\VST3\Cassian.vst3`; rescan your DAW and add that location to its plugin paths if needed.
 
@@ -361,4 +363,4 @@ Original source is [AGPL-3.0-or-later](LICENSE.txt), copyright Crazaloth. Paid i
 
 The owner reports most sounds tested and good on 2026-10-07. This does not establish a complete device/DAW/MIDI matrix. The candidate adds signing support but no certificate was supplied. Fresh-PC, real upgrade/DAW/MIDI, camera export synchronization, artwork permissions, seller terms and dependency review remain documented acceptance items. `scripts/test-release-readiness.ps1 -RequireReady` blocks stable publication until those records and trusted timestamped signatures pass. See [commercial checklist](docs/COMMERCIAL-RELEASE.md).
 
-For trusted publisher signatures and the owner account setup, follow [Windows signing and packaging](docs/WINDOWS-SIGNING.md). Current RC2 packages are unsigned; no signing account has been provisioned.
+For trusted publisher signatures and the owner account setup, follow [Windows signing and packaging](docs/WINDOWS-SIGNING.md). Current preview packages are unsigned; no signing account has been provisioned.

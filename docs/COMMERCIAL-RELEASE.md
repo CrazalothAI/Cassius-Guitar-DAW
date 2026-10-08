@@ -1,10 +1,10 @@
-# Cassian 1.0 release candidate
+# Cassian commercial release preparation
 
 The owner selected **open-source code with paid installers/support** on 2026-10-07. Original code is AGPL-3.0-or-later. Pinned JUCE uses its AGPLv3 option; pinned ASIO/VST3 source uses its GPLv3 option. Other components retain their own terms. The GPL/AGPL provisions permit combined works; preserve component notices and provide matching source. This is a source/distribution implementation record, not a guarantee that every business/asset obligation is satisfied.
 
 Primary sources: [JUCE 8.0.6 license](https://github.com/juce-framework/JUCE/blob/8.0.6/LICENSE.md), [GNU selling guidance](https://www.gnu.org/philosophy/selling.en.html), [GPL/AGPL compatibility](https://www.gnu.org/licenses/license-compatibility.en.html), [Inno commercial license request](https://jrsoftware.org/isorder.php).
 
-Signing was deferred by the owner on 2026-10-08; continue unsigned candidate development. RC2 adds [independent plugin validation](PLUGIN-VALIDATION.md), which does not substitute for real DAW/hardware acceptance.
+Signing was deferred by the owner on 2026-10-08; continue unsigned preview development. The current 1.1.0 preview adds personal backup/recovery after 1.0.0 RC2. RC2 introduced [independent plugin validation](PLUGIN-VALIDATION.md), which remains required and does not substitute for real DAW/hardware acceptance.
 
 ## Product included in this candidate
 

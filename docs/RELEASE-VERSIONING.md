@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 1.0.0 RC2 is a release candidate. The numeric binary version is 1.0.0; `ui/src/release.json` records candidate status separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. Independent pedal MIDI control and scene organization are documented in [0.9.0 notes](RELEASE-0.9.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 1.1.0 is a feature preview following 1.0.0 RC2. The numeric binary version is 1.1.0; `ui/src/release.json` records the preview channel separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. Personal backup/recovery is documented in [1.1.0 notes](RELEASE-1.1.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 

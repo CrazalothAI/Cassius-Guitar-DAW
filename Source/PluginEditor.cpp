@@ -22,6 +22,11 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("loadIR", [this](const auto&, auto complete) { chooseFile(1); complete(true); })
         .withNativeFunction("loadPedal", [this](const auto&, auto complete) { chooseFile(2); complete(true); })
         .withNativeFunction("getLibrary", [this](const auto&, auto complete) { complete(processor.getLibrary()); })
+        .withNativeFunction("getBackupStatus", [this](const auto&, auto complete) { complete(processor.backupStatus()); })
+        .withNativeFunction("createBackup", [this](const auto&, auto complete) { complete(chooseBackup(false)); })
+        .withNativeFunction("restoreBackup", [this](const auto&, auto complete) { complete(chooseBackup(true)); })
+        .withNativeFunction("cancelBackup", [this](const auto&, auto complete) { processor.cancelBackup(); complete(juce::String()); })
+        .withNativeFunction("revealBackup", [this](const auto&, auto complete) { complete(processor.revealBackup()); })
         .withNativeFunction("inspectRig", [this](const auto& args, auto complete) { complete(processor.inspectRig(args.size() == 1 && args[0].isString() ? args[0].toString() : juce::String())); })
         .withNativeFunction("importAssets", [this](const auto& args, auto complete) {
             const auto kind = args.size() == 1 ? args[0].toString() : juce::String();
@@ -101,6 +106,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         })
         .withNativeFunction("practiceStart", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Use your DAW's transport and recording.")); return; }
+            if (static_cast<bool>(processor.backupStatus()["busy"])) { complete(juce::String("Finish backup/recovery before starting a recording.")); return; }
             if (args.size() != 2 || (args[0].toString() != "play" && args[0].toString() != "record") || !(args[1].isInt() || args[1].isInt64() || args[1].isDouble()) || !std::isfinite(static_cast<double>(args[1])) || static_cast<double>(args[1]) < 0 || static_cast<double>(args[1]) > 2 || static_cast<double>(args[1]) != std::floor(static_cast<double>(args[1]))) { complete(juce::String("Invalid count-in request.")); return; }
             processor.practice.setCountIn(static_cast<int>(args[1]), processor.apvts.getRawParameterValue("METRO_BPM")->load(), juce::roundToInt(processor.apvts.getRawParameterValue("METRO_BEATS")->load()));
             processor.takes.stopReview();
@@ -269,6 +275,7 @@ void AmpSuiteAudioProcessorEditor::choosePractice(bool recording)
             if (safe == nullptr) return;
             const auto file = dialog.getResult();
             if (recording && file.isDirectory()) {
+                if (static_cast<bool>(safe->processor.backupStatus()["busy"])) { safe->processor.reportLibraryResult("Finish backup/recovery before starting a recording."); safe->chooser.reset(); return; }
                 const auto rig = safe->processor.getRig();
                 const auto failure = rig.hasProperty("error") ? rig["error"].toString() : safe->processor.practice.record(file, rig);
                 if (failure.isNotEmpty()) safe->processor.reportLibraryResult("Load failed: " + failure);
@@ -319,6 +326,23 @@ void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
             }
             safe->chooser.reset();
         });
+}
+juce::String AmpSuiteAudioProcessorEditor::chooseBackup(bool restore)
+{
+    if (chooser) return "Finish the current file selection first.";
+    if (static_cast<bool>(processor.backupStatus()["busy"])) return "Finish the current backup/recovery first.";
+    if (static_cast<int>(processor.practice.status()["recordMode"]) != 0) return "Finish recording before backup/recovery.";
+    chooser = std::make_unique<juce::FileChooser>(restore ? "Restore a Cassian personal backup as copies" : "Save a Cassian personal backup",
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Cassian backup " + juce::Time::getCurrentTime().formatted("%Y-%m-%d") + ".cassian-backup.zip"), "*.zip");
+    const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
+    chooser->launchAsync((restore ? juce::FileBrowserComponent::openMode : juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting) | juce::FileBrowserComponent::canSelectFiles,
+        [safe, restore](const juce::FileChooser& dialog) {
+            if (safe == nullptr) return;
+            const auto file = dialog.getResult();
+            if (file != juce::File()) { const auto failure = safe->processor.requestBackup(restore, file); if (failure.isNotEmpty()) safe->processor.reportLibraryResult(failure); }
+            safe->chooser.reset();
+        });
+    return {};
 }
 juce::String AmpSuiteAudioProcessorEditor::chooseRigFile(bool save, bool pack, const juce::String& savedId)
 {

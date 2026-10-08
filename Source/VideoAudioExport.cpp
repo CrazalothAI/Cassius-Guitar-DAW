@@ -9,6 +9,7 @@ juce::String TakeLibrary::revealExport() {
 
 juce::String TakeLibrary::videoExport(const juce::String& id, const juce::String& version, const juce::File& destination, bool backing, float guitarDb, float backingDb, double startSeconds, double endSeconds, double fadeSeconds) {
     const juce::ScopedLock guard(lock); const auto take = find(id);
+    if (maintenancePending.load()) return "Finish backup/recovery before exporting audio.";
     if (!take.isValid() || static_cast<bool>(take["incomplete"])) return "Choose a complete take to export.";
     if (version != "processed" && version != "dry" && !take.getChildWithProperty("id", version).isValid()) return "Take version not found.";
     if (!std::isfinite(guitarDb) || !std::isfinite(backingDb) || guitarDb < -60 || guitarDb > 12 || backingDb < -60 || backingDb > 12) return "Invalid export balance.";

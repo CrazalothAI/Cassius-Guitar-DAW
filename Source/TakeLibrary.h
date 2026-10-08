@@ -28,8 +28,13 @@ public:
     juce::var status();
     juce::String reveal(const juce::String& id);
     juce::String revealExport();
+    // Serialized with recording imports, reamps and metadata writes. The
+    // processor cancels/waits before destruction because work may capture it.
+    juce::String maintenance(std::function<void()> work);
+    bool maintenanceBusy() const { return maintenancePending.load(); }
+    void waitForMaintenance();
 private:
-    struct Job { juce::String type, id, name, version, notes, command, sectionId; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; double tailSeconds = 0, startSeconds = 0, endSeconds = -1, fadeSeconds = 0; juce::var rig; unsigned previewGeneration = 0; std::function<void(juce::var)> completed; };
+    struct Job { juce::String type, id, name, version, notes, command, sectionId; juce::File folder; bool favorite = false, backing = false; float guitarDb = 0, backingDb = 0; double tailSeconds = 0, startSeconds = 0, endSeconds = -1, fadeSeconds = 0; juce::var rig; unsigned previewGeneration = 0; std::function<void(juce::var)> completed; std::function<void()> maintenance; };
     juce::var loadRigSnapshot(const Job&);
     void run() override;
     void importTake(const juce::File&);
@@ -48,6 +53,7 @@ private:
     bool reviewLoading = false;
     std::atomic<bool> exporting {false}, cancelled {false};
     std::atomic<bool> snapshotPending {false};
+    std::atomic<bool> maintenancePending {false};
     std::atomic<unsigned> reviewGeneration {0}, revision {0};
     std::atomic<double> progress {0};
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(TakeLibrary)

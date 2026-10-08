@@ -1,5 +1,7 @@
 # Cassian user guide
 
+For personal library/take protection, open **Library → Backup & recovery**. Create a verified archive on another drive, or restore recovered copies without replacing existing work. See [backup and recovery](BACKUP-AND-RECOVERY.md) for included files, the 2 GiB limit and DAW/session exclusions.
+
 Cassian is a guitar workstation for live amp/pedal tones, backing-track practice, recording and reamping. The 1.0 release candidate targets Windows x64 standalone and VST3. Linux source exists but has no validated release package. All 22 built-in rigs include their sounds; the 20 capture recipes require the listed user-imported files.
 
 ## Install and connect
@@ -44,7 +46,7 @@ Library imports NAM captures and WAV cabinets/ambience, supports tags/favorites 
 
 Save/export rigs before changing installations. Reference exports contain file references; portable packs include referenced files, subject to their redistribution permissions. Paid installers/support do not grant rights to third-party captures. The public candidate includes original sounds, not the owner's private bank.
 
-Normal library/take storage is under `%APPDATA%\Cassian`, except externally referenced imported files and chosen export destinations. Uninstall preserves settings, rigs and recordings. Portable use shares normal user storage; it is not a fully self-contained profile. Back up the Cassian data folder and external sound/export files before reinstalling Windows or moving PCs.
+Normal library/take storage is under `%APPDATA%\Cassian`, except externally referenced imported files and chosen recording/export destinations. Uninstall preserves settings, rigs and recordings. Portable use shares normal user storage; it is not a fully self-contained profile. Use Library → Backup & recovery for complete personal rig/take archives within its limits. Save DAW sessions, MIDI/device preferences and external media projects separately before reinstalling Windows or moving PCs.
 
 ## Troubleshooting and support
 

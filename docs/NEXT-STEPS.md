@@ -2,9 +2,11 @@
 
 Planning checkpoint: 2026-10-08. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Current milestone: **1.0.0 RC2 reliability**. Add independent actual-VST3 validation in CI, isolated test storage, reproducible runs and preserved evidence. Signing is deferred at the owner's request; unsigned candidate development continues. This is release hardening, not a claim that all manual acceptance is complete.
+Current milestone: **1.1.0 Preview — personal backup and recovery**. The owner authorized continued post-1.0 work on 2026-10-08. Verified personal archives, recovery as additional rig/take copies, referenced sound/media relocation and progress/cancellation are implemented. See [backup and recovery](BACKUP-AND-RECOVERY.md). Signing remains deferred; manual acceptance results are not invented.
 
-Next: validate a fresh Windows install/real upgrade, exercise actual DAW recall and automation plus physical MIDI, and complete recording/export checks with camera footage. Record each configuration and result in the acceptance matrix. After the first release is stable, prioritize complete library/take backup and recovery for 1.1; then consider advanced routing/pitch work. The website remains deferred.
+Next: try backup/restore on a second PC and larger real libraries, then add ZIP64/subsets and automatic snapshots/retention. Fresh Windows install/real upgrade, actual DAW recall/automation, physical MIDI and export/camera checks still need recorded configurations in the acceptance matrix. Consider advanced routing/pitch after the recovery workflow is validated. The website remains deferred.
+
+Previous candidate: **1.0.0 RC2 reliability** added independent actual-VST3 validation in CI, isolated test storage, reproducible runs and preserved evidence.
 
 Previous candidate: 1.0.0 RC1 adds Help/setup, open-source licensing, matching source bundles, signing support and a stable publication gate. The owner reports most sounds good; remaining acceptance evidence is in [commercial release](COMMERCIAL-RELEASE.md).
 

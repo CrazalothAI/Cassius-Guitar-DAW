@@ -32,6 +32,7 @@
 #include "PedalboardState.h"
 #include "PerformanceScenes.h"
 #include "ActiveRig.h"
+#include "LibraryBackup.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
 {
@@ -83,6 +84,10 @@ public:
     // Validate and migrate on an isolated tree before live recall or pack writes.
     juce::String migrateRigDocument(const juce::var& rig, juce::ValueTree& state);
     void requestRigPack(bool save, const juce::File& file, const juce::var& snapshot = {});
+    juce::String requestBackup(bool restore, const juce::File& file);
+    juce::var backupStatus();
+    void cancelBackup() { backupCancelled.store(true); }
+    juce::String revealBackup();
     void reportLibraryResult(const juce::String& text) { const juce::ScopedLock lock(requestLock); message = text; }
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
@@ -127,6 +132,10 @@ private:
     AssetLibrary library;
     ActiveRig activeRig;
     LibraryStore sharedStore;
+    juce::CriticalSection backupLock;
+    std::atomic<bool> backupBusy {false}, backupCancelled {false};
+    std::atomic<double> backupProgress {0};
+    juce::String backupOperation, backupError, backupSummary, backupLocation;
     std::vector<std::pair<juce::File, juce::String>> pendingImports;
     struct PackJob { juce::File file; bool save; juce::var snapshot; };
     std::vector<PackJob> pendingPacks;

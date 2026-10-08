@@ -7,6 +7,7 @@
 static void check(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
 void runLibraryChecks(const juce::File& fixture);
 void runValidationIsolationChecks();
+void runBackupChecks(const juce::File& fixture);
 void runQualityChecks(const juce::File& fixture);
 void runSoundChecks(const juce::File& fixture);
 void runPracticeChecks();
@@ -67,7 +68,10 @@ int main(int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI initialise;
     try
     {
+        std::cout << "Checking validation storage\n";
         runValidationIsolationChecks();
+        std::cout << "Checking personal backup/recovery\n";
+        if (argc > 1) runBackupChecks(juce::File(argv[1]));
         juce::AudioDeviceManager::AudioDeviceSetup guitarSetup;
         guitarSetup.inputChannels.setRange(0, 2, true);
         guitarSetup.outputChannels.setRange(0, 2, true);

@@ -29,6 +29,8 @@ describe('editor connected to the audio engine', () => {
     await waitFor(()=>expect(screen.getByLabelText('Cassian version').textContent).toBe('v1.0.0 RC2'));
     engine.status={...engine.status,releaseChannel:'stable',releaseCandidate:0};
     await waitFor(()=>expect(screen.getByLabelText('Cassian version').textContent).toBe('v1.0.0'));
+    engine.status={...engine.status,appVersion:'1.1.0',releaseChannel:'preview'};
+    await waitFor(()=>expect(screen.getByLabelText('Cassian version').textContent).toBe('v1.1.0 Preview'));
   });
   it('loads saved rigs directly from the header and reverts through complete native recall', async () => {
     engine.library.rigs=[{id:'saved-lead',name:'My lead'}];
