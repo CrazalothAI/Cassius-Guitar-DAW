@@ -1,6 +1,6 @@
 # Cassian product roadmap
 
-Checkpoint: 2026-10-08. Current feature preview: **1.3.0**. The product is a guitar workstation and VST3 processor, with practice, recording and reamping; a general multitrack DAW is outside the current scope. The owner reports practical sound tests tried so far are passing. That is useful playing feedback, not an automatic certification of every interface, host or preset.
+Checkpoint: 2026-10-08. Current feature preview: **1.3.1**. The product is a guitar workstation and VST3 processor, with practice, recording and reamping; a general multitrack DAW is outside the current scope. The owner reports practical sound tests tried so far are passing. That is useful playing feedback, not an automatic certification of every interface, host or preset.
 
 | Area | Delivered | Remaining |
 | --- | --- | --- |
@@ -10,7 +10,7 @@ Checkpoint: 2026-10-08. Current feature preview: **1.3.0**. The product is a gui
 | Practice and takes | Play Along, backing loops/sections, review waveforms, dry/processed/backing recording, reamping and video WAV exports | Streaming review for longer takes; structured local practice/session history |
 | Protection | Tone snapshots, selected/full/tone-only archives, verified ZIP64 up to 32 GiB, annotation reports | Real second-PC/large-library acceptance; automatic session recovery later |
 | Interrupted takes | Initial incomplete metadata, worker WAV checkpoints, separate verified recovery copies and explicit review confirmation | Physical power-failure evidence, RF64/damaged-header recovery and session reconstruction remain separate work |
-| Distribution | Windows installer/portable/VST3, matching source, checksums, automated upgrade checks, one latest installer | Fresh-PC prerequisites, actual older-version upgrades, signing, support/seller and dependency/branding records |
+| Input setup | Eight-second raw-input sampling, explicit bounded trim, clipping/dropout/stale-route protection, channel/monitor controls | First-five-minutes beginner trials; capture dBu calibration and continuous peak measurement remain separate | Windows installer/portable/VST3, matching source, checksums, automated upgrade checks, one latest installer | Fresh-PC prerequisites, actual older-version upgrades, signing, support/seller and dependency/branding records |
 
 ## What should make Cassian worth choosing
 
@@ -24,7 +24,7 @@ The owner wants a fairly priced alternative to recurring software costs, using o
 
 ## Next order
 
-Finish and publish the 1.3.0 recovery/download update. Then prioritize first-run audio guidance, the original starter-rig listening workflow, and long-take review rather than continuing to add archive choices. Collect the owner's next practical tests after restringing, retaining exact rig/interface/driver/rate/buffer settings when available. Complete the manual release evidence and cleared sound distribution alongside these improvements.
+Recording recovery/download cleanup and guided input setup are implemented. Next prioritize the original starter-rig listening workflow and long-take review, alongside beginner setup trials. Collect the owner's next practical tests after restringing, retaining exact rig/interface/driver/rate/buffer settings when available. Complete the manual release evidence and cleared sound distribution alongside these improvements.
 
 Pitch transpose/harmonizers, parallel amps, cabinet alignment and smoother switching are later DSP milestones with their own latency, recall and performance work. The promotional/community website remains deferred until the app is more mature. It should eventually offer demos, simple current-version downloads, documentation, transparent roadmap and suggestions, with repository-backed participation.
 

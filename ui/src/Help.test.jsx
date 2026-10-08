@@ -2,7 +2,7 @@ import React from 'react';
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 const bridge=vi.hoisted(()=>({invoke:vi.fn()}));
-vi.mock('./juce/bridge.js',()=>({native:true,invoke:bridge.invoke}));
+vi.mock('./juce/bridge.js',()=>({native:true,invoke:bridge.invoke,slider:()=>null}));
 import Help, {supportReport} from './components/Help.jsx';
 const status={appVersion:'1.0.0',deviceSettingsAvailable:true,sampleRate:48000,bufferSize:256,selectedInput:1,dropouts:-1,cpu:7.2,overruns:2,board:{serial:true,blocks:[{},{}]},audioDevice:{driver:'ASIO',inputDevice:'USB interface',outputDevice:'USB interface',monitoring:false}};
 beforeEach(()=>bridge.invoke.mockReset().mockResolvedValue(''));
@@ -47,4 +47,13 @@ it('opens only named external help links through the native bridge',async()=>{
 it('keeps unknown input and unavailable rates explicit in support reports',()=>{
   const report=supportReport({deviceSettingsAvailable:false,selectedInput:-1,dropouts:0});
   expect(report).toContain('Input channel: Controlled by host / unavailable');expect(report).toContain('Sample rate: Unavailable Hz');expect(report).toContain('Device dropouts: 0');
+});
+it('selects the physical guitar input in setup and keeps those controls disabled during recording',async()=>{
+  const view=render(<Help status={{...status,inputChannels:['Instrument 1','Instrument 2']}} onError={vi.fn()}/>);
+  fireEvent.change(screen.getByLabelText('Setup guitar input'),{target:{value:'0'}});
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('setInputChannel',0));
+  view.rerender(<Help status={{...status,inputChannels:['Instrument 1','Instrument 2'],practice:{recordMode:2}}} onError={vi.fn()}/>);
+  expect(screen.getByLabelText('Setup guitar input').disabled).toBe(true);
+  expect(screen.getByLabelText('Monitor guitar input').disabled).toBe(true);
+  expect(screen.getByRole('button',{name:'Open audio settings'}).disabled).toBe(true);
 });

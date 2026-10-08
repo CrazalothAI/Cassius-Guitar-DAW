@@ -56,6 +56,8 @@ Normal library/take storage is under `%APPDATA%\Cassian`, except externally refe
 
 ## Troubleshooting and support
 
+Before evaluating tones, open **Help & setup → Check your guitar input**. Choose your guitar's physical input, enable Monitor guitar input, then click **Check input for 8 seconds** and play your hardest chords/notes. The meter is raw input before software trim and effects. Review the sampled peak and warnings; only **Apply suggested input trim** changes Input, aiming near −12 dBFS with a ±12 dB limit. If clipping is detected, lower the interface's physical gain and check again. The gate cannot repair clipped input. This sampled check can miss short transients and is not a capture's dBu calibration. Stop recording/take playback first, and recheck after device, channel, rate, buffer or hardware-gain changes. DAW users choose routing in the host; the installed plugin can check its live input when callbacks are running.
+
 - **No sound:** confirm interface input/output, Monitor guitar input (or DAW monitoring), selected guitar channel, input meter and Master. Try a built-in rig to isolate missing captures.
 - **Crackle/dropouts:** check clipping first, then try a larger buffer. Reports indicate missed deadlines, not proof that every crackle has the same cause. Avoid loading complex assets repeatedly while playing.
 - **Missing sounds:** use Library's Missing files filter and relink. Capture recipes remain unavailable until their exact dependencies exist.

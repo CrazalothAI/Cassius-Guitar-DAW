@@ -142,11 +142,11 @@ void runTakeChecks()
         }
         {
             PracticeEngine review; TakeLibrary reopened(catalogFile,review); waitFor([&]{return reopened.list().size()==2;});
-            reopened.importFolder(juce::File(approvedPath)); const auto revision=static_cast<int>(reopened.status()["revision"]); waitFor([&]{return static_cast<int>(reopened.status()["revision"])>revision;});
+            reopened.importFolder(juce::File(approvedPath)); (void) recover(reopened,approvedId,"processed"); // Queue a worker barrier after the entire import/persist job.
             bool found=false; const auto takes=reopened.list(); for(const auto& take:*takes.getArray()) if(take["id"].toString()==approvedId) found=!static_cast<bool>(take["incomplete"]);
             require(found,"Explicit review must persist across reopen and reimport");
             write(juce::File(approvedPath).getChildFile("Guitar processed.wav"),2,4096,48000,.05f);
-            const auto changedRevision=static_cast<int>(reopened.status()["revision"]); reopened.importFolder(juce::File(approvedPath)); waitFor([&]{return static_cast<int>(reopened.status()["revision"])>changedRevision;});
+            reopened.importFolder(juce::File(approvedPath)); (void) recover(reopened,approvedId,"processed");
             require(static_cast<bool>(first(reopened)["incomplete"]) && !static_cast<bool>(first(reopened)["recoveryReviewed"]),"Reimport must clear prior approval when recovered audio changed");
             require(reopened.recoverFolder(source).isEmpty(),"External review fixture must queue"); waitFor([&]{return !static_cast<bool>(reopened.status()["exporting"]);});
             const auto externalId=first(reopened)["id"].toString();

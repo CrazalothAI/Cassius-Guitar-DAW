@@ -124,6 +124,7 @@ int main(int argc, char** argv)
         set(processor, "REVERB_MIX", 0); set(processor, "GATE_THRESH", -80);
         set(processor, "MASTER_VOL", -6);
         processor.prepareToPlay(48000, 64);
+        check(!static_cast<bool>(processor.status()["audioProcessing"]), "Prepared audio must not imply that callbacks have started");
         juce::AudioBuffer<float> buffer(2, 257); // Deliberately larger than prepared block.
         juce::MidiBuffer midi;
         for (int block = 0; block < 20; ++block)
@@ -139,6 +140,9 @@ int main(int argc, char** argv)
             }
         }
         check(buffer.getMagnitude(0, 257) > 0.001f, "Bypassed amp must pass audio");
+        check(static_cast<bool>(processor.status()["audioProcessing"]), "Recent callbacks must be reported for input setup");
+        processor.releaseResources();
+        check(!static_cast<bool>(processor.status()["audioProcessing"]), "Stopped audio must not leave a fresh input setup reading");
         // The second input channel is deliberately ignored. A hot signal
         // arriving there must not leak into the guitar path as crackle.
         set(processor, "GATE_ON", 0); set(processor, "REVERB_MIX", 0);

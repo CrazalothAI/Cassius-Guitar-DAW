@@ -637,6 +637,11 @@ footer .warn { color: #efb86a; }
 .help-audio p { flex-basis: 100%; }
 .help-panel nav { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
 .help-panel a { color: var(--gold); }
+.input-check { border-block: 1px solid #514b3f; margin: 14px 0; padding-bottom: 12px; }
+.input-check-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.input-check-controls .meter { flex: 1 1 180px; min-width: 120px; }
+.input-check-controls > span { font-size: 12px; }
+.input-check-result { padding: 8px 12px; margin-top: 10px; border-left: 2px solid var(--gold); background: #151913; }
 /* Library maintenance stays compact until explicitly opened. */
 .library-backup { flex-shrink: 0; border: 1px solid #ffffff20; border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 12px; }
 .library-backup summary { cursor: pointer; font-weight: 600; }

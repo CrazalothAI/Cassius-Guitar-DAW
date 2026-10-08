@@ -840,6 +840,8 @@ juce::var AmpSuiteAudioProcessor::status()
         result->setProperty("pedalResampled", expectedPedal > 0 && std::abs(expectedPedal - currentRate) >= 1);
     }
     result->setProperty("input", inputPeak.load()); result->setProperty("output", outputPeak.load());
+    const auto lastTick = lastAudioTick.load(std::memory_order_relaxed);
+    result->setProperty("audioProcessing", lastTick > 0 && juce::Time::getMillisecondCounterHiRes() - lastTick < 1500);
     result->setProperty("prePedal", prePedalPeak.load());
     result->setProperty("postPedal", postPedalPeak.load());
     result->setProperty("postAmp", postAmpPeak.load());

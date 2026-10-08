@@ -1,0 +1,17 @@
+# Cassian 1.3.1 Preview — guided input setup
+
+Help & setup now includes an eight-second guitar input check. Select the interface and guitar input, enable playback monitoring, then play your hardest chords and notes at your normal guitar volume. The app holds the highest sampled raw-input peak and remembers clipping or reported interruptions during the check. It offers a bounded Input-trim suggestion only after enough fresh readings, with explicit Apply; sampling alone changes no audio settings.
+
+The suggestion uses the existing −12 dBFS setup target and is limited to ±12 dB. It replaces the Input trim, rather than adding repeatedly. It does not change Master, amp/pedal gain, gate, selected rig or recorded files. Capture-specific dBu calibration remains separate. Samples come from the editor's 10 Hz status polling, so they can miss short transients and do not establish continuous peak or noise-floor measurement. A signal can be noise; the player must play and listen.
+
+Clipped input asks the player to lower physical interface gain and recheck. Silent/very weak input asks for cable/channel/instrument-setting checks instead of offering a large boost. Reported overruns/dropouts require another check after addressing the interruption. Recording and take playback prevent the check and trim application. Changed device/channel/rate/buffer/monitoring settings invalidate the measurement. Missing or stale readings cannot produce an applicable suggestion. Recent audio-callback activity is exposed in status and the reviewed support report; stopping/releasing audio clears activity.
+
+Standalone Help includes the physical guitar-input selector alongside monitoring and Audio settings. DAW input/monitoring remain controlled by the host. Browser preview cannot measure audio. Closing the panel discards measurements, and no input-check results are submitted or stored. The Help backup limit now correctly reads 32 GiB.
+
+The 1.3.0 verified recording-recovery and single-installer layout remain in place. This is an unsigned preview; acceptance, redistribution and commercial records remain pending. Owner sound feedback is retained without inventing additional test results.
+
+## Validation
+
+UI: 216 tests pass, including sustained sampling, explicit-only trim, held clipping, silence/weak signal, stale telemetry before and after measurement, permanent route invalidation, stopped/muted audio, recording/review restrictions, interruption counters, bounded suggestions, cancellation and DAW handling. Standalone and VST3 production builds pass. All four native suites pass, with independent Python CRC verification of the ZIP64 compatibility fixture. Native regression coverage checks inactive prepared audio, recent processing and release clearing. Three final-binary pluginval runs pass at level 10 (seeds 10002/10003/10004); isolated install/upgrade/uninstall, version, release-layout and signing-logic checks pass.
+
+The recovery reimport regression fixture now queues a worker barrier after import/persist rather than waiting for a revision counter that can advance before disk persistence finishes. A failed run exposed that test race; the corrected full suite passed. No recovery approval checks were weakened. Visual inspection could not run because the local browser-control runtime failed to initialize. Real playing, actual DAW sessions, fresh-PC installs, physical power interruptions and provider signing are still separate acceptance work.

@@ -41,7 +41,7 @@ public:
     explicit AmpSuiteAudioProcessor(bool sharedLibrary = true, juce::File libraryRoot = LibraryStore::defaultRoot());
     ~AmpSuiteAudioProcessor() override;
     void prepareToPlay(double, int) override;
-    void releaseResources() override { practice.command("pause"); takes.stopReview(); }
+    void releaseResources() override { lastAudioTick.store(0, std::memory_order_relaxed); practice.command("pause"); takes.stopReview(); }
     void processBlock(juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
     bool isBusesLayoutSupported(const BusesLayout&) const override;
     juce::AudioProcessorEditor* createEditor() override;

@@ -4,7 +4,7 @@ The owner selected **open-source code with paid installers/support** on 2026-10-
 
 Primary sources: [JUCE 8.0.6 license](https://github.com/juce-framework/JUCE/blob/8.0.6/LICENSE.md), [GNU selling guidance](https://www.gnu.org/philosophy/selling.en.html), [GPL/AGPL compatibility](https://www.gnu.org/licenses/license-compatibility.en.html), [Inno commercial license request](https://jrsoftware.org/isorder.php).
 
-Signing was deferred by the owner on 2026-10-08; continue unsigned preview development. The current 1.3.0 preview adds recording checkpoints, explicit verified recovery copies and one current installer per GitHub release. The 32 GiB personal backup/section recovery workflow remains available. The owner reports practical sound tests tried so far are passing; no complete hardware/DAW matrix was supplied. RC2 introduced [independent plugin validation](PLUGIN-VALIDATION.md), which remains required and does not substitute for real DAW/hardware acceptance. See the [product priorities](PRODUCT-ROADMAP.md).
+Signing was deferred by the owner on 2026-10-08; continue unsigned preview development. The current 1.3.1 preview adds guided input setup with explicit bounded trim, following recording checkpoints, verified recovery copies and one current installer per GitHub release. The 32 GiB personal backup/section recovery workflow remains available. The owner reports practical sound tests tried so far are passing; no complete hardware/DAW matrix was supplied. RC2 introduced [independent plugin validation](PLUGIN-VALIDATION.md), which remains required and does not substitute for real DAW/hardware acceptance. See the [product priorities](PRODUCT-ROADMAP.md).
 
 ## Product included in this candidate
 
