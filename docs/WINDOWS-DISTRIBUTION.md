@@ -8,15 +8,17 @@ Setup detects WebView2 through Microsoft's documented per-user/machine registry 
 
 Run a newer installer to upgrade using the same application identity and installation location. Close Cassian and any DAW using its plugin beforehand; setup can request closure when files are in use. Uninstall removes installed app/plugin files and shortcuts, leaving saved app settings, managed library data, practice sections and recordings alone.
 
-**Cassian-Windows.zip** is the portable alternative: its root contains `Cassian.exe`, the VST3 bundle, quick-start instructions, source reference and third-party notices. Extract it before running. The portable app uses the same normal user settings/library locations and needs WebView2 already installed. GitHub's source ZIP is for source builds and contains no executable.
+**Cassian-Windows.zip** is the portable alternative: its root contains `Cassian.exe`, the VST3 bundle, quick-start instructions, user guide, project license, source reference and third-party notices. Extract it before running. The portable app uses the same normal user settings/library locations and needs WebView2 already installed. GitHub's source ZIP is for source builds and contains no executable.
 
 ## Build and verify
 
 After building Release standalone and VST3, run:
 
 ```powershell
-./scripts/package-windows.ps1
+./scripts/package-windows.ps1 -Release
 ./scripts/test-windows-installer.ps1
+./scripts/test-package-integrity.ps1
+./scripts/test-release-readiness.ps1
 ```
 
 Packaging emits the setup EXE and portable ZIP into the repository root, and copies the standalone app there as `Cassian.exe`. `-Standalone` can select a separately built executable. No generated binaries are committed to Git. The compiler is pinned to Inno Setup 6.7.3 with a verified SHA-256 and publisher signature. The WebView2 bootstrapper signature is verified before embedding it. Its runtime payload comes from Microsoft at install time.
@@ -30,3 +32,7 @@ Validated locally: Release standalone/VST3 build, system-only DLL imports, four 
 The main-branch Windows workflow publishes `Cassian-Setup.exe` and `Cassian-Windows.zip` as the `latest` development prerelease after tests pass. Packaging a local checkout does not publish it. The README's direct installer link becomes available after this workflow runs on main with these changes.
 
 Third-party notices accompany both formats. Inno Setup supports a signing step, but no signing certificate or secrets are stored in this repository. Commercial distribution still needs the dependency/asset review described in THIRD_PARTY.md and the expansion roadmap.
+
+## 1.0.0 candidate source and signing
+
+Packaging now also emits `Cassian-1.0.0-Source.zip` containing the committed project and pinned runtime dependency source, plus all three artifact hashes. Deliver this alongside binaries. The current RC1 is unsigned. [Signing setup](WINDOWS-SIGNING.md) covers a conventional certificate provider and Microsoft Artifact Signing; a trusted verified account is required before either can sign real downloads. Packaging supports app/plugin/Setup/uninstaller signing and rejects failed signatures. [Commercial acceptance](COMMERCIAL-RELEASE.md) and the generated `RELEASE-READINESS.json` distinguish tested packaging from pending real-user acceptance.

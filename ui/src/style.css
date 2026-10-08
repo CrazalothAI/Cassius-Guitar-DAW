@@ -624,3 +624,16 @@ footer .warn { color: #efb86a; }
 .take-range { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin: 12px 0; }
 .take-range label { display: grid; gap: 5px; flex: 1; min-width: 110px; }
 .take-range input { width: 100%; min-width: 0; background: #101211; border: 1px solid #504739; color: #e4dfd4; border-radius: 4px; padding: 7px 9px; font-size: 11px; }
+
+.help-panel { font-size: 13px; line-height: 1.65; }
+.help-panel h3 { color: var(--gold); margin: 14px 0 6px; }
+.help-panel ol { padding-left: 24px; }
+.help-panel p { margin: 8px 0; }
+.help-panel details { border-top: 1px solid #514b3f; padding: 10px 0; }
+.help-panel summary { cursor: pointer; color: var(--gold); }
+.help-panel textarea { display: block; width: 100%; resize: vertical; min-height: 120px; font-size: 11px; color: #ded7c6; background: #111411; padding: 10px; margin: 10px 0; }
+.help-panel button { border: 1px solid #70624b; border-radius: 5px; padding: 6px 10px; background: #22231e; }
+.help-audio { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.help-audio p { flex-basis: 100%; }
+.help-panel nav { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
+.help-panel a { color: var(--gold); }

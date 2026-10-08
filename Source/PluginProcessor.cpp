@@ -797,6 +797,8 @@ juce::var AmpSuiteAudioProcessor::status()
 {
     auto result = std::make_unique<juce::DynamicObject>();
     result->setProperty("appVersion", JucePlugin_VersionString);
+    result->setProperty("releaseChannel", CASSIAN_RELEASE_CHANNEL);
+    result->setProperty("releaseCandidate", CASSIAN_RELEASE_CANDIDATE);
     result->setProperty("practice", practice.status());
     result->setProperty("takes", takes.status());
     result->setProperty("review", takeReview.status());

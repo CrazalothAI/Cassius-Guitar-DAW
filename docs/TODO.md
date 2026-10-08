@@ -2,6 +2,8 @@
 
 ## Current milestone
 
+- [x] Prepare 1.0.0 RC1: in-app Help/setup, AGPL licensing, matching source, publisher attribution, signing support and stable-release gate.
+- [ ] Complete the acceptance evidence and signatures in [commercial release](COMMERCIAL-RELEASE.md) before stable sale publication.
 - [x] 0.9.0: independent distortion/plate/spring footswitch bypass and CC drive/blend targets for both slots, with reorder stability, missing/deleted-slot errors and session persistence.
 - [x] 0.8.2: copy saved scenes into another slot without recalling or capturing live edits; explicit replacement labels, independent snapshots and session/pack coverage.
 - [x] Finish Play Along: listening-only tests, accurate output-peak warning, playable build.
@@ -12,7 +14,8 @@
 - [x] Build the first serial audio runtime/editor with duplication/replacement, drag/arrow reordering, bypass and undo/redo.
 - [x] Add recorded ambience responses and safe sound-ZIP intake; validate/import the October user packs.
 - [x] Measure a demanding actual-capture board at 128/256/512 samples and optimize long-response convolution; see [October intake](SOUND-INTAKE-OCTOBER.md).
-- [ ] Audition complete genre rigs and validate sustained live interface / DAW use.
+- [x] Owner reports most sounds tested and sound checks good on 2026-10-07; coverage/configurations were not supplied.
+- [ ] Document sustained interface configurations and real DAW/MIDI/export-sync evidence for advertised release scope.
 - [x] Add 12 complete built-in rigs and 20 exact-capture recipes; remove blanket Red-I/Blue-I preset routing and add structured sound-library filters.
 - [x] Prepare and verify a relocated 103-file shared bank and installer/portable bank support.
 - [ ] Obtain per-asset redistribution grants and ship the approved bank in the GitHub release; private supplied sounds are not publicly cleared.

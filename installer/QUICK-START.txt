@@ -1,11 +1,11 @@
-CASSIAN
+CASSIAN 1.0.0 RELEASE CANDIDATE
 
 Open Cassian from the Windows Start menu, your desktop shortcut, or Cassian.exe.
 The installer places the app in your user profile; administrator access is not required.
 
 FIRST SOUND
 1. Connect your guitar and headphones/speakers to your audio interface.
-2. Open Audio settings in Cassian. Choose your interface, guitar input and outputs.
+2. Open Help & setup, choose your interface/input/outputs in Audio settings, and enable Monitor guitar input.
 3. Select Warm Jazz or Modern Metalcore under Cassian built-in rigs. These need no additional files.
 4. Raise Master gradually. Keep the interface input gain below clipping.
 5. Use your interface's Playback monitoring to avoid doubling the dry guitar.
@@ -47,3 +47,10 @@ Help and source: https://github.com/CrazalothAI/Cassius-Guitar-DAW
 Third-party notices are installed alongside the app.
 When a licensed sound bank is supplied, keep the Sounds folder beside the portable app.
 The installer places that bank automatically; missing capture recipes name their required files.
+
+OPEN-SOURCE AND SUPPORT
+Original code: AGPL-3.0-or-later, copyright Crazaloth. Paid support/installers preserve license rights.
+LICENSE.txt, COPYRIGHT.md, USER-GUIDE.md and third-party notices are included.
+Matching Cassian-<version>-Source.zip is supplied beside the binary download at no extra charge.
+Help & setup provides first-sound guidance and a support report you can review before copying.
+No report is sent automatically. This candidate is unsigned until a publisher certificate is configured.

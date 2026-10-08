@@ -130,6 +130,25 @@ public:
                 return devices.setAudioDeviceSetup(setup, true);
             };
             cassian->showDeviceSettings = [this] { if (window) window->getPluginHolder()->showAudioSettingsDialog(); };
+            cassian->deviceSummary = [this, &devices] {
+                auto summary = std::make_unique<juce::DynamicObject>();
+                const auto setup = devices.getAudioDeviceSetup();
+                summary->setProperty("driver", devices.getCurrentAudioDeviceType());
+                summary->setProperty("inputDevice", setup.inputDeviceName);
+                summary->setProperty("outputDevice", setup.outputDeviceName);
+                summary->setProperty("monitoring", window && !static_cast<bool>(window->getPluginHolder()->getMuteInputValue().getValue()));
+                auto* device = devices.getCurrentAudioDevice();
+                summary->setProperty("activeInputs", device ? device->getActiveInputChannels().countNumberOfSetBits() : 0);
+                summary->setProperty("activeOutputs", device ? device->getActiveOutputChannels().countNumberOfSetBits() : 0);
+                return juce::var(summary.release());
+            };
+            cassian->setInputMonitoring = [this, &devices](bool enabled) {
+                auto* device = devices.getCurrentAudioDevice();
+                if (enabled && (!device || device->getActiveInputChannels().isZero() || device->getActiveOutputChannels().isZero()))
+                    return juce::String("Choose an interface with a guitar input and playback output first.");
+                if (!window) return juce::String("Audio settings are unavailable.");
+                window->getPluginHolder()->getMuteInputValue().setValue(!enabled); return juce::String();
+            };
             cassian->midiInputs = [&devices] {
                 juce::Array<juce::var> rows;
                 for (const auto& info : juce::MidiInput::getAvailableDevices()) {

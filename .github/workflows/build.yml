@@ -16,6 +16,9 @@ jobs:
         working-directory: ui
       - run: npm test
         working-directory: ui
+      - name: Test signing configuration and verification
+        shell: pwsh
+        run: ./scripts/test-windows-signing.ps1
       - name: Read release version
         id: version
         shell: pwsh
@@ -39,6 +42,14 @@ jobs:
       - name: Test installation, upgrade and uninstall
         shell: pwsh
         run: ./scripts/test-windows-installer.ps1
+      - name: Verify binaries and matching source
+        shell: pwsh
+        run: ./scripts/test-package-integrity.ps1
+      - name: Record commercial release readiness
+        shell: pwsh
+        run: |
+          $channel = Get-Content ui/src/release.json -Raw | ConvertFrom-Json
+          ./scripts/test-release-readiness.ps1 -RequireReady:($channel.channel -eq 'stable')
       - uses: actions/upload-artifact@v5
         with:
           name: Cassian-Windows
@@ -48,6 +59,8 @@ jobs:
             Cassian-Windows.zip
             Cassian-*-Setup.exe
             Cassian-*-Windows.zip
+            Cassian-*-Source.zip
+            RELEASE-READINESS.json
             Cassian-Build.json
             SHA256SUMS.txt
       # Every push to main replaces the "latest" pre-release, so the newest
@@ -61,9 +74,9 @@ jobs:
         run: |
           gh release view latest *> $null
           if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
-          $notes = "Cassian $env:CASSIAN_VERSION preview. Built from ${{ github.sha }}.`n`nDownload Cassian-Setup.exe and run it to install Cassian, shortcuts and the optional VST3 plugin. Setup installs Microsoft WebView2 if needed (internet required for that step).`n`nFor portable use, extract Cassian-Windows.zip and run Cassian.exe at the top of the folder. The GitHub source ZIP is for developers.`n`nVersioned copies, SHA256SUMS.txt and Cassian-Build.json identify this download. Third-party capture files await redistribution clearance."
+          $notes = "Cassian $env:CASSIAN_VERSION preview. Built from ${{ github.sha }}.`n`nDownload Cassian-Setup.exe and run it to install Cassian, shortcuts and the optional VST3 plugin. Setup installs Microsoft WebView2 if needed (internet required for that step).`n`nFor portable use, extract Cassian-Windows.zip and run Cassian.exe at the top of the folder. The GitHub source ZIP is for developers.`n`nVersioned copies, SHA256SUMS.txt and Cassian-Build.json identify this download. Includes 22 original rigs. Private third-party capture files are excluded. Matching source is supplied under AGPL-3.0-or-later. This is a release candidate; signing and acceptance items are listed in RELEASE-READINESS.json."
           $notes | Set-Content -LiteralPath release-notes.txt -Encoding utf8
-          $assets = @('Cassian-Setup.exe','Cassian-Windows.zip',"Cassian-$env:CASSIAN_VERSION-Setup.exe","Cassian-$env:CASSIAN_VERSION-Windows.zip",'Cassian-Build.json','SHA256SUMS.txt')
+          $assets = @('Cassian-Setup.exe','Cassian-Windows.zip',"Cassian-$env:CASSIAN_VERSION-Setup.exe","Cassian-$env:CASSIAN_VERSION-Windows.zip","Cassian-$env:CASSIAN_VERSION-Source.zip",'RELEASE-READINESS.json','Cassian-Build.json','SHA256SUMS.txt')
           gh release create latest @assets --prerelease --title "Latest Windows download" --target ${{ github.sha }} --notes-file release-notes.txt
       - name: Publish versioned preview
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
@@ -72,7 +85,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CASSIAN_VERSION: ${{ steps.version.outputs.value }}
         run: |
-          $notes = "Cassian $env:CASSIAN_VERSION preview, built from ${{ github.sha }}. Download the versioned Setup.exe for installation or Windows.zip for portable use. SHA256SUMS.txt and Cassian-Build.json accompany these files. Live hardware, signing and third-party sound clearance remain release checks."
+          $notes = "Cassian $env:CASSIAN_VERSION preview, built from ${{ github.sha }}. Download the versioned Setup.exe for installation or Windows.zip for portable use. SHA256SUMS.txt and Cassian-Build.json accompany these files. Matching AGPL source is included. Owner reports most sounds auditioned; remaining signing/acceptance checks are listed in RELEASE-READINESS.json."
           $notes | Set-Content -LiteralPath release-notes.txt -Encoding utf8
-          $assets = @("Cassian-$env:CASSIAN_VERSION-Setup.exe","Cassian-$env:CASSIAN_VERSION-Windows.zip",'Cassian-Build.json','SHA256SUMS.txt')
+          $assets = @("Cassian-$env:CASSIAN_VERSION-Setup.exe","Cassian-$env:CASSIAN_VERSION-Windows.zip","Cassian-$env:CASSIAN_VERSION-Source.zip",'RELEASE-READINESS.json','Cassian-Build.json','SHA256SUMS.txt')
           gh release create $env:GITHUB_REF_NAME @assets --verify-tag --prerelease --title "Cassian $env:CASSIAN_VERSION preview" --notes-file release-notes.txt

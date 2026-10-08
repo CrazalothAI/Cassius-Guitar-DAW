@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest milestone: 0.9.0 adds independent footswitch bypass and expression targets for both distortion/plate/spring instances, with missing/deleted-slot protection. It includes 0.8.1 scene renaming and 0.8.2 saved-scene copying. See [0.9.0](RELEASE-0.9.0.md).
+Latest candidate: 1.0.0 RC1 adds Help/setup, open-source licensing, matching source bundles, signing support and a stable publication gate. The owner reports most sounds good; remaining acceptance evidence is in [commercial release](COMMERCIAL-RELEASE.md).
+
+Previous milestone: 0.9.0 adds independent footswitch bypass and expression targets for both distortion/plate/spring instances, with missing/deleted-slot protection. It includes 0.8.1 scene renaming and 0.8.2 saved-scene copying. See [0.9.0](RELEASE-0.9.0.md).
 
 Previous patch: 0.8.2 adds saved-scene copies to another slot without changing live tone. See [0.8.2](RELEASE-0.8.2.md).
 

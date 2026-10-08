@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "version": "1.0.0",
+  "scope": "Windows x64 standalone and VST3; original built-in sounds; owner-imported captures",
+  "ownerSoundReport": {
+    "date": "2026-10-07",
+    "result": "Owner reports sound checks good for now and most sounds tested.",
+    "limit": "No complete rig, interface, driver, buffer, DAW or MIDI test matrix supplied. This is owner audition feedback, not certification of all configurations."
+  },
+  "checks": {
+    "freshWindowsInstall": {"passed": false, "evidence": ""},
+    "realUpgrade": {"passed": false, "evidence": ""},
+    "dawRecallAutomation": {"passed": false, "evidence": ""},
+    "physicalMidi": {"passed": false, "evidence": ""},
+    "clipchampSync": {"passed": false, "evidence": ""},
+    "brandingRights": {"passed": false, "evidence": ""},
+    "sellerTermsAndSupport": {"passed": false, "evidence": ""},
+    "dependencyDistributionReview": {"passed": false, "evidence": ""}
+  }
+}

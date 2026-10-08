@@ -199,7 +199,23 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             complete(args.size() == 2 && args[0].isString() && args[1].isBool() && processor.setMidiInput ? processor.setMidiInput(args[0].toString(), static_cast<bool>(args[1])) : juce::String("Route MIDI through your DAW."));
         })
         .withNativeFunction("getStatus", [this](const auto&, auto complete) {
-            auto status = processor.status(); if (processor.midiInputs) status.getDynamicObject()->setProperty("midiInputs", processor.midiInputs()); complete(status);
+            auto status = processor.status(); if (processor.midiInputs) status.getDynamicObject()->setProperty("midiInputs", processor.midiInputs());
+            if (processor.deviceSummary) status.getDynamicObject()->setProperty("audioDevice", processor.deviceSummary()); complete(status);
+        })
+        .withNativeFunction("setInputMonitoring", [this](const auto& args, auto complete) {
+            complete(args.size() == 1 && args[0].isBool() && processor.setInputMonitoring ? processor.setInputMonitoring(static_cast<bool>(args[0])) : juce::String("Your DAW controls input monitoring."));
+        })
+        .withNativeFunction("copySupportReport", [](const auto& args, auto complete) {
+            if (args.size() != 1 || !args[0].isString() || args[0].toString().length() > 8192) { complete(juce::String("Invalid support report.")); return; }
+            juce::SystemClipboard::copyTextToClipboard(args[0].toString()); complete(juce::String());
+        })
+        .withNativeFunction("openHelpLink", [](const auto& args, auto complete) {
+            const auto key = args.size() == 1 && args[0].isString() ? args[0].toString() : juce::String();
+            const char* url = key == "guide" ? "https://github.com/CrazalothAI/Cassius-Guitar-DAW/blob/main/docs/USER-GUIDE.md"
+                : key == "support" ? "https://github.com/CrazalothAI/Cassius-Guitar-DAW/issues"
+                : key == "source" ? "https://github.com/CrazalothAI/Cassius-Guitar-DAW"
+                : key == "license" ? "https://github.com/CrazalothAI/Cassius-Guitar-DAW/blob/main/LICENSE.txt" : nullptr;
+            complete(url != nullptr && juce::URL(url).launchInDefaultBrowser() ? juce::String() : juce::String("Could not open this help link."));
         });
     juce::StringArray relayIds; BoardParams::each([&](const auto& p) { relayIds.add(p.id); });
     for (const auto& id : relayIds)

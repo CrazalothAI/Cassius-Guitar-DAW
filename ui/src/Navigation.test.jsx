@@ -9,6 +9,18 @@ afterEach(cleanup);
 const view = name => fireEvent.click(screen.getByRole('tab', {name}));
 const bar = () => within(screen.getByRole('region', {name: 'Current complete rig'}));
 describe('workspace navigation and complete rig bar', () => {
+  it('opens help without changing the playing workspace and returns keyboard focus', () => {
+    render(<App/>); view('Takes'); const help=screen.getByRole('button',{name:'Help & setup'});help.focus();fireEvent.click(help);
+    const dialog=screen.getByRole('dialog',{name:'Help & setup'});
+    expect(screen.getByRole('tab',{name:'Takes'}).getAttribute('aria-selected')).toBe('true');
+    expect(within(dialog).getByText(/This browser is a preview/)).toBeTruthy();
+    expect(within(dialog).getByRole('button',{name:'Copy support report'}).disabled).toBe(true);
+    const close=within(dialog).getByRole('button',{name:'Close help & setup'});
+    fireEvent.keyDown(close,{key:'Tab',shiftKey:true});
+    expect(document.activeElement).toBe(within(dialog).getByRole('link',{name:'License'}));
+    fireEvent.keyDown(document.activeElement,{key:'Tab'});expect(document.activeElement).toBe(close);
+    fireEvent.keyDown(dialog,{key:'Escape'});expect(screen.queryByRole('dialog')).toBeNull();expect(document.activeElement).toBe(help);
+  });
   it('keeps one destination active with keyboard access and gives Practice/Takes a compact amp', () => {
     render(<App/>);
     const workspace = within(screen.getByRole('tablist', {name: 'Workspace'}));

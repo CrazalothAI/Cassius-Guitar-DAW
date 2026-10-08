@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 0.9.0 is a development preview. Independent pedal MIDI control and scene organization are documented in [0.9.0 notes](RELEASE-0.9.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 1.0.0 RC1 is a release candidate. The numeric binary version is 1.0.0; `ui/src/release.json` records candidate status separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. Independent pedal MIDI control and scene organization are documented in [0.9.0 notes](RELEASE-0.9.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 
@@ -10,9 +10,9 @@ For the next version, run `npm version <major.minor.patch> --no-git-tag-version`
 
 ## Identify each download
 
-Normal packaging retains `Cassian-Setup.exe`, `Cassian-Windows.zip` and the root `Cassian.exe`. It also emits `Cassian-0.9.0-Setup.exe`, `Cassian-0.9.0-Windows.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` (using the current version). Versioned copies are byte-identical to their convenient aliases. The ZIP still opens directly to Cassian.exe.
+Normal packaging retains `Cassian-Setup.exe`, `Cassian-Windows.zip` and the root `Cassian.exe`. It also emits `Cassian-1.0.0-Setup.exe`, `Cassian-1.0.0-Windows.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` (using the current version). Versioned copies are byte-identical to their convenient aliases. The ZIP still opens directly to Cassian.exe.
 
-The checksum file covers the versioned installer and ZIP. Build metadata records the version, checkout at packaging, tracked source modifications, private-bank status, sound count and those hashes. Checksums establish file integrity, not publisher authenticity; they are not a substitute for code signing. A checkout reference identifies packaging context and is not proof that an arbitrary supplied executable was compiled from that commit.
+The checksum file covers the versioned installer, portable ZIP and matching `Cassian-1.0.0-Source.zip`. Metadata records channel/candidate and whether signing was configured; actual signatures are independently verified by the readiness check. Build metadata records the version, checkout at packaging, tracked source modifications, private-bank status, sound count and those hashes. Checksums establish file integrity, not publisher authenticity; they are not a substitute for code signing. A checkout reference identifies packaging context and is not proof that an arbitrary supplied executable was compiled from that commit.
 
 In PowerShell 7, `./scripts/package-windows.ps1 -Release` additionally rejects modified tracked source, untracked build inputs, smoke installers and private-sound flags. Build and test the committed revision before using it. `-Standalone` and `-OutputDirectory` remain available. Source archives without Git metadata must be built from a checkout before packaging.
 
@@ -43,3 +43,5 @@ Previous 0.3.0 validation on Windows on 2026-10-06: 134 UI tests, all four nativ
 0.6.1 and 0.6.2 each passed full UI/native checks on Windows on 2026-10-07 (169 and 170 UI tests). The combined 0.7.0 milestone passed 171 UI tests, four native suites with the optional 103-file bank, Release standalone/VST3 builds, binary version checks and isolated installer install/upgrade/uninstall. Both final binaries report 0.7.0. See [evidence and limits](RELEASE-0.7.0.md).
 
 0.7.1 and 0.7.2 each passed full UI/native checks on Windows on 2026-10-07 (172 and 173 UI tests). The combined 0.8.0 milestone passed 174 UI tests, four native suites with the optional 103-file bank, Release standalone/VST3 builds, binary version checks and isolated installer install/upgrade/uninstall. Both final binaries report 0.8.0. See [evidence and limits](RELEASE-0.8.0.md).
+
+For 1.0, stable publication requires a stable channel, committed manual acceptance records, clean public packages, matching source and trusted timestamped signatures. The workflow fails the stable gate when these are missing. Its automated release publications remain prereleases; final stable publication is separately authorized after all acceptance passes. See [release preparation](COMMERCIAL-RELEASE.md).

@@ -17,6 +17,12 @@ if(NOT CASSIAN_LOCK_VERSION STREQUAL CASSIAN_VERSION OR NOT CASSIAN_LOCK_ROOT_VE
     message(FATAL_ERROR "Update ui/package-lock.json to match the Cassian package version.")
 endif()
 project(Cassian VERSION "${CASSIAN_VERSION}" LANGUAGES C CXX)
+file(READ "${CMAKE_CURRENT_SOURCE_DIR}/ui/src/release.json" CASSIAN_RELEASE_INFO)
+string(JSON CASSIAN_RELEASE_CHANNEL GET "${CASSIAN_RELEASE_INFO}" channel)
+string(JSON CASSIAN_RELEASE_CANDIDATE GET "${CASSIAN_RELEASE_INFO}" candidate)
+if(NOT CASSIAN_RELEASE_CHANNEL MATCHES "^(preview|candidate|stable)$" OR NOT CASSIAN_RELEASE_CANDIDATE MATCHES "^[0-9]+$")
+    message(FATAL_ERROR "Invalid Cassian release channel metadata.")
+endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -86,7 +92,7 @@ juce_add_binary_data(AmpSuiteAssets SOURCES "${UI_DIR}/dist/index.html")
 juce_add_binary_data(CassianRigAssets NAMESPACE CassianRigs HEADER_NAME CassianRigData.h SOURCES "${UI_DIR}/src/startingRigs.json")
 set(CASSIAN_ICON "${UI_DIR}/src/assets/cassian-logo-192.png")
 juce_add_binary_data(CassianBrandAssets NAMESPACE CassianBrand HEADER_NAME CassianBrandData.h SOURCES "${CASSIAN_ICON}")
-juce_add_plugin(AmpSuite COMPANY_NAME MyAudioLab BUNDLE_ID com.myaudiolab.ampsuite
+juce_add_plugin(AmpSuite COMPANY_NAME Crazaloth BUNDLE_ID com.myaudiolab.ampsuite
     COMPANY_COPYRIGHT "Crazaloth"
     PLUGIN_MANUFACTURER_CODE Maud PLUGIN_CODE Apsu
     FORMATS Standalone VST3 PRODUCT_NAME Cassian
@@ -107,7 +113,7 @@ target_sources(AmpSuite_Standalone PRIVATE Source/Standalone.cpp)
 target_link_libraries(AmpSuite_Standalone PRIVATE CassianBrandAssets)
 target_compile_definitions(AmpSuite_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)
 target_compile_definitions(AmpSuite PUBLIC JUCE_WEB_BROWSER=1 JUCE_USE_WIN_WEBVIEW2_WITH_STATIC_LINKING=1
-    JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0)
+    JUCE_USE_CURL=0 JUCE_VST3_CAN_REPLACE_VST2=0 CASSIAN_RELEASE_CHANNEL="${CASSIAN_RELEASE_CHANNEL}" CASSIAN_RELEASE_CANDIDATE=${CASSIAN_RELEASE_CANDIDATE})
 if(WIN32)
     target_compile_definitions(AmpSuite PUBLIC JUCE_ASIO=1)
     target_include_directories(AmpSuite PUBLIC "${CASSIAN_ASIO_SDK}/common")

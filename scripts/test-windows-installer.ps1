@@ -30,6 +30,9 @@ try {
     RunInstaller $setup ($installArgs + "/LOG=`"$(Join-Path $testRoot 'install.log')`"")
     $installedExe = Join-Path $installDir 'Cassian.exe'
     Assert (Test-Path -LiteralPath $installedExe) 'Installed app is missing.'
+    foreach ($document in @('LICENSE.txt','COPYRIGHT.md','USER-GUIDE.md','SOURCE.txt')) {
+        Assert (Test-Path -LiteralPath (Join-Path $installDir $document)) "Installed document is missing: $document"
+    }
     Assert ((Get-FileHash -LiteralPath $installedExe).Hash -eq (Get-FileHash -LiteralPath $exe).Hash) 'Installed executable differs from the built app.'
     Assert ((Get-ItemProperty -LiteralPath $registration).DisplayVersion -eq '0.0.1') 'Initial installer registration has the wrong version.'
     Assert (Test-Path -LiteralPath (Join-Path $installDir 'VST3/Cassian.vst3/Contents/x86_64-win/Cassian.vst3')) 'Optional VST3 was not installed.'

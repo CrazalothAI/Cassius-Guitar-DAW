@@ -5,7 +5,13 @@ export default function UtilityDialog({title, onClose, notice, children}) {
   return <div className="utility-overlay" onKeyDown={e => {
     if (e.key === 'Escape') { e.stopPropagation(); onClose(); }
     if (e.key === 'Tab') {
-      const controls = [...panel.current.querySelectorAll('button,input,select,textarea,[tabindex="0"]')].filter(x => !x.disabled);
+      const controls = [...panel.current.querySelectorAll('button,input,select,textarea,a[href],summary,[tabindex="0"]')].filter(x => {
+        if (x.disabled || x.closest('[hidden]')) return false;
+        for (let ancestor = x.parentElement; ancestor && ancestor !== panel.current; ancestor = ancestor.parentElement) {
+          if (ancestor.tagName === 'DETAILS' && !ancestor.open && x !== ancestor.querySelector(':scope > summary')) return false;
+        }
+        return true;
+      });
       const first = controls[0], last = controls.at(-1);
       if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
       else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }

@@ -8,7 +8,13 @@ param(
     [string]$OutputDirectory = '.',
     [string]$SoundBank = 'assets/sound-bank',
     [switch]$AllowDevelopmentSounds,
-    [switch]$Release
+    [switch]$Release,
+    [string]$CertificateThumbprint = '',
+    [string]$TimestampUrl = '',
+    [string]$SignTool = '',
+    [string]$SigningDlib = '',
+    [string]$SigningMetadata = '',
+    [string]$PublisherSubject = ''
 )
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
@@ -20,6 +26,18 @@ $exe = ProjectPath $Standalone
 $plugin = ProjectPath $Vst3
 $output = ProjectPath $OutputDirectory
 . "$PSScriptRoot/ReleaseVersion.ps1"
+. "$PSScriptRoot/WindowsSigning.ps1"
+$channel = Get-Content -LiteralPath (Join-Path $projectRoot 'ui/src/release.json') -Raw | ConvertFrom-Json
+$azureSigning = [bool]($SigningDlib -or $SigningMetadata)
+$signing = [bool]($CertificateThumbprint -or $azureSigning)
+if ($CertificateThumbprint -and $azureSigning) { throw 'Choose certificate-store signing or Artifact Signing, not both.' }
+if ($azureSigning) {
+    $SigningDlib = ProjectPath $SigningDlib; $SigningMetadata = ProjectPath $SigningMetadata
+    if (!$TimestampUrl) { $TimestampUrl = 'http://timestamp.acs.microsoft.com' }
+    Assert-CassianAzureSigningInputs $SigningDlib $SigningMetadata $PublisherSubject $TimestampUrl
+    $SignTool = Get-CassianSigningTool $SignTool
+} elseif ($CertificateThumbprint) { Assert-CassianSigningInputs $CertificateThumbprint $TimestampUrl; $SignTool = Get-CassianSigningTool $SignTool }
+elseif ($TimestampUrl -or $SignTool -or $PublisherSubject) { throw 'Provide a certificate thumbprint or Artifact Signing configuration to enable signing.' }
 $sourceVersion = Get-CassianVersion $projectRoot
 if (!$AppVersion) { $AppVersion = $sourceVersion }
 if ($AppVersion -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') { throw 'Installer version must be a numeric Windows version.' }
@@ -31,7 +49,7 @@ $commit = & git -C $projectRoot rev-parse HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Cannot determine the package source revision.' }
 $sourceModified = [bool](& git -C $projectRoot status --porcelain --untracked-files=no)
 if ($LASTEXITCODE -ne 0) { throw 'Cannot check source changes.' }
-$untrackedBuildInputs = @(& git -C $projectRoot ls-files --others --exclude-standard -- CMakeLists.txt Source ui scripts installer .github assets)
+$untrackedBuildInputs = @(& git -C $projectRoot ls-files --others --exclude-standard -- CMakeLists.txt CMakePresets.json LICENSE.txt COPYRIGHT.md Source ui scripts installer .github assets docs release README.md)
 if ($LASTEXITCODE -ne 0) { throw 'Cannot check uncommitted build inputs.' }
 if ($Release -and ($sourceModified -or $untrackedBuildInputs.Count -or $AllowDevelopmentSounds -or $SmokeTest)) { throw 'Release packaging needs committed source and cleared sounds, without smoke/private flags.' }
 if (!$Compiler) {
@@ -70,7 +88,12 @@ try {
     }
     Copy-Item -LiteralPath $exe -Destination (Join-Path $staging 'Cassian.exe')
     Copy-Item -LiteralPath $plugin -Destination (Join-Path $staging 'Cassian.vst3') -Recurse
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'installer/QUICK-START.txt'),(Join-Path $projectRoot 'THIRD_PARTY.md'),(Join-Path $projectRoot 'licenses') -Destination $staging -Recurse
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'installer/QUICK-START.txt'),(Join-Path $projectRoot 'THIRD_PARTY.md'),(Join-Path $projectRoot 'LICENSE.txt'),(Join-Path $projectRoot 'COPYRIGHT.md'),(Join-Path $projectRoot 'licenses') -Destination $staging -Recurse
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'docs/USER-GUIDE.md') -Destination (Join-Path $staging 'USER-GUIDE.md')
+    if ($signing) {
+        Sign-CassianFile (Join-Path $staging 'Cassian.exe') $SignTool $CertificateThumbprint $TimestampUrl $SigningDlib $SigningMetadata $PublisherSubject
+        Sign-CassianFile (Join-Path $staging 'Cassian.vst3/Contents/x86_64-win/Cassian.vst3') $SignTool $CertificateThumbprint $TimestampUrl $SigningDlib $SigningMetadata $PublisherSubject
+    }
     Copy-Item -LiteralPath (Join-Path $projectRoot 'build/AmpSuite_artefacts/JuceLibraryCode/icon.ico') -Destination (Join-Path $staging 'Cassian.ico')
     Copy-Item -LiteralPath (Join-Path $projectRoot '.deps/runtime/MicrosoftEdgeWebview2Setup.exe') -Destination $staging
     $notices = @{
@@ -99,27 +122,37 @@ try {
         if (!(Test-Path -LiteralPath $source)) { throw "Missing third-party notice: $source" }
         Copy-Item -LiteralPath $source -Destination (Join-Path $staging "licenses/$($notice.Key)")
     }
-    $sourceInfo = "Cassian $sourceVersion source and build instructions:`r`nhttps://github.com/CrazalothAI/Cassius-Guitar-DAW`r`nCheckout at packaging: $commit`r`nTracked source modified: $sourceModified`r`n"
+    $sourceInfo = "Cassian $sourceVersion ($($channel.channel)) - AGPL-3.0-or-later`r`nCopyright (c) 2026 Crazaloth.`r`nMatching source: Cassian-$sourceVersion-Source.zip, supplied alongside this download at no extra charge.`r`nSource/build instructions: https://github.com/CrazalothAI/Cassius-Guitar-DAW`r`nCheckout at packaging: $commit`r`nTracked source modified: $sourceModified`r`nPrivate third-party captures are excluded from public packages.`r`n"
     [IO.File]::WriteAllText((Join-Path $staging 'SOURCE.txt'), $sourceInfo, [Text.UTF8Encoding]::new($false))
     $options = @('/Qp', "/DPackageDir=$staging", "/DOutputDir=$output", "/DAppVersion=$AppVersion")
     if ($withSounds) { $options += '/DWithSoundBank=1' }
     if ($SmokeTest) { $options += '/DSmokeTest=1' }
+    if ($signing) {
+        if ($azureSigning) {
+            $command = '$q' + $SignTool + '$q sign /fd SHA256 /tr $q' + $TimestampUrl + '$q /td SHA256 /dlib $q' + $SigningDlib + '$q /dmdf $q' + $SigningMetadata + '$q $f'
+        } else {
+            $command = '$q' + $SignTool + '$q sign /sha1 ' + $CertificateThumbprint + ' /tr $q' + $TimestampUrl + '$q /td SHA256 /fd SHA256 $f'
+        }
+        $options += '/DSignInstaller=1', ('/SCassianSign=' + $command)
+    }
     & $Compiler @options (Join-Path $projectRoot 'installer/Cassian.iss')
     if ($LASTEXITCODE -ne 0) { throw 'Windows installer compilation failed.' }
     if (!$SmokeTest) {
+        if ($signing) { $null = Assert-CassianSignature (Join-Path $output 'Cassian-Setup.exe') $CertificateThumbprint $PublisherSubject }
         # Select top-level entries: no build or Standalone folder wrappers in the ZIP.
-        $entries = @('Cassian.exe', 'Cassian.vst3', 'QUICK-START.txt', 'SOURCE.txt', 'THIRD_PARTY.md', 'licenses') | ForEach-Object { Join-Path $staging $_ }
+        $entries = @('Cassian.exe', 'Cassian.vst3', 'QUICK-START.txt', 'SOURCE.txt', 'THIRD_PARTY.md', 'LICENSE.txt', 'COPYRIGHT.md', 'USER-GUIDE.md', 'licenses') | ForEach-Object { Join-Path $staging $_ }
         if ($withSounds) { $entries += Join-Path $staging 'Sounds' }
         Compress-Archive -LiteralPath $entries -DestinationPath (Join-Path $output 'Cassian-Windows.zip') -Force
-        $versioned = @("Cassian-$sourceVersion-Setup.exe", "Cassian-$sourceVersion-Windows.zip")
+        & "$PSScriptRoot/package-source.ps1" -OutputDirectory $output
+        $versioned = @("Cassian-$sourceVersion-Setup.exe", "Cassian-$sourceVersion-Windows.zip", "Cassian-$sourceVersion-Source.zip")
         Copy-Item -LiteralPath (Join-Path $output 'Cassian-Setup.exe') -Destination (Join-Path $output $versioned[0]) -Force
         Copy-Item -LiteralPath (Join-Path $output 'Cassian-Windows.zip') -Destination (Join-Path $output $versioned[1]) -Force
         $hashes = @($versioned | ForEach-Object { [ordered]@{file=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $output $_) -Algorithm SHA256).Hash.ToLowerInvariant()} })
         $checksumText = (($hashes | ForEach-Object { "$($_.sha256)  $($_.file)" }) -join "`n") + "`n"
         [IO.File]::WriteAllText((Join-Path $output 'SHA256SUMS.txt'), $checksumText, [Text.UTF8Encoding]::new($false))
-        $build = [ordered]@{schema=1;name='Cassian';version=$sourceVersion;checkout=$commit;trackedSourceModified=$sourceModified;releasePackaging=[bool]$Release;privateSoundBank=([bool]$withSounds -and !$manifest.distributionApproved);soundAssets=if ($withSounds) {$manifest.assets.Count} else {0};files=$hashes}
+        $build = [ordered]@{schema=1;name='Cassian';version=$sourceVersion;channel=$channel.channel;candidate=$channel.candidate;signingConfigured=$signing;checkout=$commit;trackedSourceModified=$sourceModified;releasePackaging=[bool]$Release;privateSoundBank=([bool]$withSounds -and !$manifest.distributionApproved);soundAssets=if ($withSounds) {$manifest.assets.Count} else {0};files=$hashes}
         [IO.File]::WriteAllText((Join-Path $output 'Cassian-Build.json'), ($build | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
-        if (!$SkipRootCopy -and $exe -ne (Join-Path $projectRoot 'Cassian.exe')) { Copy-Item -LiteralPath $exe -Destination (Join-Path $projectRoot 'Cassian.exe') -Force }
+        if (!$SkipRootCopy) { Copy-Item -LiteralPath (Join-Path $staging 'Cassian.exe') -Destination (Join-Path $projectRoot 'Cassian.exe') -Force }
         Write-Host "Windows download ready: $(Join-Path $output 'Cassian-Setup.exe')"
     }
 } finally {

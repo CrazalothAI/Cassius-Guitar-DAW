@@ -19,3 +19,6 @@ assets/irs/*
 !assets/irs/.gitkeep
 assets/sound-bank/*
 !assets/sound-bank/.gitkeep
+
+/Cassian-*-Source.zip
+/RELEASE-READINESS.json

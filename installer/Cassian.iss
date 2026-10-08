@@ -19,7 +19,7 @@ AppName=Cassian
 OutputBaseFilename=Cassian-Setup
 #endif
 AppVersion={#AppVersion}
-AppPublisher=Cassian
+AppPublisher=Crazaloth
 AppPublisherURL=https://github.com/CrazalothAI/Cassius-Guitar-DAW
 AppSupportURL=https://github.com/CrazalothAI/Cassius-Guitar-DAW/issues
 DefaultDirName={localappdata}\Programs\Cassian
@@ -34,6 +34,10 @@ UninstallDisplayIcon={app}\Cassian.exe
 UninstallDisplayName=Cassian
 Compression=lzma2
 SolidCompression=yes
+#ifdef SignInstaller
+SignTool=CassianSign
+SignedUninstaller=yes
+#endif
 WizardStyle=modern
 DisableProgramGroupPage=yes
 CloseApplications=yes
@@ -57,6 +61,9 @@ Source: "{#PackageDir}\Cassian.exe"; DestDir: "{app}"; Components: app; Flags: i
 Source: "{#PackageDir}\QUICK-START.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\SOURCE.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\THIRD_PARTY.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PackageDir}\LICENSE.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PackageDir}\COPYRIGHT.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#PackageDir}\USER-GUIDE.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#PackageDir}\licenses\*"; DestDir: "{app}\licenses"; Flags: ignoreversion recursesubdirs createallsubdirs
 #ifdef WithSoundBank
 Source: "{#PackageDir}\Sounds\*"; DestDir: "{app}\Sounds"; Flags: ignoreversion recursesubdirs createallsubdirs

@@ -24,6 +24,12 @@ beforeEach(() => {
 afterEach(cleanup);
 const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 describe('editor connected to the audio engine', () => {
+  it('shows the connected engine release channel rather than assuming the UI channel', async () => {
+    engine.status={...engine.status,appVersion:'1.0.0',releaseChannel:'candidate',releaseCandidate:2};render(<App/>);
+    await waitFor(()=>expect(screen.getByLabelText('Cassian version').textContent).toBe('v1.0.0 RC2'));
+    engine.status={...engine.status,releaseChannel:'stable',releaseCandidate:0};
+    await waitFor(()=>expect(screen.getByLabelText('Cassian version').textContent).toBe('v1.0.0'));
+  });
   it('loads saved rigs directly from the header and reverts through complete native recall', async () => {
     engine.library.rigs=[{id:'saved-lead',name:'My lead'}];
     engine.status={...engine.status,activeRigId:'saved-lead',activeRigName:'My lead',activeRigSaved:true,activeRigEdited:true};
