@@ -39,6 +39,9 @@ try {
     Assert ($script:arguments -contains '/sha1' -and $script:arguments -notcontains '/dlib') 'Traditional provider arguments differ.'
     function FailedSigningTool {$global:LASTEXITCODE=1}
     Reject {Sign-CassianFile 'fixture.exe' 'FailedSigningTool' '' 'http://timestamp.acs.microsoft.com' $dlib $metadata 'CN=Test publisher'} 'SignTool failure must abort.'
+    # GitHub's PowerShell runner forwards LASTEXITCODE; clear the expected
+    # failure injected above after proving it was rejected.
+    $global:LASTEXITCODE=0
     Write-Host 'Signing logic passed: configuration rejection, certificate rotation, publisher matching, timestamps, command arguments and failure propagation. Provider integration still needs a verified account.'
 }finally{
     if(![IO.Path]::GetFullPath($staging).StartsWith($allowed,[StringComparison]::OrdinalIgnoreCase)){throw 'Unsafe signing fixture cleanup.'}
