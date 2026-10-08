@@ -11,6 +11,8 @@
 - [x] Add 1.1.3 selective take backups with stable identities, matching review sections, preserved snapshots/reamps and unchanged complete/tone-only defaults.
 - [x] Add 1.2.0 stored ZIP64 personal archives up to 32 GiB with bounded, cancellable checksum reads and strict format/boundary validation.
 - [x] Add 1.2.1 validated optional practice/review section recovery and a local per-file outcome report without blocking rig/audio recovery.
+- [x] Add 1.3.0 incomplete recording metadata, disk-worker WAV checkpoints, verified separate recovery copies, review confirmation and one-installer publication with top-level artifact cleanup.
+- [ ] Prioritize original starter-rig listening, first-run interface/calibration guidance and streaming long-take review; see [product roadmap](PRODUCT-ROADMAP.md).
 - [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries. Automatic recording/session recovery remains separate work.
 
 - [x] Prepare 1.0.0 RC1: in-app Help/setup, AGPL licensing, matching source, publisher attribution, signing support and stable-release gate.

@@ -1,5 +1,6 @@
 #include "TakeLibrary.h"
 #include "PluginProcessor.h"
+#include "TakeRecovery.h"
 #include <cmath>
 
 namespace {
@@ -26,6 +27,45 @@ void TakeLibrary::waitForMaintenance() { while (maintenancePending.load()) juce:
 juce::ValueTree TakeLibrary::find(const juce::String& id) { return entries.getChildWithProperty("id", id); }
 void TakeLibrary::importFolder(const juce::File& folder)
 { const juce::ScopedLock guard(lock); Job job; job.type = "import"; job.folder = folder; jobs.push_back(std::move(job)); notify(); }
+juce::String TakeLibrary::recoverFolder(const juce::File& folder) {
+    const juce::ScopedLock guard(lock);
+    if (catalogFile==juce::File()) return "Recording recovery requires a saved take library.";
+    if (!folder.isDirectory()) return "Choose an interrupted take folder.";
+    if (maintenancePending.load() || snapshotPending.load() || exporting.exchange(true)) return "Finish the current export or recovery first.";
+    cancelled.store(false); recoveringRecording.store(true); progress.store(0); error.clear(); lastRecoveryPath.clear(); lastRecoverySummary.clear(); lastRecoveryId.clear();
+    Job job; job.type="recoverTake"; job.folder=folder; jobs.push_back(std::move(job)); notify(); return {};
+}
+juce::String TakeLibrary::confirmRecovery(const juce::String& id, bool externalReview) {
+    const juce::ScopedLock guard(lock); const auto take=find(id);
+    if (!static_cast<bool>(take["recovered"]) || !static_cast<bool>(take["incomplete"])) return "Choose an unconfirmed recovered recording.";
+    if (!externalReview && (reviewLoading || reviewId!=id || reviewVersion!="processed")) return "Listen to this recovered processed take or explicitly confirm review in another player.";
+    if (maintenancePending.load() || snapshotPending.load() || exporting.exchange(true)) return "Finish the current export or recovery first.";
+    cancelled.store(false); recoveringRecording.store(true); progress.store(0); error.clear();
+    Job job; job.type="confirmRecovery"; job.id=id; jobs.push_back(std::move(job)); notify(); return {};
+}
+void TakeLibrary::recoverTake(const Job& job) {
+    const auto parent=catalogFile.getParentDirectory().getChildFile("RecoveredRecordings");
+    const auto result=TakeRecovery::recover(job.folder,parent,cancelled,[this](double p) { progress.store(p); });
+    try { importTake(result.folder); }
+    catch (...) { if (result.folder.isAChildOf(parent)) result.folder.deleteRecursively(); throw; }
+    const juce::ScopedLock guard(lock); lastRecoveryPath=result.folder.getFullPathName(); lastRecoveryId=entries.getChildWithProperty("path",lastRecoveryPath)["id"].toString();
+    lastRecoverySummary="Recovered " + juce::String(result.frames/result.sampleRate,2) + " seconds into a separate take. " + result.warning + "Listen to the processed copy, then confirm it before export or reamping.";
+}
+void TakeLibrary::approveRecovery(const Job& job) {
+    juce::ValueTree previous;
+    { const juce::ScopedLock guard(lock); previous=find(job.id).createCopy(); }
+    require(previous.isValid() && static_cast<bool>(previous["recovered"]) && static_cast<bool>(previous["incomplete"]),"Recovered take is no longer awaiting review.");
+    TakeRecovery::validateReviewed(juce::File(previous["path"].toString()),previous["frames"],previous["sampleRate"],previous["recoveryDrySha256"].toString(),previous["recoveryWetSha256"].toString(),cancelled,previous["recoveryBackingSha256"].toString());
+    { const juce::ScopedLock guard(lock); auto take=find(job.id); take.setProperty("recoveryReviewed",true,nullptr); take.setProperty("incomplete",false,nullptr); ++revision; }
+    try { persist(job.id); }
+    catch (...) { const juce::ScopedLock guard(lock); find(job.id).copyPropertiesAndChildrenFrom(previous,nullptr); ++revision; throw; }
+    progress.store(1); const juce::ScopedLock guard(lock); lastRecoverySummary="Recovered recording confirmed. Export and reamping are available; the original interrupted files remain unchanged.";
+}
+juce::String TakeLibrary::revealRecovery() {
+    juce::String path; { const juce::ScopedLock guard(lock); path=lastRecoveryPath; }
+    if (!juce::File::isAbsolutePath(path) || !juce::File(path).isDirectory()) return "Recovered recording folder is unavailable.";
+    juce::File(path).revealToUser(); return {};
+}
 juce::String TakeLibrary::edit(const juce::String& id, const juce::String& name, bool favorite)
 {
     const auto title = name.trim(); if (title.isEmpty() || title.length() > 80) return "Use a take name between 1 and 80 characters.";
@@ -139,18 +179,37 @@ void TakeLibrary::importTake(const juce::File& folder)
         "Choose a take folder with matching mono Guitar dry.wav and stereo Guitar processed.wav files.");
     const auto metadata = json(folder.getChildFile("Cassian take.json"));
     const auto path = folder.getFullPathName();
-    juce::String id;
+    juce::String id; juce::ValueTree previous;
+    const bool recovered=metadata["recovered"].isBool() && static_cast<bool>(metadata["recovered"]);
+    bool reviewed=false; juce::ValueTree approval;
+    { const juce::ScopedLock guard(lock); approval=entries.getChildWithProperty("path",path).createCopy(); reviewed=recovered && static_cast<bool>(approval["recoveryReviewed"]); }
+    if (reviewed) {
+        try {
+            for (const auto* field:{"recoveryDrySha256","recoveryWetSha256","recoveryBackingSha256"}) require(metadata[field].toString()==approval[field].toString(),"Recovery verification metadata changed.");
+            const std::atomic<bool> checking {false}; TakeRecovery::validateReviewed(folder,dry->lengthInSamples,dry->sampleRate,approval["recoveryDrySha256"].toString(),approval["recoveryWetSha256"].toString(),checking,approval["recoveryBackingSha256"].toString());
+        }
+        catch(const std::exception&) { reviewed=false; }
+    }
     { const juce::ScopedLock guard(lock);
       auto take = entries.getChildWithProperty("path", path);
+      previous=take.createCopy();
       if (!take.isValid()) { require(entries.getNumChildren() < 2048, "The take library is full."); take = juce::ValueTree("TAKE"); take.setProperty("id", juce::Uuid().toString(), nullptr); entries.addChild(take, 0, nullptr); }
       id = take["id"].toString();
       if (!take.hasProperty("name")) take.setProperty("name", metadata["name"].toString().isNotEmpty() ? metadata["name"].toString().substring(0, 80) : folder.getFileName(), nullptr);
       take.setProperty("path", path, nullptr); take.setProperty("frames", dry->lengthInSamples, nullptr); take.setProperty("sampleRate", dry->sampleRate, nullptr);
       take.setProperty("created", metadata["created"].toString().isNotEmpty() ? metadata["created"].toString() : folder.getCreationTime().toISO8601(true), nullptr);
-      take.setProperty("incomplete", static_cast<bool>(metadata["incomplete"]), nullptr); take.setProperty("originalRig", folder.getChildFile("Original rig.json").existsAsFile(), nullptr);
+      const bool incomplete=static_cast<bool>(metadata["incomplete"]) || metadata["recordingState"].toString()=="recording";
+      take.setProperty("recovered",recovered,nullptr);
+      take.setProperty("recoveryReviewed",reviewed,nullptr);
+      take.setProperty("incomplete", incomplete && !reviewed, nullptr); take.setProperty("originalRig", folder.getChildFile("Original rig.json").existsAsFile(), nullptr);
+      if (recovered) { take.setProperty("recoveryDrySha256",metadata["recoveryDrySha256"],nullptr); take.setProperty("recoveryWetSha256",metadata["recoveryWetSha256"],nullptr); take.setProperty("recoveryBackingSha256",metadata["recoveryBackingSha256"],nullptr); }
       take.setProperty("hasBacking", folder.getChildFile("Backing track.wav").existsAsFile(), nullptr);
       ++revision; }
-    persist(id);
+    try { persist(id); }
+    catch (...) {
+        const juce::ScopedLock guard(lock); entries.removeChild(find(id),nullptr);
+        if (previous.isValid()) entries.addChild(previous,0,nullptr); ++revision; throw;
+    }
 }
 void TakeLibrary::persist(const juce::String& changedId)
 {
@@ -268,6 +327,8 @@ void TakeLibrary::run()
         }
         try {
             if (job.type == "import") importTake(job.folder);
+            else if (job.type == "recoverTake") recoverTake(job);
+            else if (job.type == "confirmRecovery") approveRecovery(job);
             else if (job.type == "edit" || job.type == "notes") {
                 juce::ValueTree previous;
                 { const juce::ScopedLock guard(lock); auto take = find(job.id); require(take.isValid(), "Take not found."); previous = take.createCopy();
@@ -306,7 +367,7 @@ void TakeLibrary::run()
                 error = e.what(); if (job.type == "preview") reviewLoading = false;
             }
         }
-        if (job.type == "reamp" || job.type == "video") { exporting.store(false); const juce::ScopedLock guard(lock); activeId.clear(); }
+        if (job.type == "reamp" || job.type == "video" || job.type == "recoverTake" || job.type == "confirmRecovery") { exporting.store(false); recoveringRecording.store(false); const juce::ScopedLock guard(lock); activeId.clear(); }
     }
 }
 juce::var TakeLibrary::list()
@@ -324,6 +385,8 @@ juce::var TakeLibrary::status()
 {
     auto o = std::make_unique<juce::DynamicObject>();
     { const juce::ScopedLock guard(lock); o->setProperty("error", error); o->setProperty("activeId", activeId); o->setProperty("reviewId", reviewId); o->setProperty("reviewVersion", reviewVersion); o->setProperty("reviewLoading", reviewLoading); o->setProperty("lastExportPath", lastExportPath); o->setProperty("lastExportReport", lastExportReport); }
+    { const juce::ScopedLock guard(lock); o->setProperty("lastRecoveryPath",lastRecoveryPath); o->setProperty("lastRecoverySummary",lastRecoverySummary); o->setProperty("lastRecoveryId",lastRecoveryId); }
+    o->setProperty("recoveringRecording",recoveringRecording.load());
     o->setProperty("revision", static_cast<int>(revision.load())); o->setProperty("exporting", exporting.load()); o->setProperty("progress", progress.load()); return juce::var(o.release());
 }
 juce::String TakeLibrary::reveal(const juce::String& id)

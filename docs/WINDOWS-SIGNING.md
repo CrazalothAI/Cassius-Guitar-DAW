@@ -50,6 +50,6 @@ The private key stays in its provider; no PFX/password command-line flow is adde
 
 ## Deliver the download
 
-After a successful signed run, deliver `Cassian-1.0.0-Setup.exe` plus matching `Cassian-1.0.0-Source.zip`, build instructions and notices at no extra source charge. The portable ZIP is optional. Keep metadata/checksums with those exact files. Do not sign or modify artifacts after computing their published hashes; rerun packaging instead.
+After a successful signed run, deliver `Cassian-Setup.exe` plus the matching versioned source ZIP, build instructions and notices at no extra source charge. These files and their metadata/checksums live under `build/releases/<version>`. The portable ZIP is optional. Keep metadata/checksums with those exact files. Do not sign or modify artifacts after computing their published hashes; rerun packaging instead.
 
 Signing alone does not complete the stable release. Record actual acceptance evidence in `release/acceptance.json`; see [commercial release requirements](COMMERCIAL-RELEASE.md). `test-release-readiness.ps1 -RequireReady` must pass before stable sale publication. Normal GitHub preview builds are unsigned; account provisioning and CI signing authentication are a separate setup step. Do not add signing credentials to the existing public build job. A future signing job should use a protected release environment and federated identity, with signing restricted to approved release commits.

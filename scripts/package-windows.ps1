@@ -5,7 +5,7 @@ param(
     [string]$AppVersion = '',
     [switch]$SmokeTest,
     [switch]$SkipRootCopy,
-    [string]$OutputDirectory = '.',
+    [string]$OutputDirectory = '',
     [string]$SoundBank = 'assets/sound-bank',
     [switch]$AllowDevelopmentSounds,
     [switch]$Release,
@@ -24,8 +24,8 @@ function ProjectPath([string]$path) {
 }
 $exe = ProjectPath $Standalone
 $plugin = ProjectPath $Vst3
-$output = ProjectPath $OutputDirectory
 . "$PSScriptRoot/ReleaseVersion.ps1"
+. "$PSScriptRoot/ReleaseArtifacts.ps1"
 . "$PSScriptRoot/WindowsSigning.ps1"
 $channel = Get-Content -LiteralPath (Join-Path $projectRoot 'ui/src/release.json') -Raw | ConvertFrom-Json
 $azureSigning = [bool]($SigningDlib -or $SigningMetadata)
@@ -39,6 +39,7 @@ if ($azureSigning) {
 } elseif ($CertificateThumbprint) { Assert-CassianSigningInputs $CertificateThumbprint $TimestampUrl; $SignTool = Get-CassianSigningTool $SignTool }
 elseif ($TimestampUrl -or $SignTool -or $PublisherSubject) { throw 'Provide a certificate thumbprint or Artifact Signing configuration to enable signing.' }
 $sourceVersion = Get-CassianVersion $projectRoot
+$output = Get-CassianPackageDirectory $projectRoot $OutputDirectory $sourceVersion
 if (!$AppVersion) { $AppVersion = $sourceVersion }
 if ($AppVersion -notmatch '^\d+\.\d+\.\d+(\.\d+)?$') { throw 'Installer version must be a numeric Windows version.' }
 if (!$SmokeTest -and $AppVersion -ne $sourceVersion) { throw 'Only isolated smoke installers can override the project version.' }
@@ -152,17 +153,20 @@ try {
         # Select top-level entries: no build or Standalone folder wrappers in the ZIP.
         $entries = @('Cassian.exe', 'Cassian.vst3', 'QUICK-START.txt', 'SOURCE.txt', 'THIRD_PARTY.md', 'LICENSE.txt', 'COPYRIGHT.md', 'USER-GUIDE.md', 'licenses') | ForEach-Object { Join-Path $staging $_ }
         if ($withSounds) { $entries += Join-Path $staging 'Sounds' }
-        Compress-Archive -LiteralPath $entries -DestinationPath (Join-Path $output 'Cassian-Windows.zip') -Force
+        Compress-Archive -LiteralPath $entries -DestinationPath (Join-Path $output "Cassian-$sourceVersion-Windows.zip") -Force
         & "$PSScriptRoot/package-source.ps1" -OutputDirectory $output
-        $versioned = @("Cassian-$sourceVersion-Setup.exe", "Cassian-$sourceVersion-Windows.zip", "Cassian-$sourceVersion-Source.zip")
-        Copy-Item -LiteralPath (Join-Path $output 'Cassian-Setup.exe') -Destination (Join-Path $output $versioned[0]) -Force
-        Copy-Item -LiteralPath (Join-Path $output 'Cassian-Windows.zip') -Destination (Join-Path $output $versioned[1]) -Force
-        $hashes = @($versioned | ForEach-Object { [ordered]@{file=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $output $_) -Algorithm SHA256).Hash.ToLowerInvariant()} })
+        $artifacts = @('Cassian-Setup.exe', "Cassian-$sourceVersion-Windows.zip", "Cassian-$sourceVersion-Source.zip")
+        $hashes = @($artifacts | ForEach-Object { [ordered]@{file=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $output $_) -Algorithm SHA256).Hash.ToLowerInvariant()} })
         $checksumText = (($hashes | ForEach-Object { "$($_.sha256)  $($_.file)" }) -join "`n") + "`n"
         [IO.File]::WriteAllText((Join-Path $output 'SHA256SUMS.txt'), $checksumText, [Text.UTF8Encoding]::new($false))
         $build = [ordered]@{schema=1;name='Cassian';version=$sourceVersion;channel=$channel.channel;candidate=$channel.candidate;signingConfigured=$signing;pluginValidation=$pluginValidation;checkout=$commit;trackedSourceModified=$sourceModified;releasePackaging=[bool]$Release;privateSoundBank=([bool]$withSounds -and !$manifest.distributionApproved);soundAssets=if ($withSounds) {$manifest.assets.Count} else {0};files=$hashes}
         [IO.File]::WriteAllText((Join-Path $output 'Cassian-Build.json'), ($build | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
         if (!$SkipRootCopy) { Copy-Item -LiteralPath (Join-Path $staging 'Cassian.exe') -Destination (Join-Path $projectRoot 'Cassian.exe') -Force }
+        if (!$OutputDirectory) {
+            Copy-Item -LiteralPath (Join-Path $output 'Cassian-Setup.exe') -Destination (Join-Path $projectRoot 'Cassian-Setup.exe') -Force
+            $removed = Remove-CassianRootArtifacts $projectRoot
+            Write-Host "Removed $removed obsolete top-level package files."
+        }
         Write-Host "Windows download ready: $(Join-Path $output 'Cassian-Setup.exe')"
     }
 } finally {

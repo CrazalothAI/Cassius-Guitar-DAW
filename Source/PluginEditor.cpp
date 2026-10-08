@@ -152,6 +152,15 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (!processor.showDeviceSettings) { complete(juce::String("Take review is available in the standalone app.")); return; }
             chooseTakeFolder(); complete(juce::String());
         })
+        .withNativeFunction("recoverRecording", [this](const auto& args, auto complete) {
+            if (args.size()!=0 || !processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"])!=0 || static_cast<bool>(processor.takes.status()["exporting"]) || static_cast<bool>(processor.backupStatus()["busy"])) { complete(juce::String("Finish recording, export and backup before recovering a recording in standalone.")); return; }
+            chooseTakeFolder(true); complete(juce::String());
+        })
+        .withNativeFunction("confirmTakeRecovery", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || static_cast<int>(processor.practice.status()["recordMode"])!=0 || args.size()!=3 || !args[0].isString() || !args[1].isBool() || !static_cast<bool>(args[1]) || !args[2].isBool()) { complete(juce::String("Listen to the recovered processed audio and confirm your review in standalone.")); return; }
+            complete(processor.takes.confirmRecovery(args[0].toString(),static_cast<bool>(args[2])));
+        })
+        .withNativeFunction("revealRecordingRecovery", [this](const auto&, auto complete) { complete(processor.takes.revealRecovery()); })
         .withNativeFunction("editTake", [this](const auto& args, auto complete) {
             complete(args.size() == 3 && args[0].isString() && args[1].isString() && args[2].isBool() ? processor.takes.edit(args[0].toString(), args[1].toString(), static_cast<bool>(args[2])) : juce::String("Invalid take edit."));
         })
@@ -296,15 +305,21 @@ void AmpSuiteAudioProcessorEditor::choosePractice(bool recording)
             safe->chooser.reset();
         });
 }
-void AmpSuiteAudioProcessorEditor::chooseTakeFolder()
+void AmpSuiteAudioProcessorEditor::chooseTakeFolder(bool recover)
 {
     if (chooser) return;
-    chooser = std::make_unique<juce::FileChooser>("Import a Cassian take folder", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory));
+    chooser = std::make_unique<juce::FileChooser>(recover ? "Recover an interrupted Cassian take into a separate copy" : "Import a Cassian take folder", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory));
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectDirectories,
-        [safe](const juce::FileChooser& dialog) {
+        [safe,recover](const juce::FileChooser& dialog) {
             if (safe == nullptr) return;
-            const auto folder = dialog.getResult(); if (folder.isDirectory()) safe->processor.takes.importFolder(folder);
+            const auto folder = dialog.getResult();
+            if (folder.isDirectory()) {
+                if (recover) {
+                    const auto failure=static_cast<int>(safe->processor.practice.status()["recordMode"])!=0 || static_cast<bool>(safe->processor.backupStatus()["busy"]) ? juce::String("Finish recording and backup before recovery.") : safe->processor.takes.recoverFolder(folder);
+                    if (failure.isNotEmpty()) safe->processor.reportLibraryResult(failure);
+                } else safe->processor.takes.importFolder(folder);
+            }
             safe->chooser.reset();
         });
 }

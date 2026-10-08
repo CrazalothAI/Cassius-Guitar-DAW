@@ -2,6 +2,7 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <atomic>
 #include <memory>
+#include <array>
 #include "PracticeSections.h"
 
 // One audio producer, one disk consumer. No decoding, file writes, allocation,
@@ -75,6 +76,11 @@ private:
     juce::AbstractFifo fifo;
     juce::AudioBuffer<float> recordingAudio;
     std::unique_ptr<juce::AudioFormatWriter> dryWriter, wetWriter, backingWriter;
+    std::array<juce::FileOutputStream*,3> recordingStreams {};
+    std::unique_ptr<juce::InterProcessLock> recordingLock;
+    juce::int64 diskFrames = 0;
+    juce::uint32 checkpointTime = 0;
+    std::atomic<juce::int64> checkpointFrames {0};
     std::atomic<double> recordingRate {48000};
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PracticeEngine)
 };

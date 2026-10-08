@@ -9,6 +9,46 @@ beforeEach(() => {
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
+it('offers explicit interrupted-folder recovery and disables it during recording/export/backup', async () => {
+  const {rerender}=render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  const choose=screen.getByRole('button',{name:'Choose interrupted take folder'});
+  fireEvent.click(choose); await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('recoverRecording'));
+  for(const next of [{...status,practice:{recordMode:3}},{...status,takes:{...status.takes,exporting:true}},{...status,backup:{busy:true}},{...status,deviceSettingsAvailable:false}]) {
+    rerender(<Takes status={next} onError={vi.fn()}/>); expect(choose.disabled).toBe(true);
+  }
+});
+it('requires explicit listening and review before confirming a recovered take', async () => {
+  bridge.entries[0].incomplete=true; bridge.entries[0].recovered=true;
+  const error=vi.fn(), {rerender}=render(<Takes status={status} onError={error}/>); await screen.findByText('Lead take');
+  const confirm=screen.getByRole('button',{name:'Confirm recovered take'});
+  expect(confirm.disabled).toBe(true);
+  fireEvent.click(screen.getByLabelText('I listened to the recovered processed audio')); expect(confirm.disabled).toBe(true);
+  const listened={...status,takes:{...status.takes,reviewId:'one',reviewVersion:'processed'}};
+  rerender(<Takes status={listened} onError={error}/>); expect(confirm.disabled).toBe(false);
+  fireEvent.click(confirm); await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('confirmTakeRecovery','one',true,false));
+  expect(screen.getByRole('button',{name:'Export guitar WAV'}).disabled).toBe(true);
+  rerender(<Takes status={{...listened,takes:{...listened.takes,reviewVersion:'dry'}}} onError={error}/>); expect(confirm.disabled).toBe(true);
+});
+it('allows explicit external-player review and clears confirmation on take selection changes', async () => {
+  bridge.entries[0].incomplete=true; bridge.entries[0].recovered=true;
+  render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  const confirm=screen.getByRole('button',{name:'Confirm recovered take'});
+  fireEvent.click(screen.getByLabelText('I reviewed Guitar processed.wav in another player')); expect(confirm.disabled).toBe(true);
+  fireEvent.click(screen.getByLabelText('I listened to the recovered processed audio')); expect(confirm.disabled).toBe(false);
+  fireEvent.click(confirm); await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('confirmTakeRecovery','one',true,true));
+  fireEvent.click(screen.getByRole('button',{name:/Favorite clean/})); fireEvent.click(screen.getByRole('button',{name:/Lead take/}));
+  expect(screen.getByLabelText('I reviewed Guitar processed.wav in another player').checked).toBe(false);
+  expect(screen.getByRole('button',{name:'Confirm recovered take'}).disabled).toBe(true);
+});
+it('shows recovery progress and offers cancellation and recovered-file access', async () => {
+  const progress={...status,takes:{...status.takes,exporting:true,recoveringRecording:true,progress:.4}};
+  const {rerender}=render(<Takes status={progress} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByRole('progressbar',{name:'Recording recovery progress'}).value).toBe(.4);
+  fireEvent.click(screen.getByRole('button',{name:'Cancel recovery'})); await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('cancelReamp'));
+  rerender(<Takes status={{...status,takes:{...status.takes,lastRecoverySummary:'Recovered 10 seconds. Listen before confirming.',lastRecoveryId:'one',lastRecoveryPath:'local copy'}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('status',{name:'Recording recovery result'}).textContent).toContain('Listen before confirming');
+  fireEvent.click(screen.getByRole('button',{name:'Open recovered files'})); await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('revealRecordingRecovery'));
+});
 it('copies the exact loaded review range for export without following later loop edits', async () => {
   bridge.entries[0].versions[0].frames = 720000;
   const loaded = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'v1'}, review: {...status.review, a: 2.125, b: 13.75}};
@@ -198,7 +238,7 @@ it('blocks recovery during recording, export, rig loading and incomplete recordi
   }
   bridge.entries[0].incomplete = true;
   rerender(<Takes status={{...status, takes: {...status.takes, revision: 2}}} onError={vi.fn()}/>);
-  await screen.findByText('This recording was interrupted. Check the audio before using it.');
+  await screen.findByText('This recording was interrupted. Use Recover interrupted recording to create a reviewable copy.');
   expect(screen.getByRole('button', {name: 'Load recorded rig'}).disabled).toBe(true);
   expect(bridge.invoke.mock.calls.some(([name]) => name === 'restoreTakeRig')).toBe(false);
 });

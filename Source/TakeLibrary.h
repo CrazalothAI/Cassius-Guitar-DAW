@@ -11,6 +11,9 @@ public:
     TakeLibrary(juce::File catalogFile, PracticeEngine& reviewPlayer);
     ~TakeLibrary() override;
     void importFolder(const juce::File&);
+    juce::String recoverFolder(const juce::File&);
+    juce::String confirmRecovery(const juce::String& id, bool externalReview = false);
+    juce::String revealRecovery();
     juce::String edit(const juce::String& id, const juce::String& name, bool favorite);
     juce::String annotate(const juce::String& id, const juce::String& notes);
     juce::String renameVersion(const juce::String& id, const juce::String& version, const juce::String& name);
@@ -38,6 +41,8 @@ private:
     juce::var loadRigSnapshot(const Job&);
     void run() override;
     void importTake(const juce::File&);
+    void recoverTake(const Job&);
+    void approveRecovery(const Job&);
     void exportReamp(const Job&);
     void exportVideoAudio(const Job&);
     void playReview(const Job&);
@@ -49,9 +54,11 @@ private:
     std::vector<Job> jobs;
     PracticeEngine& review;
     juce::String error, activeId, reviewId, reviewVersion, lastExportPath;
+    juce::String lastRecoveryPath, lastRecoverySummary, lastRecoveryId;
     juce::var lastExportReport;
     bool reviewLoading = false;
     std::atomic<bool> exporting {false}, cancelled {false};
+    std::atomic<bool> recoveringRecording {false};
     std::atomic<bool> snapshotPending {false};
     std::atomic<bool> maintenancePending {false};
     std::atomic<unsigned> reviewGeneration {0}, revision {0};

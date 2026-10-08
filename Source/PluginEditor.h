@@ -13,7 +13,7 @@ private:
     void chooseRelink(const juce::String& id);
     void chooseImports(const juce::String& kind);
     void choosePractice(bool recording);
-    void chooseTakeFolder();
+    void chooseTakeFolder(bool recover = false);
     void chooseVideoAudio(const juce::String&, const juce::String&, bool, float, float, double, double, double);
     AmpSuiteAudioProcessor& processor;
     // Destruction order: chooser, attachments, browser, relays.

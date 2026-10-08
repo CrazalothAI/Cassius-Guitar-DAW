@@ -1,17 +1,18 @@
 #requires -Version 7.0
-param([string]$OutputDirectory='.')
+param([string]$OutputDirectory='')
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path -Parent $PSScriptRoot
 . "$PSScriptRoot/ReleaseVersion.ps1"
+. "$PSScriptRoot/ReleaseArtifacts.ps1"
 $version=Get-CassianVersion $projectRoot
-$output=[IO.Path]::GetFullPath($(if([IO.Path]::IsPathRooted($OutputDirectory)){$OutputDirectory}else{Join-Path $projectRoot $OutputDirectory}))
+$output=Get-CassianPackageDirectory $projectRoot $OutputDirectory $version
 function Assert([bool]$ok,[string]$reason){if(!$ok){throw $reason}}
 function Hash([string]$file){(Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()}
 function ReadJson($entry){Assert ($null -ne $entry) 'Archive manifest is missing.';$reader=[IO.StreamReader]::new($entry.Open());try{return $reader.ReadToEnd()|ConvertFrom-Json}finally{$reader.Dispose()}}
 function EntryHash($entry){$stream=$entry.Open();$digest=[Security.Cryptography.SHA256]::Create();try{return [Convert]::ToHexString($digest.ComputeHash($stream)).ToLowerInvariant()}finally{$stream.Dispose();$digest.Dispose()}}
 $meta=Get-Content -LiteralPath (Join-Path $output 'Cassian-Build.json') -Raw|ConvertFrom-Json
 Assert ($meta.schema -eq 1 -and $meta.version -eq $version -and $meta.checkout -match '^[a-f0-9]{40}$') 'Invalid package identity.'
-$expected=@("Cassian-$version-Setup.exe","Cassian-$version-Windows.zip","Cassian-$version-Source.zip")
+$expected=@('Cassian-Setup.exe',"Cassian-$version-Windows.zip","Cassian-$version-Source.zip")
 Assert ($meta.files.Count -eq 3 -and @($meta.files.file|Sort-Object -Unique).Count -eq 3) 'Installer, portable and source artifacts must all be recorded exactly once.'
 $checksums=Get-Content -LiteralPath (Join-Path $output 'SHA256SUMS.txt')
 foreach($file in $meta.files){
@@ -19,7 +20,8 @@ foreach($file in $meta.files){
     Assert ((Hash (Join-Path $output $file.file)) -eq $file.sha256) 'Artifact hash mismatch.'
     Assert ($checksums -contains "$($file.sha256)  $($file.file)") 'Checksum text differs from metadata.'
 }
-foreach($kind in @('Setup.exe','Windows.zip')){Assert ((Hash (Join-Path $output "Cassian-$version-$kind")) -eq (Hash (Join-Path $output "Cassian-$kind"))) 'Convenient alias differs from its versioned artifact.'}
+Assert (@(Get-ChildItem -LiteralPath $output -File -Filter '*Setup*.exe').Count -eq 1) 'Package must contain exactly one installer.'
+if(!$OutputDirectory){Assert ((Hash (Join-Path $projectRoot 'Cassian-Setup.exe')) -eq (Hash (Join-Path $output 'Cassian-Setup.exe'))) 'Root installer differs from the current package.'}
 $zip=[IO.Compression.ZipFile]::OpenRead((Join-Path $output "Cassian-$version-Windows.zip"))
 try {
     if($meta.releasePackaging) {
@@ -43,4 +45,4 @@ try {
     Assert ((EntryHash $source.GetEntry('Cassian-source/ui/package-lock.json')) -eq $manifest.frontendLockSha256) 'Source lockfile hash differs from its manifest.'
     foreach($entry in $source.Entries){Assert ($entry.FullName -notmatch '^Cassian-source/(\.local/|build/|ui/node_modules/|GPT6-MIGRATION-PLAN\.md)' -and $entry.FullName -notmatch '/\.git/') 'Source bundle includes private/local build material.'}
 }finally{$source.Dispose()}
-Write-Host 'Package integrity passed: aliases, checksums, matching source, runtime dependencies, notices and sound separation.'
+Write-Host 'Package integrity passed: one installer, checksums, matching source, runtime dependencies, notices and sound separation.'

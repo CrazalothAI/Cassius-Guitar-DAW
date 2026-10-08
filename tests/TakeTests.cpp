@@ -1,4 +1,5 @@
 #include "../Source/PluginProcessor.h"
+#include "../Source/TakeRecovery.h"
 #include <iostream>
 #include <limits>
 
@@ -10,6 +11,7 @@ template <typename Predicate> void waitFor(Predicate ready) {
 }
 void set(AmpSuiteAudioProcessor& p, const char* id, float value) { auto* param = p.apvts.getParameter(id); param->setValueNotifyingHost(param->convertTo0to1(value)); }
 void write(const juce::File& file, int channels, int frames, double rate, float value, bool step = false) {
+    require(!file.exists() || file.deleteFile(), "Take fixture must replace its previous generated WAV");
     juce::WavAudioFormat format; auto stream = file.createOutputStream();
     std::unique_ptr<juce::AudioFormatWriter> writer(format.createWriterFor(stream.release(), rate, static_cast<unsigned>(channels), 32, {}, 0));
     require(writer != nullptr, "Take fixture writer must open");
@@ -49,6 +51,110 @@ void runTakeChecks()
     const auto root = base.getNonexistentChildFile("Cassian-take-tests-" + juce::Uuid().toString(), "", false);
     require(root.createDirectory().wasOk(), "Take test directory must create");
     struct Cleanup { juce::File folder, base; ~Cleanup() { if (folder.isAChildOf(base)) folder.deleteRecursively(); } } cleanup {root, base};
+    {
+        const auto source=root.getChildFile("Interrupted source"), target=root.getChildFile("Recovered prefixes"); makeTake(source);
+        write(source.getChildFile("Guitar processed.wav"),2,8192,48000,.8f);
+        write(source.getChildFile("Backing track.wav"),2,1024,48000,.2f);
+        source.getChildFile("Original rig.json").replaceWithText(juce::JSON::toString(rig()));
+        const auto dryHash=juce::SHA256(source.getChildFile("Guitar dry.wav")).toHexString(), wetHash=juce::SHA256(source.getChildFile("Guitar processed.wav")).toHexString();
+        std::atomic<bool> stop {false};
+        const auto recovered=TakeRecovery::recover(source,target,stop);
+        require(recovered.frames==4096 && recovered.sampleRate==48000 && recovered.warning.contains("trimmed") && recovered.warning.contains("Backing was omitted"),"Recovery must align unequal readable stems and explain omitted backing");
+        require(!recovered.folder.getChildFile("Backing track.wav").exists() && recovered.folder.getChildFile("Recording recovery report.json").existsAsFile(),"Recovery must retain its report and not invent a backing stem");
+        require(juce::SHA256(source.getChildFile("Guitar dry.wav")).toHexString()==dryHash && juce::SHA256(source.getChildFile("Guitar processed.wav")).toHexString()==wetHash,"Recovery must preserve original audio bytes");
+        const auto doc=juce::JSON::parse(recovered.folder.getChildFile("Cassian take.json").loadFileAsString());
+        require(static_cast<bool>(doc["incomplete"]) && static_cast<bool>(doc["recovered"]),"Recovered copies must await explicit review");
+        TakeRecovery::validateReviewed(recovered.folder,4096,48000,doc["recoveryDrySha256"].toString(),doc["recoveryWetSha256"].toString(),stop);
+        const auto count=target.findChildFiles(juce::File::findDirectories,false).size();
+        bool rejected=false; stop.store(true); try { TakeRecovery::recover(source,target,stop); } catch(const std::exception&) { rejected=true; }
+        require(rejected && target.findChildFiles(juce::File::findDirectories,false).size()==count,"Cancelled recovery must not publish a take");
+        stop.store(false); rejected=false;
+        try { TakeRecovery::recover(source,target,stop,[&](double p){if(p>.1)stop.store(true);}); } catch(const std::exception&) { rejected=true; }
+        require(rejected && target.findChildFiles(juce::File::findDirectories,false).size()==count,"Mid-copy cancellation must clean only its newly created folder");
+        stop.store(false); const auto truncated=root.getChildFile("Truncated recovery source"); makeTake(truncated);
+        { auto stream=truncated.getChildFile("Guitar processed.wav").createOutputStream(); require(stream && stream->setPosition(stream->getPosition()-16) && stream->truncate().wasOk(),"Truncated fixture must create"); }
+        rejected=false; try { TakeRecovery::recover(truncated,target,stop); } catch(const std::exception&) { rejected=true; }
+        require(rejected && target.findChildFiles(juce::File::findDirectories,false).size()==count,"Truncated WAV data must reject rather than silently zero-fill");
+        const auto wrongRate=root.getChildFile("Wrong recovery rate"); makeTake(wrongRate); write(wrongRate.getChildFile("Guitar processed.wav"),2,4096,44100,.1f);
+        rejected=false; try { TakeRecovery::recover(wrongRate,target,stop); } catch(const std::exception&) { rejected=true; }
+        require(rejected,"Mismatched recording rates must reject");
+        rejected=false; try { TakeRecovery::recover(source,source.getChildFile("nested"),stop); } catch(const std::exception&) { rejected=true; }
+        require(rejected,"Recovery storage cannot be nested inside its source take");
+        const auto validBacking=root.getChildFile("Backing recovery source"); makeTake(validBacking); write(validBacking.getChildFile("Backing track.wav"),2,8192,48000,.1f);
+        const auto backed=TakeRecovery::recover(validBacking,target,stop);
+        juce::AudioFormatManager formats; formats.registerBasicFormats(); std::unique_ptr<juce::AudioFormatReader> backing(formats.createReaderFor(backed.folder.getChildFile("Backing track.wav")));
+        require(backing && backing->lengthInSamples==4096,"Valid backing must be trimmed to the same recovered prefix");
+        backing.reset(); const auto backedDoc=juce::JSON::parse(backed.folder.getChildFile("Cassian take.json").loadFileAsString());
+        write(backed.folder.getChildFile("Backing track.wav"),2,4096,48000,.3f); rejected=false;
+        try { TakeRecovery::validateReviewed(backed.folder,4096,48000,backedDoc["recoveryDrySha256"].toString(),backedDoc["recoveryWetSha256"].toString(),stop,backedDoc["recoveryBackingSha256"].toString()); } catch(const std::exception&) { rejected=true; }
+        require(rejected,"Review approval must also reject changed recovered backing audio");
+    }
+    {
+        PracticeEngine capture; capture.prepare(48000); capture.setCountIn(0,120,4); require(capture.record(root,rig()).isEmpty(),"Checkpoint recording must queue");
+        waitFor([&]{return static_cast<int>(capture.status()["recordMode"])==2;}); const juce::File active(capture.status()["takePath"].toString());
+        const auto journal=juce::JSON::parse(active.getChildFile("Cassian take.json").loadFileAsString());
+        require(static_cast<bool>(journal["incomplete"]) && journal["recordingState"].toString()=="recording","Recording must publish its incomplete journal before arming");
+        juce::AudioBuffer<float> audio(2,128), dry(1,128); audio.clear(); dry.clear();
+        for(int i=0;i<10;++i) capture.process(audio,dry.getReadPointer(0));
+        waitFor([&]{return static_cast<double>(capture.status()["recordingCheckpointSeconds"])>0;});
+        juce::AudioFormatManager formats; formats.registerBasicFormats(); std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(active.getChildFile("Guitar dry.wav")));
+        require(reader && reader->lengthInSamples==1280,"Worker checkpoint must publish readable WAV headers before finalization"); reader.reset();
+        std::atomic<bool> stop {false}; bool rejected=false;
+        try { TakeRecovery::recover(active,root.getChildFile("Active recovery"),stop); } catch(const std::exception& e) { rejected=juce::String(e.what()).contains("still recording"); }
+        require(rejected,"Recovery must reject a folder locked by the active recording worker");
+        capture.command("pause"); waitFor([&]{return static_cast<int>(capture.status()["recordMode"])==0;});
+        const auto finished=juce::JSON::parse(active.getChildFile("Cassian take.json").loadFileAsString());
+        require(!static_cast<bool>(finished["incomplete"]) && finished["recordingState"].toString()=="finished","Successful finalization must atomically replace the incomplete journal");
+    }
+    {
+        const auto source=root.getChildFile("Failed recovery registration"); makeTake(source);
+        const auto catalogFile=root.getChildFile("failed-recovery/takes.xml"); catalogFile.getParentDirectory().createDirectory();
+        PracticeEngine review; TakeLibrary library(catalogFile,review); waitFor([&]{return static_cast<int>(library.status()["revision"])>0;});
+        require(catalogFile.replaceWithText("broken catalog"),"Failed recovery fixture must break the catalog");
+        require(library.recoverFolder(source).isEmpty(),"Failed registration fixture must queue recovery"); waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+        require(library.list().size()==0 && library.status()["error"].toString().isNotEmpty() && catalogFile.loadFileAsString()=="broken catalog","Failed recovery registration must roll back memory and preserve the catalog");
+        require(catalogFile.getParentDirectory().getChildFile("RecoveredRecordings").findChildFiles(juce::File::findDirectories,false).isEmpty(),"Failed recovery registration must remove only its newly created copy");
+    }
+    {
+        const auto source=root.getChildFile("Recovery workflow source"), catalogFile=root.getChildFile("recovered-catalog.xml"); makeTake(source);
+        source.getChildFile("Original rig.json").replaceWithText(juce::JSON::toString(rig()));
+        const auto originalHash=juce::SHA256(source.getChildFile("Guitar processed.wav")).toHexString(); juce::String approvedId, approvedPath;
+        {
+            PracticeEngine review; review.prepare(48000); TakeLibrary library(catalogFile,review);
+            require(library.recoverFolder(source).isEmpty(),"Explicit recording recovery must queue");
+            waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(library.status()["error"].toString().isEmpty() && library.list().size()==1 && library.status()["lastRecoverySummary"].toString().contains("Listen"),"Recovery must register its copy and explain the review step");
+            approvedId=first(library)["id"].toString(); approvedPath=first(library)["path"].toString();
+            require(library.confirmRecovery(approvedId).isNotEmpty() && library.reamp(approvedId,rig()).isNotEmpty(),"Unheard recovered takes must block confirmation and reamping");
+            library.preview(approvedId,"processed"); waitFor([&]{return library.status()["reviewId"].toString()==approvedId;});
+            require(library.confirmRecovery(approvedId).isEmpty(),"Explicit reviewed recovery must queue"); waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(library.status()["error"].toString().isEmpty() && !static_cast<bool>(first(library)["incomplete"]) && static_cast<bool>(first(library)["recoveryReviewed"]),"Reviewed copy must become eligible without changing source metadata");
+            const auto output=root.getChildFile("Recovered export.wav");
+            require(library.videoExport(approvedId,"processed",output,false,0,0).isEmpty(),"Confirmed recovered copy must allow WAV export"); waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(output.existsAsFile() && library.status()["error"].toString().isEmpty(),"Recovered audio export must succeed");
+            require(library.recoverFolder(source).isEmpty(),"Second recovery must add a separate copy"); waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            const auto altered=first(library); const auto alteredId=altered["id"].toString();
+            library.preview(alteredId,"processed"); waitFor([&]{return library.status()["reviewId"].toString()==alteredId;}); library.stopReview();
+            write(juce::File(altered["path"].toString()).getChildFile("Guitar processed.wav"),2,4096,48000,.2f);
+            library.preview(alteredId,"processed"); waitFor([&]{return library.status()["reviewId"].toString()==alteredId;});
+            require(library.confirmRecovery(alteredId).isEmpty(),"Changed audio confirmation must reach worker validation"); waitFor([&]{return !static_cast<bool>(library.status()["exporting"]);});
+            require(library.status()["error"].toString().contains("changed") && static_cast<bool>(first(library)["incomplete"]),"Changed recovered bytes must not be approved");
+        }
+        {
+            PracticeEngine review; TakeLibrary reopened(catalogFile,review); waitFor([&]{return reopened.list().size()==2;});
+            reopened.importFolder(juce::File(approvedPath)); const auto revision=static_cast<int>(reopened.status()["revision"]); waitFor([&]{return static_cast<int>(reopened.status()["revision"])>revision;});
+            bool found=false; const auto takes=reopened.list(); for(const auto& take:*takes.getArray()) if(take["id"].toString()==approvedId) found=!static_cast<bool>(take["incomplete"]);
+            require(found,"Explicit review must persist across reopen and reimport");
+            write(juce::File(approvedPath).getChildFile("Guitar processed.wav"),2,4096,48000,.05f);
+            const auto changedRevision=static_cast<int>(reopened.status()["revision"]); reopened.importFolder(juce::File(approvedPath)); waitFor([&]{return static_cast<int>(reopened.status()["revision"])>changedRevision;});
+            require(static_cast<bool>(first(reopened)["incomplete"]) && !static_cast<bool>(first(reopened)["recoveryReviewed"]),"Reimport must clear prior approval when recovered audio changed");
+            require(reopened.recoverFolder(source).isEmpty(),"External review fixture must queue"); waitFor([&]{return !static_cast<bool>(reopened.status()["exporting"]);});
+            const auto externalId=first(reopened)["id"].toString();
+            require(reopened.confirmRecovery(externalId).isNotEmpty() && reopened.confirmRecovery(externalId,true).isEmpty(),"Explicit external review must support recordings beyond the in-app player limit");
+            waitFor([&]{return !static_cast<bool>(reopened.status()["exporting"]);}); require(!static_cast<bool>(first(reopened)["incomplete"]),"Explicit external review must verify audio before approving");
+        }
+        require(juce::SHA256(source.getChildFile("Guitar processed.wav")).toHexString()==originalHash,"Review confirmation and export must preserve the interrupted original");
+    }
     const auto folder = root.getChildFile("Original take"), catalog = root.getChildFile("takes.xml"); makeTake(folder);
     // Review sections persist independently of backing sections and audio. A
     // queued save captures the range at click time; stale generations cancel.

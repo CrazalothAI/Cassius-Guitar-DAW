@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "version": "1.2.1",
+  "version": "1.3.0",
   "scope": "Windows x64 standalone and VST3; original built-in sounds; owner-imported captures",
   "ownerSoundReport": {
-    "date": "2026-10-07",
-    "result": "Owner reports sound checks good for now and most sounds tested.",
+    "date": "2026-10-08",
+    "result": "Owner reports all practical sound tests tried so far have passed and is preparing the guitar for the next tests.",
     "limit": "No complete rig, interface, driver, buffer, DAW or MIDI test matrix supplied. This is owner audition feedback, not certification of all configurations."
   },
   "checks": {

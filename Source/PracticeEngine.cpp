@@ -1,4 +1,5 @@
 #include "PracticeEngine.h"
+#include "TakeRecovery.h"
 #include <cmath>
 #include <signalsmith-stretch/signalsmith-stretch.h>
 
@@ -209,25 +210,34 @@ void PracticeEngine::beginRecording(const juce::File& parent)
     { const juce::ScopedLock lock(control); activeRigJson = pendingRigJson; }
     if (!parent.isDirectory() || folder.createDirectory().failed()) failure = "Could not create the take folder.";
     else {
+        recordingLock = std::make_unique<juce::InterProcessLock>(TakeRecovery::lockName(folder));
+        if (!recordingLock->enter(0)) failure = "The new recording folder is busy.";
+        if (failure.isEmpty()) {
+            auto journal=std::make_unique<juce::DynamicObject>(); journal->setProperty("schema",1); journal->setProperty("name",folder.getFileName());
+            journal->setProperty("created",juce::Time::getCurrentTime().toISO8601(true)); journal->setProperty("sampleRate",recordingRate.load()); journal->setProperty("frames",0);
+            journal->setProperty("incomplete",true); journal->setProperty("recordingState","recording");
+            TakeRecovery::writeMetadata(folder.getChildFile("Cassian take.json"),juce::var(journal.release()));
+        }
         if (activeRigJson.isNotEmpty() && !folder.getChildFile("Original rig.json").replaceWithText(activeRigJson))
             failure = "Could not save the take's original rig settings.";
-        const auto make = [&](const juce::File& file, unsigned channels) {
+        const auto make = [&](const juce::File& file, unsigned channels, size_t index) {
             auto stream = file.createOutputStream();
             if (!stream) return std::unique_ptr<juce::AudioFormatWriter>();
             auto writer = std::unique_ptr<juce::AudioFormatWriter>(wav.createWriterFor(stream.get(), recordingRate.load(), channels, 32, {}, 0));
-            if (writer) stream.release();
+            if (writer) recordingStreams[index] = stream.release();
             return writer;
         };
         if (failure.isEmpty()) {
-            dryWriter = make(folder.getChildFile("Guitar dry.wav"), 1);
-            wetWriter = make(folder.getChildFile("Guitar processed.wav"), 2);
-            backingWriter = make(folder.getChildFile("Backing track.wav"), 2);
+            dryWriter = make(folder.getChildFile("Guitar dry.wav"), 1, 0);
+            wetWriter = make(folder.getChildFile("Guitar processed.wav"), 2, 1);
+            backingWriter = make(folder.getChildFile("Backing track.wav"), 2, 2);
             if (!dryWriter || !wetWriter || !backingWriter) failure = "Could not open the recording stems.";
         }
     }
     { const juce::ScopedLock lock(control); takePath = folder.getFullPathName(); error = failure; }
-    if (failure.isNotEmpty()) { dryWriter.reset(); wetWriter.reset(); backingWriter.reset(); recordMode.store(0); return; }
+    if (failure.isNotEmpty()) { dryWriter.reset(); wetWriter.reset(); backingWriter.reset(); recordingStreams.fill(nullptr); recordingLock.reset(); recordMode.store(0); return; }
     activeTake = folder;
+    diskFrames=0; checkpointFrames.store(0); checkpointTime=juce::Time::getMillisecondCounter();
     fifo.reset(); recordedFrames.store(0); recordingFault.store(0);
     // Only publish the writers after all three stems and the FIFO are ready.
     const juce::ScopedLock lock(control);
@@ -245,26 +255,41 @@ void PracticeEngine::drainRecording()
         // Attempt every stem write so a partial take cannot be reported as complete.
         const bool a = dryWriter->writeFromFloatArrays(dry, 1, size);
         const bool b = wetWriter->writeFromFloatArrays(wet, 2, size);
-        const bool c = backingWriter->writeFromFloatArrays(backing, 2, size); return a && b && c;
+        const bool c = backingWriter->writeFromFloatArrays(backing, 2, size);
+        if (a && b && c) diskFrames += size;
+        return a && b && c;
     };
     int a, na, b, nb; fifo.prepareToRead(fifo.getNumReady(), a, na, b, nb);
     const bool first = write(a, na), second = write(b, nb); fifo.finishedRead(na + nb);
     if (!first || !second) { recordingFault.store(1); recordMode.store(4); }
+    const auto now=juce::Time::getMillisecondCounter();
+    if (first && second && diskFrames > checkpointFrames.load() && now-checkpointTime >= 2000) {
+        // All seeks, header updates and stream flushes stay on this disk worker.
+        const bool a=dryWriter->flush(), b=wetWriter->flush(), c=backingWriter->flush();
+        bool flushed=a && b && c;
+        for (auto* stream:recordingStreams) { if (stream) { stream->flush(); flushed=stream->getStatus().wasOk() && flushed; } else flushed=false; }
+        if (flushed) { checkpointFrames.store(diskFrames); checkpointTime=now; }
+        else { recordingFault.store(1); recordMode.store(4); }
+    }
 }
 void PracticeEngine::finishTake()
 {
-    drainRecording(); dryWriter.reset(); wetWriter.reset(); backingWriter.reset();
-    if (activeTake == juce::File()) return;
+    drainRecording(); dryWriter.reset(); wetWriter.reset(); backingWriter.reset(); recordingStreams.fill(nullptr);
+    if (activeTake == juce::File()) { recordingLock.reset(); return; }
     auto metadata = std::make_unique<juce::DynamicObject>();
     metadata->setProperty("schema", 1); metadata->setProperty("name", activeTake.getFileName());
     metadata->setProperty("created", juce::Time::getCurrentTime().toISO8601(true));
-    metadata->setProperty("frames", recordedFrames.load()); metadata->setProperty("sampleRate", recordingRate.load());
+    metadata->setProperty("frames", diskFrames); metadata->setProperty("sampleRate", recordingRate.load());
     metadata->setProperty("incomplete", recordingFault.load() == 1 || recordingFault.load() == 2);
+    metadata->setProperty("recordingState","finished"); metadata->setProperty("checkpointFrames",checkpointFrames.load());
     metadata->setProperty("backingSpeed", playbackSpeed.load());
-    const bool saved = activeTake.getChildFile("Cassian take.json").replaceWithText(juce::JSON::toString(juce::var(metadata.release())));
+    bool saved=false;
+    try { TakeRecovery::writeMetadata(activeTake.getChildFile("Cassian take.json"),juce::var(metadata.release())); saved=true; }
+    catch (const std::exception&) { /* The initial incomplete journal is retained. */ }
     if (!saved) { const juce::ScopedLock lock(control); error = "Audio saved, but take metadata could not be saved."; }
     if (onTakeFinished) onTakeFinished(activeTake);
     activeTake = {};
+    recordingLock.reset();
 }
 void PracticeEngine::run()
 {
@@ -408,6 +433,7 @@ juce::var PracticeEngine::status()
     o->setProperty("playing", playing.load()); o->setProperty("counting", countActive.load()); o->setProperty("countBeat", countBeat.load());
     o->setProperty("starting", startRequested.load());
     o->setProperty("recordMode", recordMode.load()); o->setProperty("recordSeconds", recordedFrames.load() / recordingRate.load());
+    o->setProperty("recordingCheckpointSeconds",checkpointFrames.load() / recordingRate.load());
     o->setProperty("level", levelDb.load()); o->setProperty("loop", loop.load()); o->setProperty("a", loopA.load()); o->setProperty("b", loopB.load());
     return juce::var(o.release());
 }

@@ -1,12 +1,13 @@
 #requires -Version 7.0
-param([string]$OutputDirectory='.',[switch]$RequireReady)
+param([string]$OutputDirectory='',[switch]$RequireReady)
 $ErrorActionPreference='Stop'
 $projectRoot=Split-Path -Parent $PSScriptRoot
 . "$PSScriptRoot/ReleaseVersion.ps1"
+. "$PSScriptRoot/ReleaseArtifacts.ps1"
 . "$PSScriptRoot/WindowsSigning.ps1"
 $version=Get-CassianVersion $projectRoot
 if((& git -C $projectRoot status --porcelain --untracked-files=no)){throw 'Commit release evidence before checking readiness.'}
-$output=[IO.Path]::GetFullPath($(if([IO.Path]::IsPathRooted($OutputDirectory)){$OutputDirectory}else{Join-Path $projectRoot $OutputDirectory}))
+$output=Get-CassianPackageDirectory $projectRoot $OutputDirectory $version
 $reasons=[Collections.Generic.List[string]]::new()
 $revision=(& git -C $projectRoot rev-parse HEAD).Trim()
 if($LASTEXITCODE -ne 0){throw 'Readiness requires a source checkout.'}
@@ -33,7 +34,7 @@ try {
         try{$source=$reader.ReadToEnd()|ConvertFrom-Json}finally{$reader.Dispose()}
         if($source.checkout -ne $revision -or $source.version -ne $version -or $source.license -ne 'AGPL-3.0-or-later'){throw 'Source archive does not match the tested release.'}
     }finally{$archive.Dispose()}
-    $setup=Join-Path $output "Cassian-$version-Setup.exe"
+    $setup=Join-Path $output 'Cassian-Setup.exe'
     $null=Assert-CassianSignature $setup
     $publisher=(Get-AuthenticodeSignature -LiteralPath $setup).SignerCertificate.Subject
     $portable=[IO.Compression.ZipFile]::OpenRead((Join-Path $output "Cassian-$version-Windows.zip"))
