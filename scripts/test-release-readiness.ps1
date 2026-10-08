@@ -55,5 +55,5 @@ try {
 $report=[ordered]@{schema=1;version=$version;checkout=$revision;ready=$reasons.Count -eq 0;scope=$acceptance.scope;ownerSoundReport=$acceptance.ownerSoundReport;remaining=$reasons.ToArray()}
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 [IO.File]::WriteAllText((Join-Path $output 'RELEASE-READINESS.json'),($report|ConvertTo-Json -Depth 6),[Text.UTF8Encoding]::new($false))
-if($reasons.Count){Write-Host "Release candidate; $($reasons.Count) items remain:";foreach($reason in $reasons){Write-Host "- $reason"};if($RequireReady){throw 'Stable paid-release readiness checks failed. See RELEASE-READINESS.json.'}}
+if($reasons.Count){Write-Host "Release not ready (channel: $($channel.channel)); $($reasons.Count) items remain:";foreach($reason in $reasons){Write-Host "- $reason"};if($RequireReady){throw 'Stable paid-release readiness checks failed. See RELEASE-READINESS.json.'}}
 else{Write-Host 'Stable paid-release checks passed.'}

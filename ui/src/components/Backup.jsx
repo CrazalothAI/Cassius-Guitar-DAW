@@ -3,6 +3,7 @@ import {invoke, native} from '../juce/bridge.js';
 
 export default function Backup({onRestored = () => {}}) {
   const [state, setState] = useState({available:native, busy:false}), [error, setError] = useState(''), [pending, setPending] = useState(false), [confirm, setConfirm] = useState(false);
+  const [includeTakes, setIncludeTakes] = useState(true);
   const completedRestore = useRef(''), callback = useRef(onRestored), request = useRef(false);
   callback.current = onRestored;
   useEffect(() => {
@@ -23,10 +24,10 @@ export default function Backup({onRestored = () => {}}) {
     };
     poll(); return () => {active = false; clearTimeout(timer);};
   }, []);
-  const run = async name => {
+  const run = async (name, ...args) => {
     if (request.current) return;
     request.current = true; setPending(true); setError('');
-    try { const result = await invoke(name); if (typeof result === 'string' && result) throw new Error(result); }
+    try { const result = await invoke(name, ...args); if (typeof result === 'string' && result) throw new Error(result); }
     catch (e) { setError(e.message || 'Could not complete backup action.'); }
     finally {request.current = false; setPending(false);}
   };
@@ -36,8 +37,10 @@ export default function Backup({onRestored = () => {}}) {
     <p>Save rigs, boards, scenes, sound files, recorded takes, reamps and review sections in one verified personal archive. Save to another drive for protection against disk failure.</p>
     <p className="library-note">Save your DAW project separately. Finish recording, exports and edits first. Backups currently support up to 2 GiB. Personal backups can contain private or licensed sounds; they are not public sound packs.</p>
     {!native && <p className="library-note">Open Cassian to back up your audio library. Browser preview has no access to its files.</p>}
+    <label><input type="checkbox" checked={includeTakes} disabled={disabled} onChange={e => setIncludeTakes(e.target.checked)}/> Include recorded takes and reamps in new backups</label>
+    {!includeTakes && <p className="library-note">Tone-library backup: rigs, sounds, scenes and practice sections only. Recorded audio, take metadata and take review sections are excluded. The 2 GiB limit still applies.</p>}
     <div className="backup-actions">
-      <button className="text-button" disabled={disabled} onClick={() => run('createBackup')}>Create backup</button>
+      <button className="text-button" disabled={disabled} onClick={() => includeTakes ? run('createBackup') : run('createBackup', false)}>Create backup</button>
       <button className="text-button" disabled={disabled} onClick={() => setConfirm(true)}>Restore backup</button>
       {state.path && !state.busy && <button className="text-button" disabled={pending} onClick={() => run('revealBackup')}>Show saved files</button>}
     </div>

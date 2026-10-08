@@ -183,7 +183,7 @@ juce::String lockName(const char* prefix, const juce::File& file) { const auto p
 void replace(const juce::File& file, const juce::String& text) { juce::TemporaryFile temp(file); writeText(temp.getFile(), text); require(temp.overwriteTargetFileWithTemporary(), "Could not commit restored catalog."); }
 }
 
-LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::File& archive, const juce::var& currentRig, const std::atomic<bool>& cancelled, Progress progress)
+LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::File& archive, const juce::var& currentRig, const std::atomic<bool>& cancelled, Progress progress, bool includeTakes)
 {
     require(root != juce::File() && archive != juce::File(), "Backups require shared library storage and an output file.");
     require(archive.getParentDirectory().isDirectory(), "Choose an existing backup destination folder.");
@@ -193,8 +193,9 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
         require(key(file.getFullPathName()) != key(archive.getFullPathName()), "Choose a backup destination that does not replace a sound, recording or catalog.");
         watches.push_back({file, file.existsAsFile() ? digest(file) : juce::String()});
     };
-    const auto libraryFile = root.getChildFile("library.xml"), takesFile = root.getChildFile("takes.xml"); watch(libraryFile); watch(takesFile);
-    auto library = readTree(libraryFile, "LIBRARY", 32 * 1024 * 1024), takes = readTree(takesFile, "TAKES", 8 * 1024 * 1024);
+    const auto libraryFile = root.getChildFile("library.xml"), takesFile = root.getChildFile("takes.xml"); watch(libraryFile);
+    auto library = readTree(libraryFile, "LIBRARY", 32 * 1024 * 1024); juce::ValueTree takes("TAKES");
+    if (includeTakes) {watch(takesFile); takes = readTree(takesFile, "TAKES", 8 * 1024 * 1024);}
     require(takes.getNumChildren() <= 2048, "Too many takes to back up.");
     juce::int64 total = 0;
     auto add = [&](const juce::File& file, const juce::String& name, bool observe = true) {
@@ -258,6 +259,7 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
         discoverRig(currentRig); auto rig = juce::ValueTree("RIG"); rig.setProperty("id", juce::Uuid().toString(), nullptr); rig.setProperty("name", "Current tone at backup", nullptr); rig.setProperty("schema", currentRig["schema"], nullptr); rig.setProperty("state", currentRig["state"], nullptr); library.addChild(rig, -1, nullptr);
     }
     for (const auto* section : {"practice", "take-sections"}) {
+        if (!includeTakes && juce::String(section) == "take-sections") continue;
         for (const auto& file : root.getChildFile(section).findChildFiles(juce::File::findFiles, false, "*.json")) add(file, juce::String(section) + "/" + file.getFileName());
     }
     for (const auto& document : documents) { const auto file = staging.file.getChildFile(document.name); writeText(file, juce::JSON::toString(rewriteValue({}, document.value, paths, true, 0))); add(file, document.name, false); }
@@ -265,7 +267,7 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
     const auto portableLibrary = staging.file.getChildFile("library.xml"), portableTakes = staging.file.getChildFile("takes.xml");
     writeText(portableLibrary, library.toXmlString()); writeText(portableTakes, takes.toXmlString()); add(portableLibrary, "library.xml", false); add(portableTakes, "takes.xml", false);
     juce::Array<juce::var> rows; for (const auto& item : items) { auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("path", item.name); row->setProperty("bytes", item.bytes); row->setProperty("sha256", item.hash); rows.add(juce::var(row.release())); }
-    auto manifest = std::make_unique<juce::DynamicObject>(); manifest->setProperty("format", "Cassian personal backup"); manifest->setProperty("schema", 1); manifest->setProperty("appVersion", JucePlugin_VersionString); manifest->setProperty("created", juce::Time::getCurrentTime().toISO8601(true)); manifest->setProperty("files", rows);
+    auto manifest = std::make_unique<juce::DynamicObject>(); manifest->setProperty("format", "Cassian personal backup"); manifest->setProperty("schema", 1); manifest->setProperty("scope", includeTakes ? "complete" : "tone-library"); manifest->setProperty("appVersion", JucePlugin_VersionString); manifest->setProperty("created", juce::Time::getCurrentTime().toISO8601(true)); manifest->setProperty("files", rows);
     const auto manifestFile = staging.file.getChildFile("backup.json"); writeText(manifestFile, juce::JSON::toString(juce::var(manifest.release()))); items.push_back({manifestFile, "backup.json", digest(manifestFile), manifestFile.getSize()});
     checkCancel(cancelled); juce::TemporaryFile temporary(archive); writeZip(temporary.getFile(), items, cancelled, progress);
     Folder verification(archive.getParentDirectory()); verifyArchive(temporary.getFile(), verification.file, cancelled, [&](double p) {if (progress) progress(.75 + .2 * p);});
@@ -323,11 +325,16 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
     const auto before = current.toXmlString(), beforeTakes = currentTakes.toXmlString(); const bool hadLibrary = libraryFile.existsAsFile();
     // Existing metadata wins on sound-ID collisions; a missing original path
     // gains the recovered copy. Saved rigs/takes always receive fresh IDs.
+    juce::StringArray removedIds; removedIds.addTokens(current["removedIds"].toString(), ",", "");
     for (const auto& entry : library) {
+        // Explicit recovery restores these sound identities. Keep unrelated
+        // deletions, but do not let the next normal save delete a recovered sound.
+        if (entry.hasType("ASSET")) removedIds.removeString(entry["id"].toString());
         auto existing = current.getChildWithProperty("id", entry["id"]);
         if (!existing.isValid()) current.addChild(entry.createCopy(), -1, nullptr);
         else if (entry.hasType("ASSET") && (!juce::File::isAbsolutePath(existing["path"].toString()) || !juce::File(existing["path"].toString()).existsAsFile())) existing.setProperty("path", entry["path"], nullptr);
     }
+    current.setProperty("removedIds", removedIds.joinIntoString(","), nullptr);
     for (const auto& take : takes) currentTakes.addChild(take.createCopy(), -1, nullptr);
     require(current.toXmlString().getNumBytesAsUTF8() <= 32 * 1024 * 1024 && currentTakes.toXmlString().getNumBytesAsUTF8() <= 8 * 1024 * 1024 && currentTakes.getNumChildren() <= 2048, "Recovery would exceed the library/catalog capacity.");
     writeText(staging.file.getChildFile("library.xml"), library.toXmlString()); writeText(staging.file.getChildFile("takes.xml"), takes.toXmlString());

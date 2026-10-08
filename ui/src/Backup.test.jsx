@@ -26,6 +26,13 @@ it('shows worker progress, prevents a second operation, and exposes cancellation
   fireEvent.click(screen.getByRole('button',{name:'Cancel operation'}));
   await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('cancelBackup'));
 });
+it('keeps complete backups as default and explicitly requests a tone-library backup', async () => {
+  open(); const toggle = screen.getByRole('checkbox',{name:'Include recorded takes and reamps in new backups'});
+  expect(toggle.checked).toBe(true); fireEvent.click(toggle);
+  expect(screen.getByText(/Recorded audio, take metadata and take review sections are excluded/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Create backup'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('createBackup',false));
+});
 it('surfaces missing-file errors and shows the verified output', async () => {
   bridge.status = {available:true,busy:false,error:'Missing recorded audio: Take'}; open();
   expect((await screen.findByRole('alert')).textContent).toContain('Missing recorded audio');

@@ -27,7 +27,7 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
         .withNativeFunction("captureRecoveryTone", [this](const auto&, auto complete) { complete(processor.captureRecoveryTone()); })
         .withNativeFunction("setAutomaticRecovery", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isBool() ? processor.setAutomaticRecovery(static_cast<bool>(args[0])) : juce::String("Choose an automatic recovery setting.")); })
         .withNativeFunction("recoverTone", [this](const auto& args, auto complete) { complete(args.size() == 1 && args[0].isString() ? processor.recoverTone(args[0].toString()) : juce::String("Choose an available tone snapshot.")); })
-        .withNativeFunction("createBackup", [this](const auto&, auto complete) { complete(chooseBackup(false)); })
+        .withNativeFunction("createBackup", [this](const auto& args, auto complete) { complete(args.size() == 0 || (args.size() == 1 && args[0].isBool()) ? chooseBackup(false, args.size() == 0 || static_cast<bool>(args[0])) : juce::String("Choose whether to include recorded takes.")); })
         .withNativeFunction("restoreBackup", [this](const auto&, auto complete) { complete(chooseBackup(true)); })
         .withNativeFunction("cancelBackup", [this](const auto&, auto complete) { processor.cancelBackup(); complete(juce::String()); })
         .withNativeFunction("revealBackup", [this](const auto&, auto complete) { complete(processor.revealBackup()); })
@@ -331,19 +331,19 @@ void AmpSuiteAudioProcessorEditor::chooseFile(int stage)
             safe->chooser.reset();
         });
 }
-juce::String AmpSuiteAudioProcessorEditor::chooseBackup(bool restore)
+juce::String AmpSuiteAudioProcessorEditor::chooseBackup(bool restore, bool includeTakes)
 {
     if (chooser) return "Finish the current file selection first.";
     if (static_cast<bool>(processor.backupStatus()["busy"])) return "Finish the current backup/recovery first.";
     if (static_cast<int>(processor.practice.status()["recordMode"]) != 0) return "Finish recording before backup/recovery.";
     chooser = std::make_unique<juce::FileChooser>(restore ? "Restore a Cassian personal backup as copies" : "Save a Cassian personal backup",
-        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("Cassian backup " + juce::Time::getCurrentTime().formatted("%Y-%m-%d") + ".cassian-backup.zip"), "*.zip");
+        juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(juce::String(includeTakes ? "Cassian backup " : "Cassian tone-library backup ") + juce::Time::getCurrentTime().formatted("%Y-%m-%d") + ".cassian-backup.zip"), "*.zip");
     const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
     chooser->launchAsync((restore ? juce::FileBrowserComponent::openMode : juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting) | juce::FileBrowserComponent::canSelectFiles,
-        [safe, restore](const juce::FileChooser& dialog) {
+        [safe, restore, includeTakes](const juce::FileChooser& dialog) {
             if (safe == nullptr) return;
             const auto file = dialog.getResult();
-            if (file != juce::File()) { const auto failure = safe->processor.requestBackup(restore, file); if (failure.isNotEmpty()) safe->processor.reportLibraryResult(failure); }
+            if (file != juce::File()) { const auto failure = safe->processor.requestBackup(restore, file, includeTakes); if (failure.isNotEmpty()) safe->processor.reportLibraryResult(failure); }
             safe->chooser.reset();
         });
     return {};

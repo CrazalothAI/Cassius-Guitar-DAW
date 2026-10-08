@@ -12,7 +12,7 @@ public:
     using Progress = std::function<void(double)>;
     using Validator = std::function<juce::String(const juce::var&)>;
     static Report create(const juce::File& root, const juce::File& archive, const juce::var& currentRig,
-                         const std::atomic<bool>& cancelled, Progress = {});
+                         const std::atomic<bool>& cancelled, Progress = {}, bool includeTakes = true);
     // New rig/take identities, isolated media and additive catalog commits.
     // Existing files, saved tones and the active playing rig are preserved.
     static Report restore(const juce::File& archive, const juce::File& root,
