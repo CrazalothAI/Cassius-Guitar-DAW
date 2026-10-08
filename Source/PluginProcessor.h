@@ -88,6 +88,7 @@ public:
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
     juce::var status();
     juce::String storeScene(int slot, const juce::String& name);
+    juce::String renameScene(int slot, const juce::String& name);
     juce::String recallScene(int slot);
     juce::String clearScene(int slot);
     juce::String boardCommand(const juce::String& action, const juce::var& args);

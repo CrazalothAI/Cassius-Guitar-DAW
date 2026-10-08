@@ -27,3 +27,7 @@ Existing delay/reverb buffers are not reset during scene recall. Keeping their c
 Windows automated checks on 2026-10-03 cover every saved parameter at its minimum/maximum, preserved globals, edited status, names/empty slots, native and complete-rig round trips, legacy sessions, malformed/incomplete/global/out-of-range scene rejection, failed asset rollback, pending-load blocking, MIDI scene selection and older mappings, portable pack persistence, and delayed-impulse continuity against an uninterrupted processor. UI tests cover storing/replacing/clearing, MIDI feedback, draft retention, loading controls, native errors and read-only browser preview. The production editor fits 860×620 with internal panel scrolling.
 
 Physical foot controllers, live guitar listening, DAW-host automation/scene transitions and Linux have not been validated by these tests.
+
+## Rename without replacing the tone (0.8.1)
+
+Open Edit scenes, select a stored slot, edit Scene name and choose Rename scene. Slot selection in editing mode does not recall it. Rename changes only its saved title, preserving live controls and saved settings; the active scene and its edited status remain. A saved rig becomes edited because its scene bank changed. Save the complete rig to retain the new names. Close editing before clicking to recall.

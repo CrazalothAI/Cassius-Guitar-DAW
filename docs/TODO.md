@@ -42,6 +42,8 @@
 
 - [x] Add 0.8.0 four spring/blues/fuzz starters and finite-output/performance checks for a six-effect board.
 
+- [x] Add 0.8.1 scene renaming with saved-tone isolation and selection without recall during editing.
+
 ## After the app is more mature
 
 - Plan and build a polished Cassian website for promotion, demos, easy Windows downloads, documentation, support and suggestions.

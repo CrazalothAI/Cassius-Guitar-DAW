@@ -19,6 +19,7 @@ void runExpansionBoardChecks();
 void runBoardResetChecks(const juce::File& fixture);
 void runModulationChecks();
 void runSceneChecks();
+void runSceneEditChecks();
 void runPracticeSectionChecks();
 void runGuitarMixChecks();
 bool runPedalboardStateTests();
@@ -674,6 +675,7 @@ int main(int argc, char** argv)
         runBoardResetChecks(juce::File(argv[1]));
         runModulationChecks();
         runSceneChecks();
+        runSceneEditChecks();
         runPracticeSectionChecks();
         runGuitarMixChecks();
         check(runPedalboardStateTests(), "Pedalboard state checks must pass");

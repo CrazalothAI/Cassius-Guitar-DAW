@@ -1037,6 +1037,12 @@ juce::String AmpSuiteAudioProcessor::storeScene(int slot, const juce::String& na
     if (sceneAssetsLoading()) return "Finish loading the rig before storing a scene.";
     return scenes.store(slot, name, apvts);
 }
+juce::String AmpSuiteAudioProcessor::renameScene(int slot, const juce::String& name)
+{
+    const juce::ScopedLock guard(requestLock);
+    if (sceneAssetsLoading()) return "Finish loading the rig before renaming a scene.";
+    return scenes.rename(slot, name);
+}
 juce::String AmpSuiteAudioProcessor::recallScene(int slot)
 {
     const juce::ScopedLock guard(requestLock);

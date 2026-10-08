@@ -84,6 +84,16 @@ public:
         o->setProperty("board", board.toXmlString());
         const juce::ScopedLock guard(lock); slots[static_cast<size_t>(slot)] = juce::var(o.release()); active = slot; ++revision; error.clear(); return {};
     }
+    juce::String rename(int slot, const juce::String& name)
+    {
+        if (!validSlot(slot)) return "Choose one of the four scenes.";
+        const auto title = name.trim(); if (title.isEmpty() || title.length() > 48) return "Give the scene a name of 1 to 48 characters.";
+        const juce::ScopedLock guard(lock);
+        if (!slots[static_cast<size_t>(slot)].isObject()) return "This scene is empty. Store the current tone first.";
+        if (slots[static_cast<size_t>(slot)]["name"].toString() == title) return {};
+        auto renamed = slots[static_cast<size_t>(slot)].clone(); renamed.getDynamicObject()->setProperty("name", title);
+        slots[static_cast<size_t>(slot)] = std::move(renamed); ++revision; error.clear(); return {};
+    }
     juce::String clear(int slot)
     {
         if (!validSlot(slot)) return "Choose one of the four scenes.";

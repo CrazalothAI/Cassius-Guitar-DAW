@@ -7,6 +7,22 @@ const slots = [{stored: true, name: 'Rhythm'}, {stored: true, name: 'Lead'}, {st
 const status = {scenes: {slots, active: 0, edited: false, revision: 1}};
 beforeEach(() => { bridge.native = true; bridge.invoke.mockReset().mockResolvedValue(''); });
 afterEach(cleanup);
+it('renames saved settings without recalling a scene while the editor is open',async()=>{
+  render(<Scenes status={status}/>);fireEvent.click(screen.getByRole('button',{name:'Edit scenes'}));
+  fireEvent.click(screen.getByRole('button',{name:'Scene 2: Lead'}));expect(bridge.invoke).not.toHaveBeenCalled();
+  fireEvent.change(screen.getByLabelText('Scene name'),{target:{value:'  Melodic lead  '}});
+  fireEvent.click(screen.getByRole('button',{name:'Rename scene'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('renameScene',1,'Melodic lead'));
+});
+it('disables renaming an empty slot, unchanged name, blank name or loading rig',()=>{
+  const view=render(<Scenes status={status}/>);fireEvent.click(screen.getByRole('button',{name:'Edit scenes'}));
+  expect(screen.getByRole('button',{name:'Rename scene'}).disabled).toBe(true);
+  fireEvent.click(screen.getByRole('button',{name:'Scene 3: Empty'}));expect(screen.getByRole('button',{name:'Rename scene'}).disabled).toBe(true);
+  fireEvent.click(screen.getByRole('button',{name:'Scene 1: Rhythm'}));fireEvent.change(screen.getByLabelText('Scene name'),{target:{value:'   '}});
+  expect(screen.getByRole('button',{name:'Rename scene'}).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Scene name'),{target:{value:'Heavy'}});view.rerender(<Scenes status={{...status,rigLoading:true}}/>);
+  expect(screen.getByRole('button',{name:'Rename scene'}).disabled).toBe(true);
+});
 it('recalls a stored scene and distinguishes the active tone from the edit slot', async () => {
   render(<Scenes status={status}/>);
   expect(screen.getByRole('button', {name: 'Scene 1: Rhythm'}).getAttribute('aria-pressed')).toBe('true');

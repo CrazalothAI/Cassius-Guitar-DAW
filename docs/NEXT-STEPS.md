@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest milestone: 0.8.0 adds four complete file-free spring/blues/fuzz rigs (22 built-in total) and a demanding six-effect processing fixture. It includes 0.7.1 spring and 0.7.2 pedal reset. Next work remains real guitar/interface/DAW audition and the signing, fresh-PC and sound-permission release gates. See [0.8.0](RELEASE-0.8.0.md).
+Latest patch: 0.8.1 adds rename-only scene metadata and selection without recall while editing. Scene copying and new pedal MIDI targets follow in this update set. See [0.8.1](RELEASE-0.8.1.md).
+
+Previous milestone: 0.8.0 adds four complete file-free spring/blues/fuzz rigs (22 built-in total) and a demanding six-effect processing fixture. It includes 0.7.1 spring and 0.7.2 pedal reset. Next work remains real guitar/interface/DAW audition and the signing, fresh-PC and sound-permission release gates. See [0.8.0](RELEASE-0.8.0.md).
 
 Previous patch: 0.7.2 adds selected-pedal Reset controls with Undo/Redo, preserving bypass, file and stable automation identity. See [reset](RELEASE-0.7.2.md).
 
