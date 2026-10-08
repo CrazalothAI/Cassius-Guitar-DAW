@@ -3,11 +3,22 @@
 #include <stdexcept>
 
 namespace {
-constexpr juce::int64 maxBytes = 2LL * 1024 * 1024 * 1024 - 16 * 1024 * 1024;
+constexpr juce::int64 maxBytes = BackupZip::archiveLimit;
 constexpr int maxFiles = 8192;
 void require(bool ok, const juce::String& text) { if (!ok) throw std::runtime_error(text.toStdString()); }
 void checkCancel(const std::atomic<bool>& cancelled) { require(!cancelled.load(), "Backup/recovery cancelled. Existing work was preserved."); }
-juce::String digest(const juce::File& file) { return juce::SHA256(file).toHexString(); }
+class HashStream final : public juce::BufferedInputStream {
+public:
+    HashStream(juce::InputStream& source, const std::atomic<bool>& flag) : juce::BufferedInputStream(source,65536), cancelled(flag) {}
+    int read(void* data, int bytes) override { checkCancel(cancelled); return juce::BufferedInputStream::read(data,bytes); }
+private:
+    const std::atomic<bool>& cancelled;
+};
+juce::String digest(const juce::File& file, const std::atomic<bool>& cancelled) {
+    auto source=file.createInputStream(); require(source!=nullptr, "Cannot read a backup checksum source.");
+    HashStream input(*source,cancelled); const auto hash=juce::SHA256(input).toHexString();
+    require(source->getStatus().wasOk() && input.getPosition()==file.getSize(), "Backup source changed or checksum read failed."); return hash;
+}
 bool safePath(const juce::String& path) {
     if (path.isEmpty() || path.length() > 240 || path.containsAnyOf("\\:<>\"|?*") || path.startsWithChar('/') || path.endsWithChar('/')) return false;
     for (const auto c : path) if (c < 32 || c == 127) return false;
@@ -101,78 +112,41 @@ juce::var rewriteValue(const juce::Identifier& property, const juce::var& value,
 }
 struct Item { juce::File file; juce::String name, hash; juce::int64 bytes = 0; };
 struct Watch { juce::File file; juce::String hash; };
-// Streaming, stored ZIP entries: audio stays on disk, not in a MemoryBlock.
-// Classic ZIP is deliberately bounded below 2 GiB; no silent ZIP64 truncation.
-juce::uint32 crcUpdate(juce::uint32 crc, const char* data, int size) {
-    static const auto table = [] { std::array<juce::uint32, 256> values {}; for (unsigned i = 0; i < 256; ++i) { auto v = i; for (int b = 0; b < 8; ++b) v = (v >> 1) ^ ((v & 1) ? 0xedb88320u : 0u); values[i] = v; } return values; }();
-    for (int i = 0; i < size; ++i) crc = table[(crc ^ static_cast<unsigned char>(data[i])) & 255] ^ (crc >> 8);
-    return crc;
-}
-void writeZip(const juce::File& destination, const std::vector<Item>& files, const std::atomic<bool>& cancelled, LibraryBackup::Progress progress) {
-    auto output = destination.createOutputStream(); require(output != nullptr, "Could not open backup output.");
-    struct Central { const Item* item; juce::uint32 crc, offset; }; std::vector<Central> entries;
-    juce::int64 total = 0, done = 0; for (const auto& item : files) total += item.bytes;
-    std::vector<char> buffer(65536);
-    for (const auto& item : files) {
-        checkCancel(cancelled); require(output->getPosition() < maxBytes, "Backup exceeds the 2 GiB archive limit.");
-        const auto offset = static_cast<juce::uint32>(output->getPosition()); const auto length = static_cast<short>(item.name.getNumBytesAsUTF8());
-        output->writeInt(0x04034b50); output->writeShort(20); output->writeShort(0x0808); output->writeShort(0);
-        output->writeShort(0); output->writeShort(33); output->writeInt(0); output->writeInt(0); output->writeInt(0); output->writeShort(length); output->writeShort(0);
-        output->write(item.name.toRawUTF8(), static_cast<size_t>(length));
-        auto input = item.file.createInputStream(); require(input != nullptr, "Could not read backup source.");
-        juce::uint32 crc = 0xffffffffu; juce::int64 copied = 0;
-        while (copied < item.bytes) {
-            checkCancel(cancelled); const int wanted = static_cast<int>(juce::jmin<juce::int64>(buffer.size(), item.bytes - copied));
-            const int count = input->read(buffer.data(), wanted); require(count == wanted && output->write(buffer.data(), static_cast<size_t>(count)), "Backup source changed or disk write failed.");
-            crc = crcUpdate(crc, buffer.data(), count); copied += count; done += count;
-            if (progress) progress(.15 + .6 * static_cast<double>(done) / static_cast<double>(juce::jmax<juce::int64>(1, total)));
-        }
-        require(input->isExhausted(), "Backup source grew while copying. Finish recording or editing and try again.");
-        crc ^= 0xffffffffu; output->writeInt(0x08074b50); output->writeInt(static_cast<int>(crc)); output->writeInt(static_cast<int>(item.bytes)); output->writeInt(static_cast<int>(item.bytes));
-        entries.push_back({&item, crc, offset});
-    }
-    const auto start = output->getPosition();
-    for (const auto& entry : entries) {
-        const auto& item = *entry.item; output->writeInt(0x02014b50); output->writeShort(20); output->writeShort(20); output->writeShort(0x0808); output->writeShort(0);
-        output->writeShort(0); output->writeShort(33); output->writeInt(static_cast<int>(entry.crc)); output->writeInt(static_cast<int>(item.bytes)); output->writeInt(static_cast<int>(item.bytes));
-        output->writeShort(static_cast<short>(item.name.getNumBytesAsUTF8())); output->writeShort(0); output->writeShort(0); output->writeShort(0); output->writeShort(0); output->writeInt(0); output->writeInt(static_cast<int>(entry.offset));
-        output->write(item.name.toRawUTF8(), static_cast<size_t>(item.name.getNumBytesAsUTF8()));
-    }
-    const auto end = output->getPosition(); output->writeInt(0x06054b50); output->writeShort(0); output->writeShort(0);
-    output->writeShort(static_cast<short>(entries.size())); output->writeShort(static_cast<short>(entries.size())); output->writeInt(static_cast<int>(end - start)); output->writeInt(static_cast<int>(start)); output->writeShort(0);
-    output->flush(); require(output->getStatus().wasOk() && output->getPosition() <= maxBytes, "Backup write failed or exceeded 2 GiB.");
-}
 std::vector<Item> verifyArchive(const juce::File& archive, const juce::File& extract, const std::atomic<bool>& cancelled, LibraryBackup::Progress progress) {
-    require(archive.existsAsFile() && archive.getSize() > 0 && archive.getSize() <= maxBytes, "Choose a Cassian backup below 2 GiB.");
-    juce::ZipFile zip(archive); require(zip.getNumEntries() >= 3 && zip.getNumEntries() <= maxFiles + 1, "Invalid backup file count.");
+    BackupZip::Reader zip(archive); const auto& entries = zip.entries();
+    require(entries.size() >= 3 && entries.size() <= maxFiles + 1, "Invalid backup file count.");
     juce::StringArray names; juce::int64 total = 0;
-    for (int i = 0; i < zip.getNumEntries(); ++i) {
-        const auto* entry = zip.getEntry(i); const auto name = entry->filename;
-        require(safePath(name) && !entry->isSymbolicLink && !names.contains(name, true) && (name == "backup.json" || payloadPath(name)), "Unsafe, duplicate or unexpected backup entry.");
-        require(entry->uncompressedSize >= 0 && entry->uncompressedSize <= maxBytes, "Oversized backup entry."); total += entry->uncompressedSize;
-        require(total <= maxBytes, "Expanded backup exceeds 2 GiB."); names.add(name);
+    for (const auto& entry : entries) {
+        const auto name = entry.name;
+        require(safePath(name) && !entry.symlink && !names.contains(name, true) && (name == "backup.json" || payloadPath(name)), "Unsafe, duplicate or unexpected backup entry.");
+        require(entry.bytes >= 0 && entry.bytes <= maxBytes - total, "Oversized backup entry or expansion exceeds 32 GiB."); total += entry.bytes; names.add(name);
     }
-    const int manifestIndex = names.indexOf("backup.json"); require(manifestIndex >= 0 && zip.getEntry(manifestIndex)->uncompressedSize <= 4 * 1024 * 1024, "Backup has no supported manifest.");
-    std::unique_ptr<juce::InputStream> manifestStream(zip.createStreamForEntry(manifestIndex)); require(manifestStream != nullptr, "Could not read backup manifest.");
-    const auto manifest = juce::JSON::parse(manifestStream->readEntireStreamAsString());
+    const int manifestIndex = names.indexOf("backup.json"); require(manifestIndex >= 0 && entries[static_cast<size_t>(manifestIndex)].bytes <= 4 * 1024 * 1024, "Backup has no supported manifest.");
+    auto manifestStream = zip.open(manifestIndex); require(manifestStream != nullptr, "Could not read backup manifest.");
+    juce::MemoryBlock manifestBytes; const auto manifestSize = entries[static_cast<size_t>(manifestIndex)].bytes;
+    require(manifestStream->readIntoMemoryBlock(manifestBytes, static_cast<juce::ssize_t>(manifestSize)) == static_cast<size_t>(manifestSize) && manifestStream->isExhausted(), "Truncated backup manifest.");
+    if (zip.isZip64()) require((BackupZip::crcUpdate(0xffffffffu, static_cast<const char*>(manifestBytes.getData()), static_cast<int>(manifestBytes.getSize())) ^ 0xffffffffu) == entries[static_cast<size_t>(manifestIndex)].crc, "Backup manifest CRC failed.");
+    const auto manifest = juce::JSON::parse(juce::String::fromUTF8(static_cast<const char*>(manifestBytes.getData()), static_cast<int>(manifestBytes.getSize())));
     require(manifest.isObject() && manifest["format"].toString() == "Cassian personal backup" && manifest["schema"].isInt() && static_cast<int>(manifest["schema"]) == 1 && manifest["files"].isArray(), "Unsupported Cassian backup format.");
-    require(manifest["files"].size() == zip.getNumEntries() - 1, "Backup manifest does not match its files.");
+    require(manifest["files"].size() == static_cast<int>(entries.size()) - 1, "Backup manifest does not match its files.");
     std::vector<Item> result; juce::StringArray listed; juce::int64 done = 0;
     std::vector<char> buffer(65536);
     for (const auto& row : *manifest["files"].getArray()) {
         checkCancel(cancelled); const auto name = row["path"].toString(), hash = row["sha256"].toString(); const auto bytes = row["bytes"];
         const int index = names.indexOf(name);
-        require(row.isObject() && payloadPath(name) && !listed.contains(name, true) && index >= 0 && (bytes.isInt64() || bytes.isInt()) && static_cast<juce::int64>(bytes) == zip.getEntry(index)->uncompressedSize && hash.length() == 64 && hash.removeCharacters("0123456789abcdef").isEmpty(), "Invalid backup checksum manifest.");
+        require(row.isObject() && payloadPath(name) && !listed.contains(name, true) && index >= 0 && (bytes.isInt64() || bytes.isInt()) && static_cast<juce::int64>(bytes) == entries[static_cast<size_t>(index)].bytes && hash.length() == 64 && hash.removeCharacters("0123456789abcdef").isEmpty(), "Invalid backup checksum manifest.");
         listed.add(name); const auto file = extract.getChildFile(name); require(file.isAChildOf(extract) && file.getParentDirectory().createDirectory().wasOk(), "Could not prepare recovery folder.");
-        std::unique_ptr<juce::InputStream> input(zip.createStreamForEntry(index)); auto output = file.createOutputStream(); require(input && output, "Could not read/write recovery file: " + name);
-        juce::int64 copied = 0;
+        auto input = zip.open(index); auto output = file.createOutputStream(); require(input && output, "Could not read/write recovery file: " + name);
+        juce::int64 copied = 0; juce::uint32 crc = 0xffffffffu;
         while (copied < static_cast<juce::int64>(bytes)) {
             checkCancel(cancelled); const int wanted = static_cast<int>(juce::jmin<juce::int64>(buffer.size(), static_cast<juce::int64>(bytes) - copied));
             const int count = input->read(buffer.data(), wanted); require(count == wanted && output->write(buffer.data(), static_cast<size_t>(count)), "Truncated backup or recovery disk write failed.");
+            if (zip.isZip64()) crc = BackupZip::crcUpdate(crc, buffer.data(), count);
             copied += count; done += count; if (progress) progress(.8 * static_cast<double>(done) / static_cast<double>(juce::jmax<juce::int64>(1, total)));
         }
         require(input->isExhausted(), "Backup entry exceeds its declared length."); output->flush(); require(output->getStatus().wasOk(), "Recovery disk write failed."); output.reset();
-        require(digest(file) == hash, "Backup checksum failed: " + name);
+        if (zip.isZip64()) require((crc ^ 0xffffffffu) == entries[static_cast<size_t>(index)].crc, "Backup CRC failed: " + name);
+        require(digest(file, cancelled) == hash, "Backup checksum failed: " + name);
         if (name.startsWith("assets/")) require(juce::File(name).getFileNameWithoutExtension() == hash, "Sound filename does not match its content identity.");
         result.push_back({file, name, hash, copied});
     }
@@ -183,7 +157,7 @@ juce::String lockName(const char* prefix, const juce::File& file) { const auto p
 void replace(const juce::File& file, const juce::String& text) { juce::TemporaryFile temp(file); writeText(temp.getFile(), text); require(temp.overwriteTargetFileWithTemporary(), "Could not commit restored catalog."); }
 }
 
-LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::File& archive, const juce::var& currentRig, const std::atomic<bool>& cancelled, Progress progress, bool includeTakes, std::optional<juce::StringArray> selectedTakeIds)
+LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::File& archive, const juce::var& currentRig, const std::atomic<bool>& cancelled, Progress progress, bool includeTakes, std::optional<juce::StringArray> selectedTakeIds, bool forceZip64)
 {
     require(root != juce::File() && archive != juce::File(), "Backups require shared library storage and an output file.");
     require(archive.getParentDirectory().isDirectory(), "Choose an existing backup destination folder.");
@@ -191,7 +165,7 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
     Folder staging(archive.getParentDirectory()); std::vector<Item> items; std::vector<Watch> watches; Paths paths; juce::StringArray names;
     auto watch = [&](const juce::File& file) {
         require(key(file.getFullPathName()) != key(archive.getFullPathName()), "Choose a backup destination that does not replace a sound, recording or catalog.");
-        watches.push_back({file, file.existsAsFile() ? digest(file) : juce::String()});
+        watches.push_back({file, file.existsAsFile() ? digest(file, cancelled) : juce::String()});
     };
     const auto libraryFile = root.getChildFile("library.xml"), takesFile = root.getChildFile("takes.xml"); watch(libraryFile);
     auto library = readTree(libraryFile, "LIBRARY", 32 * 1024 * 1024); juce::ValueTree takes("TAKES");
@@ -214,14 +188,14 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
         require(key(file.getFullPathName()) != key(archive.getFullPathName()), "Choose a backup destination that does not replace a sound, recording or catalog.");
         if (names.contains(name)) return;
         require(items.size() < maxFiles && file.getSize() <= maxBytes, "Backup has too many or oversized files.");
-        total += file.getSize(); require(total <= maxBytes - 4 * 1024 * 1024, "Library exceeds the 2 GiB backup limit.");
-        const auto hash = digest(file); items.push_back({file, name, hash, file.getSize()}); names.add(name); if (observe) watches.push_back({file, hash});
+        total += file.getSize(); require(total <= maxBytes - 32 * 1024 * 1024, "Selected content exceeds the 32 GiB backup limit. Choose fewer takes or a tone-library backup.");
+        const auto hash = digest(file, cancelled); items.push_back({file, name, hash, file.getSize()}); names.add(name); if (observe) watches.push_back({file, hash});
     };
     // Managed and external library assets are packed by content, not local path.
     for (auto asset : library) if (asset.hasType("ASSET")) {
         const auto path = asset["path"].toString(); require(juce::File::isAbsolutePath(path), "Relink missing library sounds before backing up.");
         const juce::File file(path); require(file.existsAsFile() && file.hasFileExtension("nam;wav"), "Missing sound: " + file.getFileName());
-        const auto hash = digest(file); require(asset["id"].toString() == asset["kind"].toString() + ":" + hash, "A library sound changed. Relink the original before backing up.");
+        const auto hash = digest(file, cancelled); require(asset["id"].toString() == asset["kind"].toString() + ":" + hash, "A library sound changed. Relink the original before backing up.");
         const auto name = "assets/" + hash + file.getFileExtension().toLowerCase(); add(file, name); paths[key(path)] = name;
         const auto aliases = juce::JSON::parse(asset["aliases"].toString()); if (aliases.isArray()) for (const auto& alias : *aliases.getArray()) paths[key(alias.toString())] = name;
     }
@@ -231,7 +205,7 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
             const auto path = tree["path"].toString();
             if (path.isNotEmpty() && !paths.contains(key(path))) {
                 require(juce::File::isAbsolutePath(path), "A snapshot sound is missing. Relink before backing up."); const juce::File file(path);
-                require(file.existsAsFile() && file.hasFileExtension("nam;wav"), "Missing snapshot sound: " + file.getFileName()); const auto hash = digest(file);
+                require(file.existsAsFile() && file.hasFileExtension("nam;wav"), "Missing snapshot sound: " + file.getFileName()); const auto hash = digest(file, cancelled);
                 require(tree["id"].toString() == tree["kind"].toString() + ":" + hash, "A snapshot sound has changed.");
                 const auto name = "assets/" + hash + file.getFileExtension().toLowerCase(); add(file, name); paths[key(path)] = name;
             }
@@ -241,7 +215,7 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
             if (path.isEmpty() || paths.contains(key(path))) continue;
             require(juce::File::isAbsolutePath(path), "A rig sound is missing. Relink before backing up."); const juce::File file(path);
             require(file.existsAsFile() && file.hasFileExtension("nam;wav"), "Missing rig sound: " + file.getFileName());
-            const auto hash = digest(file), id = tree[juce::String(stage) + "Id"].toString();
+            const auto hash = digest(file, cancelled), id = tree[juce::String(stage) + "Id"].toString();
             const auto kind = juce::String(stage).startsWith("ambience") ? "ambience" : juce::String(stage) == "model" ? "amp" : (juce::String(stage) == "ir" || juce::String(stage) == "irB") ? "cab" : "pedal";
             require(id.isEmpty() || id == juce::String(kind) + ":" + hash, "A rig sound changed; relink it before backing up.");
             const auto name = "assets/" + hash + file.getFileExtension().toLowerCase(); add(file, name); paths[key(path)] = name;
@@ -286,10 +260,11 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
     writeText(portableLibrary, library.toXmlString()); writeText(portableTakes, takes.toXmlString()); add(portableLibrary, "library.xml", false); add(portableTakes, "takes.xml", false);
     juce::Array<juce::var> rows; for (const auto& item : items) { auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("path", item.name); row->setProperty("bytes", item.bytes); row->setProperty("sha256", item.hash); rows.add(juce::var(row.release())); }
     auto manifest = std::make_unique<juce::DynamicObject>(); manifest->setProperty("format", "Cassian personal backup"); manifest->setProperty("schema", 1); manifest->setProperty("scope", selectedTakeIds ? "selected-takes" : includeTakes ? "complete" : "tone-library"); manifest->setProperty("takeCount", takes.getNumChildren()); manifest->setProperty("appVersion", JucePlugin_VersionString); manifest->setProperty("created", juce::Time::getCurrentTime().toISO8601(true)); manifest->setProperty("files", rows);
-    const auto manifestFile = staging.file.getChildFile("backup.json"); writeText(manifestFile, juce::JSON::toString(juce::var(manifest.release()))); items.push_back({manifestFile, "backup.json", digest(manifestFile), manifestFile.getSize()});
-    checkCancel(cancelled); juce::TemporaryFile temporary(archive); writeZip(temporary.getFile(), items, cancelled, progress);
+    const auto manifestFile = staging.file.getChildFile("backup.json"); writeText(manifestFile, juce::JSON::toString(juce::var(manifest.release()))); items.push_back({manifestFile, "backup.json", digest(manifestFile, cancelled), manifestFile.getSize()});
+    std::vector<BackupZip::Source> sources; for (const auto& item : items) sources.push_back({item.file,item.name,item.bytes});
+    checkCancel(cancelled); juce::TemporaryFile temporary(archive); BackupZip::write(temporary.getFile(), sources, cancelled, progress, forceZip64);
     Folder verification(archive.getParentDirectory()); verifyArchive(temporary.getFile(), verification.file, cancelled, [&](double p) {if (progress) progress(.75 + .2 * p);});
-    for (const auto& observed : watches) { checkCancel(cancelled); require((observed.file.existsAsFile() ? digest(observed.file) : juce::String()) == observed.hash, "Library or recording changed during backup. Finish edits/recording and try again."); }
+    for (const auto& observed : watches) { checkCancel(cancelled); require((observed.file.existsAsFile() ? digest(observed.file, cancelled) : juce::String()) == observed.hash, "Library or recording changed during backup. Finish edits/recording and try again."); }
     require(temporary.overwriteTargetFileWithTemporary(), "Could not replace backup output; previous backup was preserved."); if (progress) progress(1);
     int rigs = 0; for (const auto& row : library) if (row.hasType("RIG")) ++rigs;
     return {archive, static_cast<int>(items.size() - 1), rigs, takes.getNumChildren(), total};
@@ -317,7 +292,7 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
             const auto kind = entry["kind"].toString(), id = entry["id"].toString(), path = entry["path"].toString();
             require(kind == "amp" || kind == "pedal" || kind == "cab" || kind == "ambience", "Unsupported recovered sound kind.");
             const auto relative = juce::File(path).getRelativePathFrom(recovered).replaceCharacter('\\', '/');
-            require(paths.contains(key(relative)) && id == kind + ":" + digest(staging.file.getChildFile(relative)), "Recovered sound identity does not match its checksum.");
+            require(paths.contains(key(relative)) && id == kind + ":" + digest(staging.file.getChildFile(relative), cancelled), "Recovered sound identity does not match its checksum.");
             entry.setProperty("managed", true, nullptr); entry.setProperty("ownership", "User", nullptr);
         }
     }

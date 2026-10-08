@@ -1,5 +1,6 @@
 #include "../Source/PluginProcessor.h"
 #include <iostream>
+#include <thread>
 
 namespace {
 void require(bool ok, const char* why) { if (!ok) throw std::runtime_error(why); }
@@ -23,12 +24,43 @@ void mutateArchive(const juce::File& original, const juce::File& output, const j
     }
     auto stream = output.createOutputStream(); require(stream && builder.writeToStream(*stream, nullptr), "Malformed backup fixture must write");
 }
+void zip64Checks(const juce::File& base) {
+    const auto payload=base.getChildFile("zip-payload.txt"), archive=base.getChildFile("ZIP64 profile.zip"), broken=base.getChildFile("Broken ZIP64.zip");
+    require(payload.replaceWithText("bounded archive payload"),"ZIP64 source must write"); std::atomic<bool> cancelled{false};
+    const std::vector<BackupZip::Source> files {{payload,"one.txt",payload.getSize()},{payload,juce::String::fromUTF8("clean-\xc3\xa9.txt"),payload.getSize()}};
+    require(!BackupZip::needsZip64(files),"Small archives must retain classic ZIP automatically");
+    require(BackupZip::needsZip64({{payload,"large.wav",4LL*1024*1024*1024+7}}),"Large source lengths must trigger ZIP64 without narrowing to 32 bits");
+    rejected([&]{BackupZip::write(archive,{{payload,"oversized.wav",BackupZip::archiveLimit+1}},cancelled);});
+    BackupZip::write(archive,files,cancelled); require(!BackupZip::Reader(archive).isZip64(),"Default small writer must remain compatible with classic ZIP");
+    archive.deleteFile(); BackupZip::write(archive,files,cancelled,{},true); BackupZip::Reader reader(archive);
+    require(reader.isZip64() && reader.entries().size()==2 && reader.entries()[1].name==files[1].name,"Forced small ZIP64 must preserve UTF-8 names and entry counts");
+    for(int i=0;i<2;++i) require(reader.open(i)->readEntireStreamAsString()==payload.loadFileAsString(),"Bounded ZIP64 data streams must read exactly their entry contents");
+    auto stream=archive.createInputStream(); stream->setPosition(archive.getSize()-50); const auto central=stream->readInt64();
+    // Classic end (22) + locator (20) + last ZIP64 end field (8).
+    auto corrupt=[&](juce::int64 position, juce::int64 value, bool wide=false) {
+        require(archive.copyFileTo(broken),"Corrupt ZIP64 fixture must copy"); auto output=broken.createOutputStream(); require(output && output->setPosition(position),"Corrupt ZIP64 fixture must seek");
+        if(wide) output->writeInt64(value); else output->writeByte(static_cast<char>(value)); output->flush(); output.reset(); rejected([&]{BackupZip::Reader invalid(broken);});
+    };
+    corrupt(0,0); // Wrong local signature.
+    corrupt(central+8,9); // Encryption flag.
+    corrupt(central+10,8); // Compression method.
+    corrupt(central+38,1); // Unsupported attributes (including symlinks).
+    corrupt(central+46+files[0].name.getNumBytesAsUTF8()+20,1,true); // Displaced/overlapping local header.
+    corrupt(archive.getSize()-34,4LL*1024*1024*1024+7,true); // Out-of-file 64-bit locator.
+    corrupt(central+46+files[0].name.getNumBytesAsUTF8()+4,BackupZip::archiveLimit+1,true); // Oversized expanded payload.
+    corrupt(50+files[0].name.getNumBytesAsUTF8()+payload.getSize()+4,(reader.entries()[0].crc&255)^1); // Descriptor CRC mismatch.
+    stream.reset();
+    // Optional retained fixture for independent Python/.NET interoperability.
+    const auto outputPath=juce::SystemStats::getEnvironmentVariable("CASSIAN_TEST_ZIP64_OUTPUT",{});
+    if(outputPath.isNotEmpty()) {require(juce::File::isAbsolutePath(outputPath),"ZIP64 fixture output must be absolute"); require(archive.copyFileTo(juce::File(outputPath)),"ZIP64 interoperability fixture must copy");}
+}
 }
 void runBackupChecks(const juce::File& model)
 {
     const auto parent = juce::File::getSpecialLocation(juce::File::tempDirectory);
     const auto base = parent.getChildFile("Cassian-backup-tests-" + juce::Uuid().toString()); require(base.createDirectory().wasOk(), "Backup fixture root must create");
     struct Cleanup {juce::File folder, parent; ~Cleanup() {if (folder.isAChildOf(parent)) folder.deleteRecursively();}} cleanup {base, parent};
+    zip64Checks(base);
     const auto source = base.getChildFile("Source library"), target = base.getChildFile("Target library"), originals = base.getChildFile("External take");
     require(source.createDirectory().wasOk() && target.createDirectory().wasOk() && originals.createDirectory().wasOk(), "Fixture folders must create");
     auto validator = std::make_unique<AmpSuiteAudioProcessor>(false); const auto validate = [&](const juce::var& doc) {return validator->validateRigDocument(doc);};
@@ -51,6 +83,42 @@ void runBackupChecks(const juce::File& model)
     const auto sourceHash = juce::SHA256(source.getChildFile("library.xml")).toHexString(), audioHash = juce::SHA256(originals.getChildFile("Guitar dry.wav")).toHexString();
     const auto report = LibraryBackup::create(source, destination, rig, cancelled);
     require(report.takes == 1 && report.files >= 9 && destination.existsAsFile(), "Backup must include external recordings, snapshots, reamps and sound files");
+    const auto extended=base.getChildFile("Personal ZIP64.zip");
+    const auto extendedReport=LibraryBackup::create(source,extended,rig,cancelled,{},true,std::nullopt,true);
+    require(extendedReport.takes==1 && BackupZip::Reader(extended).isZip64(),"Library backup must support explicit small ZIP64 fixtures");
+    const auto extendedTarget=base.getChildFile("ZIP64 target");
+    require(LibraryBackup::restore(extended,extendedTarget,cancelled,validate).takes==1,"ZIP64 recovery must preserve catalog and snapshot compatibility");
+    const auto extendedTake=read(extendedTarget.getChildFile("takes.xml")).getChild(0);
+    require(juce::SHA256(juce::File(extendedTake["path"].toString()).getChildFile("Guitar dry.wav")).toHexString()==audioHash,"ZIP64 recovered audio must be byte-identical");
+    const auto beforeExtended=juce::SHA256(extendedTarget.getChildFile("library.xml")).toHexString();
+    const auto corruptExtended=base.getChildFile("Corrupt ZIP64 payload.zip"); require(extended.copyFileTo(corruptExtended),"ZIP64 corruption fixture must copy");
+    {auto input=extended.createInputStream(); input->setPosition(26); const int nameBytes=input->readShort(); auto output=corruptExtended.createOutputStream(); output->setPosition(50+nameBytes); output->writeByte('!'); output->flush();}
+    rejected([&]{LibraryBackup::restore(corruptExtended,extendedTarget,cancelled,validate);});
+    require(juce::SHA256(extendedTarget.getChildFile("library.xml")).toHexString()==beforeExtended,"Rejected ZIP64 payloads must leave existing catalogs intact");
+    if(juce::SystemStats::getEnvironmentVariable("CASSIAN_TEST_LARGE_BACKUP",{})=="1") {
+        // A valid short RIFF with synthetic trailing padding exercises archive
+        // transport above 4 GiB, not four-gigabyte audio recording/RIFF support.
+        const auto backing=originals.getChildFile("Backing track.wav"); juce::MemoryBlock originalBacking;
+        require(backing.loadFileAsData(originalBacking),"Large fixture must preserve its original short WAV");
+        constexpr juce::int64 paddedBytes=4LL*1024*1024*1024+1024;
+        require(base.getBytesFreeOnVolume()>paddedBytes*4,"Large archive validation needs at least 17 GiB free scratch space");
+        {auto output=backing.createOutputStream(); require(output && output->setPosition(paddedBytes-1) && output->writeByte(0),"Large synthetic WAV padding must write"); output->flush(); require(output->getStatus().wasOk(),"Large padding write must succeed");}
+        const auto largeArchive=base.getChildFile("Large personal archive.zip");
+        const auto largeReport=LibraryBackup::create(source,largeArchive,rig,cancelled);
+        require(largeReport.bytes>4LL*1024*1024*1024 && largeArchive.getSize()>4LL*1024*1024*1024 && BackupZip::Reader(largeArchive).isZip64(),"Multi-gigabyte personal archive must automatically use ZIP64 without truncation");
+        const auto largeTarget=base.getChildFile("Large target");
+        require(LibraryBackup::restore(largeArchive,largeTarget,cancelled,validate).takes==1,"Large archive must restore as a complete take");
+        const auto largeFolder=juce::File(read(largeTarget.getChildFile("takes.xml")).getChild(0)["path"].toString());
+        auto bufferedHash=[](const juce::File& file){auto input=file.createInputStream(); juce::BufferedInputStream buffered(*input,65536); return juce::SHA256(buffered).toHexString();};
+        require(largeFolder.getChildFile("Backing track.wav").getSize()==paddedBytes && bufferedHash(backing)==bufferedHash(largeFolder.getChildFile("Backing track.wav")),"Above-4-GiB recovered payload must match its source byte-for-byte");
+        std::jthread cancelHash([&]{juce::Thread::sleep(50); cancelled.store(true);});
+        rejected([&]{LibraryBackup::create(source,largeArchive,rig,cancelled);}); cancelHash.join(); cancelled.store(false);
+        require(BackupZip::Reader(largeArchive).isZip64(),"Cancellation during checksum preparation must preserve the large valid archive");
+        const auto outputPath=juce::SystemStats::getEnvironmentVariable("CASSIAN_TEST_LARGE_BACKUP_OUTPUT",{});
+        if(outputPath.isNotEmpty()) {const juce::File output(outputPath); require(juce::File::isAbsolutePath(outputPath) && !output.exists() && largeArchive.copyFileTo(output),"Optional large interoperability output must create without replacing existing work");}
+        require(backing.replaceWithData(originalBacking.getData(),originalBacking.getSize()),"Large fixture must restore its original short WAV");
+        std::cout<<"ZIP64 above-4-GiB backup/recovery and checksum cancellation passed\n";
+    }
     rejected([&] {LibraryBackup::create(source, originals.getChildFile("Guitar dry.wav"), rig, cancelled);});
     require(juce::SHA256(originals.getChildFile("Guitar dry.wav")).toHexString() == audioHash, "Backup destination must never replace a referenced external recording");
     const auto toneArchive = base.getChildFile("Tone library.zip");

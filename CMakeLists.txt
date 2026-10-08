@@ -108,7 +108,7 @@ if(WIN32)
     add_custom_command(OUTPUT "${CASSIAN_RESOURCE_DIR}/AmpSuite_resources.rc" APPEND
         DEPENDS "${CASSIAN_RESOURCE_INFO}")
 endif()
-target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/BoardCommands.cpp Source/StartingRigs.cpp Source/PracticeEngine.cpp Source/PracticeSections.cpp Source/TakeLibrary.cpp Source/VideoAudioExport.cpp Source/MidiControl.cpp Source/LibraryBackup.cpp Source/BackupCommands.cpp Source/ToneRecovery.cpp Source/ToneRecoveryCommands.cpp)
+target_sources(AmpSuite PRIVATE Source/Main.cpp Source/PluginProcessor.cpp Source/PluginEditor.cpp Source/RigPack.cpp Source/CompleteRig.cpp Source/BoardCommands.cpp Source/StartingRigs.cpp Source/PracticeEngine.cpp Source/PracticeSections.cpp Source/TakeLibrary.cpp Source/VideoAudioExport.cpp Source/MidiControl.cpp Source/LibraryBackup.cpp Source/BackupZip.cpp Source/BackupCommands.cpp Source/ToneRecovery.cpp Source/ToneRecoveryCommands.cpp)
 target_sources(AmpSuite_Standalone PRIVATE Source/Standalone.cpp)
 target_link_libraries(AmpSuite_Standalone PRIVATE CassianBrandAssets)
 target_compile_definitions(AmpSuite_Standalone PRIVATE JUCE_USE_CUSTOM_PLUGIN_STANDALONE_APP=1)

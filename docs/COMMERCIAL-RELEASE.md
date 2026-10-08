@@ -4,7 +4,7 @@ The owner selected **open-source code with paid installers/support** on 2026-10-
 
 Primary sources: [JUCE 8.0.6 license](https://github.com/juce-framework/JUCE/blob/8.0.6/LICENSE.md), [GNU selling guidance](https://www.gnu.org/philosophy/selling.en.html), [GPL/AGPL compatibility](https://www.gnu.org/licenses/license-compatibility.en.html), [Inno commercial license request](https://jrsoftware.org/isorder.php).
 
-Signing was deferred by the owner on 2026-10-08; continue unsigned preview development. The current 1.1.3 preview adds selective take archives to the backup and standalone tone snapshot workflow. RC2 introduced [independent plugin validation](PLUGIN-VALIDATION.md), which remains required and does not substitute for real DAW/hardware acceptance.
+Signing was deferred by the owner on 2026-10-08; continue unsigned preview development. The current 1.2.0 preview expands the personal backup workflow to 32 GiB with stored ZIP64. RC2 introduced [independent plugin validation](PLUGIN-VALIDATION.md), which remains required and does not substitute for real DAW/hardware acceptance.
 
 ## Product included in this candidate
 
