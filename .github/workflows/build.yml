@@ -25,6 +25,9 @@ jobs:
       - name: Test release artifact cleanup
         shell: pwsh
         run: ./scripts/test-release-artifacts.ps1
+      - name: Test native failure reporting
+        shell: pwsh
+        run: ./scripts/test-native-test-report.ps1
       - name: Read release version
         id: version
         shell: pwsh
@@ -38,8 +41,30 @@ jobs:
       - shell: pwsh
         run: ./scripts/setup-asio.ps1
       - run: cmake --preset windows
-      - run: cmake --build --preset release --parallel 2
-      - run: ctest --preset release
+      - run: cmake --build --preset release --parallel 4
+      - name: Run native tests
+        id: native_tests
+        shell: pwsh
+        run: |
+          ctest --preset release --output-junit native-test-results.xml
+          $testExitCode = $LASTEXITCODE
+          if ($testExitCode -ne 0) {
+            try {
+              . ./scripts/NativeTestReport.ps1
+              Get-CassianNativeFailureAnnotations build/native-test-results.xml | ForEach-Object { Write-Output $_ }
+            } catch { Write-Output '::error title=Native test failure::CTest failed; inspect the retained native logs for details.' }
+          }
+          exit $testExitCode
+      - name: Save native test evidence
+        if: always() && steps.native_tests.outcome != 'skipped'
+        uses: actions/upload-artifact@v5
+        with:
+          name: Cassian-Native-Validation
+          if-no-files-found: warn
+          path: |
+            build/native-test-results.xml
+            build/Testing/Temporary/LastTest.log
+            build/Testing/Temporary/LastTestsFailed.log
       - name: Validate actual VST3 with independent host tests
         shell: pwsh
         run: ./scripts/test-vst3-plugin.ps1
