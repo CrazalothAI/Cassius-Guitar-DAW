@@ -4,7 +4,7 @@ The owner selected **open-source code with paid installers/support** on 2026-10-
 
 Primary sources: [JUCE 8.0.6 license](https://github.com/juce-framework/JUCE/blob/8.0.6/LICENSE.md), [GNU selling guidance](https://www.gnu.org/philosophy/selling.en.html), [GPL/AGPL compatibility](https://www.gnu.org/licenses/license-compatibility.en.html), [Inno commercial license request](https://jrsoftware.org/isorder.php).
 
-Signing was deferred by the owner on 2026-10-08; continue unsigned preview development. The current 1.1.0 preview adds personal backup/recovery after 1.0.0 RC2. RC2 introduced [independent plugin validation](PLUGIN-VALIDATION.md), which remains required and does not substitute for real DAW/hardware acceptance.
+Signing was deferred by the owner on 2026-10-08; continue unsigned preview development. The current 1.1.1 preview adds standalone tone snapshots after 1.1.0 personal backup/recovery and 1.0.0 RC2. RC2 introduced [independent plugin validation](PLUGIN-VALIDATION.md), which remains required and does not substitute for real DAW/hardware acceptance.
 
 ## Product included in this candidate
 

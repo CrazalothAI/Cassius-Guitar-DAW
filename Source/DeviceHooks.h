@@ -8,6 +8,7 @@
 struct StandaloneDeviceHooks
 {
     virtual ~StandaloneDeviceHooks() = default;
+    virtual void startToneRecovery() {}
     std::function<int()> deviceDropouts;
     std::function<juce::Array<int>()> deviceBufferSizes;
     std::function<juce::String(int)> setDeviceBufferSize;

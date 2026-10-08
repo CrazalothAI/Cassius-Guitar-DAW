@@ -5,6 +5,7 @@ import { applyPreset, presets, notes, familyOf } from '../presets.js';
 import { applyStartingPreview, resolveStartingRigs } from '../startingRigs.js';
 import { catalogRow, captureLabels, gainLabels, matchesCatalog, title } from '../libraryCatalog.js';
 import Backup from './Backup.jsx';
+import ToneRecovery from './ToneRecovery.jsx';
 
 const builtins = [
   { id: 'lumen', name: 'Lumen', kind: 'amp', source: 1, ownership: 'Factory', tags: 'clean warm jazz', notes: 'Cassian built-in clean amp.' },
@@ -211,6 +212,7 @@ export default function Library({ revision, loading = false, onClose, onPreset =
         </form>}
       </aside>}</div>
       <Backup onRestored={() => refresh().catch(() => setError('Could not refresh recovered rigs. Reopen the library.'))}/>
+      <ToneRecovery onRecovered={refresh}/>
       <div className="library-footer">
         <button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importAssets', 'pack'))}>Import sound ZIPs</button>
         {tab !== 'rig' ? <button className="text-button" disabled={!native || busy} onClick={() => action(() => invoke('importAssets', tab))}>Import {(tab === 'cab' || tab === 'ambience') ? 'WAV IRs' : 'NAM files'}</button>

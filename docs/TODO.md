@@ -6,7 +6,8 @@
 - Signing is deferred at the owner's request on 2026-10-08; continue unsigned candidate builds. The stable-release signature check remains pending rather than being marked passed.
 - [ ] Run and record the fresh-install/real-upgrade and actual DAW/MIDI/export acceptance matrix.
 - [x] Add the 1.1.0 preview personal backup/recovery workflow with sound/take relocation, verified streaming archives, additive restores and progress/cancellation.
-- [ ] Validate backup/restore on a second PC and large real libraries; add ZIP64/subsets, automatic snapshots and retention in follow-up work.
+- [x] Add 1.1.1 standalone automatic tone reference snapshots, explicit additive preset recovery, local preferences and 64-entry retention.
+- [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries; add ZIP64/subsets for personal archives. Automatic recording/session recovery remains separate work.
 
 - [x] Prepare 1.0.0 RC1: in-app Help/setup, AGPL licensing, matching source, publisher attribution, signing support and stable-release gate.
 - [ ] Complete the acceptance evidence and signatures in [commercial release](COMMERCIAL-RELEASE.md) before stable sale publication.

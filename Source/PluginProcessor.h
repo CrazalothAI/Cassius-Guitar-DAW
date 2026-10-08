@@ -33,8 +33,9 @@
 #include "PerformanceScenes.h"
 #include "ActiveRig.h"
 #include "LibraryBackup.h"
+#include "ToneRecovery.h"
 
-class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread
+class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread, private juce::Timer
 {
 public:
     explicit AmpSuiteAudioProcessor(bool sharedLibrary = true, juce::File libraryRoot = LibraryStore::defaultRoot());
@@ -88,6 +89,11 @@ public:
     juce::var backupStatus();
     void cancelBackup() { backupCancelled.store(true); }
     juce::String revealBackup();
+    void startToneRecovery() override;
+    juce::String captureRecoveryTone();
+    juce::String setAutomaticRecovery(bool);
+    juce::String recoverTone(const juce::String&);
+    juce::var toneRecoveryStatus();
     void reportLibraryResult(const juce::String& text) { const juce::ScopedLock lock(requestLock); message = text; }
     // The pitch tracker only runs while the tuner is open (or Thicken needs it).
     void setTunerActive(bool shouldRun) { tunerRequested.store(shouldRun); }
@@ -132,6 +138,8 @@ private:
     AssetLibrary library;
     ActiveRig activeRig;
     LibraryStore sharedStore;
+    std::unique_ptr<ToneRecovery> toneRecovery;
+    void timerCallback() override;
     juce::CriticalSection backupLock;
     std::atomic<bool> backupBusy {false}, backupCancelled {false};
     std::atomic<double> backupProgress {0};

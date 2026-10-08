@@ -130,6 +130,7 @@ public:
                 return devices.setAudioDeviceSetup(setup, true);
             };
             cassian->showDeviceSettings = [this] { if (window) window->getPluginHolder()->showAudioSettingsDialog(); };
+            cassian->startToneRecovery();
             cassian->deviceSummary = [this, &devices] {
                 auto summary = std::make_unique<juce::DynamicObject>();
                 const auto setup = devices.getAudioDeviceSetup();
