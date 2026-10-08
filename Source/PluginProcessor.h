@@ -89,6 +89,7 @@ public:
     juce::var status();
     juce::String storeScene(int slot, const juce::String& name);
     juce::String renameScene(int slot, const juce::String& name);
+    juce::String copyScene(int source, int destination, const juce::String& name);
     juce::String recallScene(int slot);
     juce::String clearScene(int slot);
     juce::String boardCommand(const juce::String& action, const juce::var& args);

@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 0.8.1 is a development preview. Scene renaming is documented in [0.8.1 notes](RELEASE-0.8.1.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 0.8.2 is a development preview. Saved-scene copying is documented in [0.8.2 notes](RELEASE-0.8.2.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 

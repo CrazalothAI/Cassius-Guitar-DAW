@@ -31,3 +31,7 @@ Physical foot controllers, live guitar listening, DAW-host automation/scene tran
 ## Rename without replacing the tone (0.8.1)
 
 Open Edit scenes, select a stored slot, edit Scene name and choose Rename scene. Slot selection in editing mode does not recall it. Rename changes only its saved title, preserving live controls and saved settings; the active scene and its edited status remain. A saved rig becomes edited because its scene bank changed. Save the complete rig to retain the new names. Close editing before clicking to recall.
+
+## Copy a saved scene
+
+While editing, select a stored source, enter the destination name and choose another slot under **Scene copy destination**. **Copy saved scene** copies the source snapshot and its exact board, ignoring subsequent live edits. An occupied destination shows **Replace scene N with copy**. The source and current playing tone stay unchanged, including global listening controls, files and effect histories. Copies are independent snapshots. Replacing the active slot clears its highlight because the live tone has not been recalled from its new contents. Save the complete rig to keep the updated bank. Empty sources, the same source/destination, invalid names/slots and loading or unresolved assets reject without mutation.

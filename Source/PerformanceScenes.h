@@ -94,6 +94,20 @@ public:
         auto renamed = slots[static_cast<size_t>(slot)].clone(); renamed.getDynamicObject()->setProperty("name", title);
         slots[static_cast<size_t>(slot)] = std::move(renamed); ++revision; error.clear(); return {};
     }
+    juce::String copy(int source, int destination, const juce::String& name)
+    {
+        if (!validSlot(source) || !validSlot(destination)) return "Choose one of the four scenes.";
+        if (source == destination) return "Choose a different destination scene.";
+        const auto title = name.trim(); if (title.isEmpty() || title.length() > 48) return "Give the scene a name of 1 to 48 characters.";
+        const juce::ScopedLock guard(lock);
+        if (!slots[static_cast<size_t>(source)].isObject()) return "This scene is empty. Store the current tone first.";
+        auto copied = slots[static_cast<size_t>(source)].clone(); copied.getDynamicObject()->setProperty("name", title);
+        slots[static_cast<size_t>(destination)] = std::move(copied);
+        // Replacing an active slot changes its stored sound without recalling it.
+        // Keep the live tone, but stop claiming it represents that new snapshot.
+        if (active == destination) active = -1;
+        ++revision; error.clear(); return {};
+    }
     juce::String clear(int slot)
     {
         if (!validSlot(slot)) return "Choose one of the four scenes.";

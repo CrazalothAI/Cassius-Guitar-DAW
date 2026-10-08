@@ -6,7 +6,9 @@ export default function Scenes({status, onError = () => {}}) {
   const bank = status.scenes ?? {}, rows = bank.slots ?? empty;
   const [selected, setSelected] = useState(0), [editing, setEditing] = useState(false), [name, setName] = useState('Scene 1'), [busy, setBusy] = useState(false);
   const savedName = rows[selected]?.name || `Scene ${selected + 1}`;
+  const [destination, setDestination] = useState(-1);
   useEffect(() => { setName(savedName); }, [selected, savedName]);
+  useEffect(() => { setDestination(-1); }, [selected]);
   const blocked = busy || !!status.rigLoading;
   const action = async (method, ...args) => {
     if (blocked) return; setBusy(true);
@@ -21,6 +23,9 @@ export default function Scenes({status, onError = () => {}}) {
       <button type="submit" disabled={!native || blocked || !name.trim()}>{rows[selected]?.stored ? 'Replace with current tone' : 'Store current tone'}</button>
       <button type="button" disabled={!native || blocked || !rows[selected]?.stored || !name.trim() || name.trim() === savedName} onClick={() => action('renameScene', selected, name.trim())}>Rename scene</button>
       <button type="button" disabled={!native || blocked || !rows[selected]?.stored} onClick={() => action('clearScene', selected)}>Clear scene</button>
+      <label>Copy saved scene to<select aria-label="Scene copy destination" value={destination} disabled={!native || blocked || !rows[selected]?.stored} onChange={e => setDestination(Number(e.target.value))}><option value={-1}>Choose a slot</option>{rows.map((row,i)=><option key={i} value={i} disabled={i===selected}>{i+1} · {row.stored?row.name:'Empty'}</option>)}</select></label>
+      <button type="button" disabled={!native || blocked || !rows[selected]?.stored || destination < 0 || destination === selected || !name.trim()} onClick={() => action('copyScene', selected, destination, name.trim())}>{rows[destination]?.stored ? `Replace scene ${destination+1} with copy` : 'Copy saved scene'}</button>
+      <p>Copy uses the selected scene's saved settings and the name above. It replaces the destination slot without changing your current tone.</p>
       <p>Selecting a slot while editing does not recall it. Rename keeps its saved sound; Replace stores the current tone.</p>
       <p>Scenes share the current amp, pedal and cabinet files. Input, Master and click settings stay unchanged. Save the complete rig to keep all four scenes.</p>
       {!native && <p>Open Cassian to store and recall scenes. Browser preview has no native scene bank.</p>}

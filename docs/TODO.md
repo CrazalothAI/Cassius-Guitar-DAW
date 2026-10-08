@@ -2,6 +2,7 @@
 
 ## Current milestone
 
+- [x] 0.8.2: copy saved scenes into another slot without recalling or capturing live edits; explicit replacement labels, independent snapshots and session/pack coverage.
 - [x] Finish Play Along: listening-only tests, accurate output-peak warning, playable build.
 - [x] Simplify navigation: Tone, Board, Practice and Takes; compact practice/take amp strip; saved rig identity and direct saving.
 - [x] Add the compatibility foundation for pedalboards: bounded identities, fixed automation bindings, schema-2 exports, legacy migrations and rejected-recall protection.

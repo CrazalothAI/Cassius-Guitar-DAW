@@ -7,6 +7,18 @@ const slots = [{stored: true, name: 'Rhythm'}, {stored: true, name: 'Lead'}, {st
 const status = {scenes: {slots, active: 0, edited: false, revision: 1}};
 beforeEach(() => { bridge.native = true; bridge.invoke.mockReset().mockResolvedValue(''); });
 afterEach(cleanup);
+it('copies the selected saved scene and clearly identifies replacing a filled destination',async()=>{
+  render(<Scenes status={status}/>);fireEvent.click(screen.getByRole('button',{name:'Edit scenes'}));
+  expect(screen.getByRole('button',{name:'Copy saved scene'}).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Scene name'),{target:{value:'Rhythm variation'}});
+  fireEvent.change(screen.getByLabelText('Scene copy destination'),{target:{value:'2'}});
+  fireEvent.click(screen.getByRole('button',{name:'Copy saved scene'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('copyScene',0,2,'Rhythm variation'));
+  fireEvent.change(screen.getByLabelText('Scene copy destination'),{target:{value:'1'}});
+  expect(screen.getByRole('button',{name:'Replace scene 2 with copy'})).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Scene 3: Empty'}));
+  expect(screen.getByLabelText('Scene copy destination').disabled).toBe(true);expect(screen.getByRole('button',{name:'Copy saved scene'}).disabled).toBe(true);
+});
 it('renames saved settings without recalling a scene while the editor is open',async()=>{
   render(<Scenes status={status}/>);fireEvent.click(screen.getByRole('button',{name:'Edit scenes'}));
   fireEvent.click(screen.getByRole('button',{name:'Scene 2: Lead'}));expect(bridge.invoke).not.toHaveBeenCalled();

@@ -20,6 +20,7 @@ void runBoardResetChecks(const juce::File& fixture);
 void runModulationChecks();
 void runSceneChecks();
 void runSceneEditChecks();
+void runSceneCopyChecks();
 void runPracticeSectionChecks();
 void runGuitarMixChecks();
 bool runPedalboardStateTests();
@@ -676,6 +677,7 @@ int main(int argc, char** argv)
         runModulationChecks();
         runSceneChecks();
         runSceneEditChecks();
+        runSceneCopyChecks();
         runPracticeSectionChecks();
         runGuitarMixChecks();
         check(runPedalboardStateTests(), "Pedalboard state checks must pass");
