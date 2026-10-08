@@ -38,6 +38,8 @@ inline int install(const juce::File& folder, LibraryStore& store, AssetLibrary& 
     return static_cast<int>(incoming.size());
 }
 inline juce::File location() {
+    // Validator processes must not import the owner's installed sound bank.
+    if (juce::SystemStats::getEnvironmentVariable("CASSIAN_VALIDATION_ROOT", {}).isNotEmpty()) return {};
     const auto executable = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
     const auto beside = executable.getParentDirectory().getChildFile("Sounds");
     if (beside.getChildFile("manifest.json").existsAsFile()) return beside;

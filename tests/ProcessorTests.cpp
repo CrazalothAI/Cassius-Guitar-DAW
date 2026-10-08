@@ -6,6 +6,7 @@
 #include <thread>
 static void check(bool condition, const char* message) { if (!condition) throw std::runtime_error(message); }
 void runLibraryChecks(const juce::File& fixture);
+void runValidationIsolationChecks();
 void runQualityChecks(const juce::File& fixture);
 void runSoundChecks(const juce::File& fixture);
 void runPracticeChecks();
@@ -66,6 +67,7 @@ int main(int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI initialise;
     try
     {
+        runValidationIsolationChecks();
         juce::AudioDeviceManager::AudioDeviceSetup guitarSetup;
         guitarSetup.inputChannels.setRange(0, 2, true);
         guitarSetup.outputChannels.setRange(0, 2, true);

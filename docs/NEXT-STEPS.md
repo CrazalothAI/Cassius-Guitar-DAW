@@ -1,8 +1,12 @@
 # Cassian next steps
 
-Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
+Planning checkpoint: 2026-10-08. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest candidate: 1.0.0 RC1 adds Help/setup, open-source licensing, matching source bundles, signing support and a stable publication gate. The owner reports most sounds good; remaining acceptance evidence is in [commercial release](COMMERCIAL-RELEASE.md).
+Current milestone: **1.0.0 RC2 reliability**. Add independent actual-VST3 validation in CI, isolated test storage, reproducible runs and preserved evidence. Signing is deferred at the owner's request; unsigned candidate development continues. This is release hardening, not a claim that all manual acceptance is complete.
+
+Next: validate a fresh Windows install/real upgrade, exercise actual DAW recall and automation plus physical MIDI, and complete recording/export checks with camera footage. Record each configuration and result in the acceptance matrix. After the first release is stable, prioritize complete library/take backup and recovery for 1.1; then consider advanced routing/pitch work. The website remains deferred.
+
+Previous candidate: 1.0.0 RC1 adds Help/setup, open-source licensing, matching source bundles, signing support and a stable publication gate. The owner reports most sounds good; remaining acceptance evidence is in [commercial release](COMMERCIAL-RELEASE.md).
 
 Previous milestone: 0.9.0 adds independent footswitch bypass and expression targets for both distortion/plate/spring instances, with missing/deleted-slot protection. It includes 0.8.1 scene renaming and 0.8.2 saved-scene copying. See [0.9.0](RELEASE-0.9.0.md).
 
@@ -70,4 +74,4 @@ The earlier GuitarMix/output-warning coverage gap is closed by step 1. The curre
 
 MSBuild initially failed because its child environment contained conflicting `Path`/`PATH` keys. The native-test rebuild succeeded with a process-local normalized `Path` key and worker reuse disabled; no system environment setting was changed. The standard Vite development launch also hit sandbox directory-access errors; visual inspection used the successfully built production preview instead. These are local tool-environment observations, not established product defects.
 
-Recommended next coding task: audition complete rigs using the supplied clean/breakup, drive, British amp, contrasting cabinet and ambience choices. Extend the demanding real-NAM benchmark with sustained interface/DAW evidence, then improve sound-library discovery and curate level-consistent genre starting rigs with documented asset rights. Keep parallel amps, harmonizers and gapless scene tails for their later milestone.
+Earlier sound-work recommendation (owner now reports most sounds good): audition complete rigs using the supplied clean/breakup, drive, British amp, contrasting cabinet and ambience choices. Extend the demanding real-NAM benchmark with sustained interface/DAW evidence, then improve sound-library discovery and curate level-consistent genre starting rigs with documented asset rights. Keep parallel amps, harmonizers and gapless scene tails for their later milestone.

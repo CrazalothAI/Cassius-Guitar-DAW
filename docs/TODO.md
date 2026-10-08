@@ -2,6 +2,11 @@
 
 ## Current milestone
 
+- [x] Complete 1.0.0 RC2: independent VST3 validation, isolated host-test storage, reproducible reports and CI evidence.
+- Signing is deferred at the owner's request on 2026-10-08; continue unsigned candidate builds. The stable-release signature check remains pending rather than being marked passed.
+- [ ] Run and record the fresh-install/real-upgrade and actual DAW/MIDI/export acceptance matrix.
+- [ ] After stable release, add complete library/take backup and recovery before advanced 1.1 DSP/routing features.
+
 - [x] Prepare 1.0.0 RC1: in-app Help/setup, AGPL licensing, matching source, publisher attribution, signing support and stable-release gate.
 - [ ] Complete the acceptance evidence and signatures in [commercial release](COMMERCIAL-RELEASE.md) before stable sale publication.
 - [x] 0.9.0: independent distortion/plate/spring footswitch bypass and CC drive/blend targets for both slots, with reorder stability, missing/deleted-slot errors and session persistence.

@@ -22,6 +22,12 @@ foreach($file in $meta.files){
 foreach($kind in @('Setup.exe','Windows.zip')){Assert ((Hash (Join-Path $output "Cassian-$version-$kind")) -eq (Hash (Join-Path $output "Cassian-$kind"))) 'Convenient alias differs from its versioned artifact.'}
 $zip=[IO.Compression.ZipFile]::OpenRead((Join-Path $output "Cassian-$version-Windows.zip"))
 try {
+    if($meta.releasePackaging) {
+        Assert ($meta.pluginValidation.strictness -eq 10 -and $meta.pluginValidation.seeds.Count -ge 3 -and $meta.pluginValidation.compiledPluginSha256 -match '^[a-f0-9]{64}$') 'Release omits independent plugin validation evidence.'
+        # Signing appends a publisher certificate; compare the compiled hash
+        # directly when packaging is unsigned. Signed artifacts keep their own hashes.
+        if(!$meta.signingConfigured){Assert ((EntryHash $zip.GetEntry('Cassian.vst3/Contents/x86_64-win/Cassian.vst3')) -eq $meta.pluginValidation.compiledPluginSha256) 'Packaged plugin differs from the independently validated compiled binary.'}
+    }
     foreach($name in @('Cassian.exe','Cassian.vst3/Contents/x86_64-win/Cassian.vst3','LICENSE.txt','COPYRIGHT.md','USER-GUIDE.md','SOURCE.txt','THIRD_PARTY.md','licenses/JUCE.txt','licenses/ASIO.txt')){Assert ($null -ne $zip.GetEntry($name)) "Portable package omits $name"}
     $sounds=@($zip.Entries|Where-Object{$_.FullName -match '^Sounds/assets/.+\.(nam|wav)$'})
     Assert ($sounds.Count -eq $meta.soundAssets) 'Packaged sound count differs from metadata.'

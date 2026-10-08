@@ -52,6 +52,16 @@ if ($LASTEXITCODE -ne 0) { throw 'Cannot check source changes.' }
 $untrackedBuildInputs = @(& git -C $projectRoot ls-files --others --exclude-standard -- CMakeLists.txt CMakePresets.json LICENSE.txt COPYRIGHT.md Source ui scripts installer .github assets docs release README.md)
 if ($LASTEXITCODE -ne 0) { throw 'Cannot check uncommitted build inputs.' }
 if ($Release -and ($sourceModified -or $untrackedBuildInputs.Count -or $AllowDevelopmentSounds -or $SmokeTest)) { throw 'Release packaging needs committed source and cleared sounds, without smoke/private flags.' }
+$pluginValidation = $null
+if ($Release) {
+    $validationFile=Join-Path $projectRoot 'build/plugin-validation/PLUGIN-VALIDATION.json'
+    if (!(Test-Path -LiteralPath $validationFile)) { throw 'Run scripts/test-vst3-plugin.ps1 before Release packaging.' }
+    $validation=Get-Content -LiteralPath $validationFile -Raw | ConvertFrom-Json
+    $pluginHash=(Get-FileHash -LiteralPath (Join-Path $plugin 'Contents/x86_64-win/Cassian.vst3') -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($validation.schema -ne 1 -or $validation.status -ne 'passed' -or $validation.version -ne $sourceVersion -or $validation.pluginSha256 -ne $pluginHash -or $validation.strictness -ne 10 -or $validation.runs.Count -lt 3 -or @($validation.runs.seed | Sort-Object -Unique).Count -ne $validation.runs.Count -or @($validation.runs | Where-Object {$_.passed -ne $true -or $_.exitCode -ne 0}).Count) { throw 'Release needs three passing level-10 runs for this exact compiled VST3. Rerun scripts/test-vst3-plugin.ps1.' }
+    $pluginValidation=[ordered]@{validator=$validation.validator;strictness=$validation.strictness;seeds=@($validation.runs.seed);compiledPluginSha256=$pluginHash;guiTests=$validation.guiTests;steinbergValidator=$validation.steinbergValidator}
+}
+
 if (!$Compiler) {
     & "$PSScriptRoot/setup-installer.ps1"
     $Compiler = Join-Path $projectRoot '.deps/innosetup-6.7.3/ISCC.exe'
@@ -150,7 +160,7 @@ try {
         $hashes = @($versioned | ForEach-Object { [ordered]@{file=$_;sha256=(Get-FileHash -LiteralPath (Join-Path $output $_) -Algorithm SHA256).Hash.ToLowerInvariant()} })
         $checksumText = (($hashes | ForEach-Object { "$($_.sha256)  $($_.file)" }) -join "`n") + "`n"
         [IO.File]::WriteAllText((Join-Path $output 'SHA256SUMS.txt'), $checksumText, [Text.UTF8Encoding]::new($false))
-        $build = [ordered]@{schema=1;name='Cassian';version=$sourceVersion;channel=$channel.channel;candidate=$channel.candidate;signingConfigured=$signing;checkout=$commit;trackedSourceModified=$sourceModified;releasePackaging=[bool]$Release;privateSoundBank=([bool]$withSounds -and !$manifest.distributionApproved);soundAssets=if ($withSounds) {$manifest.assets.Count} else {0};files=$hashes}
+        $build = [ordered]@{schema=1;name='Cassian';version=$sourceVersion;channel=$channel.channel;candidate=$channel.candidate;signingConfigured=$signing;pluginValidation=$pluginValidation;checkout=$commit;trackedSourceModified=$sourceModified;releasePackaging=[bool]$Release;privateSoundBank=([bool]$withSounds -and !$manifest.distributionApproved);soundAssets=if ($withSounds) {$manifest.assets.Count} else {0};files=$hashes}
         [IO.File]::WriteAllText((Join-Path $output 'Cassian-Build.json'), ($build | ConvertTo-Json -Depth 5), [Text.UTF8Encoding]::new($false))
         if (!$SkipRootCopy) { Copy-Item -LiteralPath (Join-Path $staging 'Cassian.exe') -Destination (Join-Path $projectRoot 'Cassian.exe') -Force }
         Write-Host "Windows download ready: $(Join-Path $output 'Cassian-Setup.exe')"

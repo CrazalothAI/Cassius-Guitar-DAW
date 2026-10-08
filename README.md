@@ -24,7 +24,9 @@ Use **Library → Import sound ZIPs** to add supported NAM/WAV collections witho
 
 **0.5.3 improves sound discovery.** Filter missing/available sound files and distinguish amp-only, preamp-only and full-rig captures from built-in amps and direct input. See [library discovery](docs/RELEASE-0.5.3.md).
 
-**1.0.0 RC1 prepares open-source paid distribution.** Help & setup adds first-sound guidance, explicit monitoring and a reviewed support report. Downloads include licensing, a user guide and matching dependency source. Signing support and a stable-release readiness gate are implemented; this is still a candidate. See [release readiness](docs/COMMERCIAL-RELEASE.md).
+**1.0.0 RC2 adds repeatable VST3 host validation.** Three reproducible pluginval runs cover processing, state restoration, automation, buses, thread safety and parameter fuzzing. Validation uses scratch storage and retains evidence in CI; editor interaction and real DAW sessions remain separate checks. [Validation details](docs/PLUGIN-VALIDATION.md).
+
+**RC1 prepared open-source paid distribution.** Help & setup adds first-sound guidance, explicit monitoring and a reviewed support report. Downloads include licensing, a user guide and matching dependency source. Signing support and a stable-release readiness gate are implemented; this is still a candidate. See [release readiness](docs/COMMERCIAL-RELEASE.md).
 
 **0.8.0 broadens the starting sounds.** Copper Blues, Country Spring, Surf Clean and Fuzz Orbit join the file-free collection, alongside spring reverb and per-pedal reset. See [0.8.0 notes](docs/RELEASE-0.8.0.md).
 
@@ -52,7 +54,7 @@ This README describes the development source; public downloads can lag the curre
 
 Download **[Cassian-Setup.exe](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/download/latest/Cassian-Setup.exe)** from [Latest Windows download](https://github.com/CrazalothAI/Cassius-Guitar-DAW/releases/tag/latest), run it, and follow the installer. Then open **Cassian** from the Windows Start menu. Setup offers an optional desktop shortcut and VST3 plugin; administrator access is not required. It checks for Microsoft WebView2 and installs the runtime when missing (internet access is needed for that step).
 
-The current source version is **1.0.0 RC1**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version and candidate label. Help & setup opens the user guide and support links. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
+The current source version is **1.0.0 RC2**. Builds also include versioned installer/portable copies, `SHA256SUMS.txt` and `Cassian-Build.json`. The editor footer identifies the running version and candidate label. Help & setup opens the user guide and support links. These files become available when this source reaches the release workflow; pushing a feature branch alone does not replace the main-branch download. See [versioned previews](docs/RELEASE-VERSIONING.md).
 
 The app installs to `%LOCALAPPDATA%\Programs\Cassian`. Run a newer installer to update it in place; close Cassian and any DAW using its plugin first. Uninstall through **Windows Settings → Apps → Cassian**. Saved settings, managed captures/rigs, practice sections and recordings are retained. Optional VST3 installation uses `%LOCALAPPDATA%\Programs\Common\VST3\Cassian.vst3`; rescan your DAW and add that location to its plugin paths if needed.
 
@@ -359,4 +361,4 @@ Original source is [AGPL-3.0-or-later](LICENSE.txt), copyright Crazaloth. Paid i
 
 The owner reports most sounds tested and good on 2026-10-07. This does not establish a complete device/DAW/MIDI matrix. The candidate adds signing support but no certificate was supplied. Fresh-PC, real upgrade/DAW/MIDI, camera export synchronization, artwork permissions, seller terms and dependency review remain documented acceptance items. `scripts/test-release-readiness.ps1 -RequireReady` blocks stable publication until those records and trusted timestamped signatures pass. See [commercial checklist](docs/COMMERCIAL-RELEASE.md).
 
-For trusted publisher signatures and the owner account setup, follow [Windows signing and packaging](docs/WINDOWS-SIGNING.md). Current RC1 packages are unsigned; no signing account has been provisioned.
+For trusted publisher signatures and the owner account setup, follow [Windows signing and packaging](docs/WINDOWS-SIGNING.md). Current RC2 packages are unsigned; no signing account has been provisioned.

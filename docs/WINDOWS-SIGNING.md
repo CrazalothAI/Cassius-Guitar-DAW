@@ -1,6 +1,8 @@
 # Sign and package Cassian on Windows
 
-The current download is **1.0.0 RC1, unsigned**. A self-signed certificate would not establish a trusted publisher on customers' PCs. Use a public code-signing provider, then rebuild and package the committed release. Never share private keys, tokens, passwords or identity documents in issues or chat.
+The current download is **1.0.0 RC2, unsigned**. A self-signed certificate would not establish a trusted publisher on customers' PCs. Use a public code-signing provider, then rebuild and package the committed release. Never share private keys, tokens, passwords or identity documents in issues or chat.
+
+Signing was deferred by the owner on 2026-10-08. These instructions are retained for later; no account, payment or certificate setup is being performed.
 
 ## Choose the signing identity
 

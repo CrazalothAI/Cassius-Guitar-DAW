@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 1.0.0 RC1 is a release candidate. The numeric binary version is 1.0.0; `ui/src/release.json` records candidate status separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. Independent pedal MIDI control and scene organization are documented in [0.9.0 notes](RELEASE-0.9.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 1.0.0 RC2 is a release candidate. The numeric binary version is 1.0.0; `ui/src/release.json` records candidate status separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. Independent pedal MIDI control and scene organization are documented in [0.9.0 notes](RELEASE-0.9.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 
@@ -45,3 +45,5 @@ Previous 0.3.0 validation on Windows on 2026-10-06: 134 UI tests, all four nativ
 0.7.1 and 0.7.2 each passed full UI/native checks on Windows on 2026-10-07 (172 and 173 UI tests). The combined 0.8.0 milestone passed 174 UI tests, four native suites with the optional 103-file bank, Release standalone/VST3 builds, binary version checks and isolated installer install/upgrade/uninstall. Both final binaries report 0.8.0. See [evidence and limits](RELEASE-0.8.0.md).
 
 For 1.0, stable publication requires a stable channel, committed manual acceptance records, clean public packages, matching source and trusted timestamped signatures. The workflow fails the stable gate when these are missing. Its automated release publications remain prereleases; final stable publication is separately authorized after all acceptance passes. See [release preparation](COMMERCIAL-RELEASE.md).
+
+RC2 release packaging requires three level-10 independent VST3 validation runs for the compiled plugin hash. Metadata retains validator/seed/hash details; unsigned package integrity verifies that the shipped plugin is the tested binary. This is additional automated evidence and does not mark real DAW acceptance passed.

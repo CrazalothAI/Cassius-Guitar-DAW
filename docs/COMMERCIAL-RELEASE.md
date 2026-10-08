@@ -4,6 +4,8 @@ The owner selected **open-source code with paid installers/support** on 2026-10-
 
 Primary sources: [JUCE 8.0.6 license](https://github.com/juce-framework/JUCE/blob/8.0.6/LICENSE.md), [GNU selling guidance](https://www.gnu.org/philosophy/selling.en.html), [GPL/AGPL compatibility](https://www.gnu.org/licenses/license-compatibility.en.html), [Inno commercial license request](https://jrsoftware.org/isorder.php).
 
+Signing was deferred by the owner on 2026-10-08; continue unsigned candidate development. RC2 adds [independent plugin validation](PLUGIN-VALIDATION.md), which does not substitute for real DAW/hardware acceptance.
+
 ## Product included in this candidate
 
 Windows x64 standalone and VST3, 22 original file-free rigs, original effects, serial board editing, scenes/MIDI, library imports, backing practice, take recording/review/reamp and audio export. Linux is not advertised as validated. There is no account/activation server or DRM. Charging for installers/support does not revoke users' modification/redistribution rights. Source remains available at no additional charge.

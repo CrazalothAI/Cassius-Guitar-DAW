@@ -7,7 +7,16 @@
 class LibraryStore
 {
 public:
-    static juce::File defaultRoot() { return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("Cassian/Library"); }
+    static juce::File defaultRoot() {
+        // Opt-in scratch storage for host validation; ordinary installs keep
+        // their existing library path. Invalid test configuration fails closed.
+        const auto validationRoot = juce::SystemStats::getEnvironmentVariable("CASSIAN_VALIDATION_ROOT", {});
+        if (validationRoot.isNotEmpty()) {
+            if (!juce::File::isAbsolutePath(validationRoot)) throw std::runtime_error("Validation storage must use an absolute path.");
+            return juce::File(validationRoot);
+        }
+        return juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory).getChildFile("Cassian/Library");
+    }
     explicit LibraryStore(juce::File folder = {}) : directory(std::move(folder)), mutex("CassianLibrary-" + juce::SHA256(directory.getFullPathName().toRawUTF8(), static_cast<size_t>(directory.getFullPathName().getNumBytesAsUTF8())).toHexString()) {}
     bool enabled() const { return directory != juce::File(); }
     juce::File root() const { return directory; }

@@ -34,6 +34,20 @@ jobs:
       - run: cmake --preset windows
       - run: cmake --build --preset release --parallel 2
       - run: ctest --preset release
+      - name: Validate actual VST3 with independent host tests
+        shell: pwsh
+        run: ./scripts/test-vst3-plugin.ps1
+      - name: Save plugin validation evidence
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: Cassian-Plugin-Validation
+          if-no-files-found: warn
+          path: |
+            build/plugin-validation/PLUGIN-VALIDATION.json
+            build/plugin-validation/**/validation.txt
+            build/plugin-validation/**/stdout.txt
+            build/plugin-validation/**/stderr.txt
       - shell: pwsh
         run: ./scripts/test-release-version.ps1
       - name: Build Windows installer and portable download

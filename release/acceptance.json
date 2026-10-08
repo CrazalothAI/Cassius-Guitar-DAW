@@ -8,13 +8,42 @@
     "limit": "No complete rig, interface, driver, buffer, DAW or MIDI test matrix supplied. This is owner audition feedback, not certification of all configurations."
   },
   "checks": {
-    "freshWindowsInstall": {"passed": false, "evidence": ""},
-    "realUpgrade": {"passed": false, "evidence": ""},
-    "dawRecallAutomation": {"passed": false, "evidence": ""},
-    "physicalMidi": {"passed": false, "evidence": ""},
-    "clipchampSync": {"passed": false, "evidence": ""},
-    "brandingRights": {"passed": false, "evidence": ""},
-    "sellerTermsAndSupport": {"passed": false, "evidence": ""},
-    "dependencyDistributionReview": {"passed": false, "evidence": ""}
+    "freshWindowsInstall": {
+      "passed": false,
+      "evidence": ""
+    },
+    "realUpgrade": {
+      "passed": false,
+      "evidence": ""
+    },
+    "dawRecallAutomation": {
+      "passed": false,
+      "evidence": ""
+    },
+    "physicalMidi": {
+      "passed": false,
+      "evidence": ""
+    },
+    "clipchampSync": {
+      "passed": false,
+      "evidence": ""
+    },
+    "brandingRights": {
+      "passed": false,
+      "evidence": ""
+    },
+    "sellerTermsAndSupport": {
+      "passed": false,
+      "evidence": ""
+    },
+    "dependencyDistributionReview": {
+      "passed": false,
+      "evidence": ""
+    }
+  },
+  "signingDecision": {
+    "date": "2026-10-08",
+    "deferred": true,
+    "note": "Owner deferred signing while development and unsigned candidate testing continue. No certificate/account setup is requested now."
   }
 }
