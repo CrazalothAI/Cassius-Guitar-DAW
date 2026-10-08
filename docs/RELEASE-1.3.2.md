@@ -1,0 +1,13 @@
+# Cassian 1.3.2 Preview — original starter-tone guide
+
+Help & setup adds **Audition original starter tones**, a compact guide to six contrasting complete built-in rigs: Prism Clean, Copper Blues, Iron Rhythm, Velvet Lead, Midnight Space and Natural Nylon. Expressive clean is the first choice. Each entry gives a short playing/listening exercise, identifies its actual built-in amp and loads through the existing complete-rig recall path. A successful request closes Help and opens Tone; a rejected request keeps Help open with the native error.
+
+The guide changes no tone merely by opening or selecting an entry. The explicit Load button replaces the current tone and scenes; the guide tells the player to save edits first. Input trim, Master, metronome and Play Along controls remain global, using the already-tested starter recall behavior. Recording/take playback and rig-loading states disable audition requests, and duplicate clicks cannot queue overlapping loads. All six entries come from the original file-free catalog; no private captures or new tone algorithms are introduced.
+
+The other built-in rigs remain in the preset menu and Library. Capture recipes remain separate and require their dependencies. Natural Nylon is honestly described as a DI starting point for an acoustic/piezo pickup, not an electric-to-nylon transformation. A/B Match level remains an approximate comparison aid; this guide does not claim new perceptual loudness normalization or real-player audition evidence.
+
+## Validation
+
+UI: 222 tests pass, covering original-catalog entries, clean-first selection, explicit complete recall, duplicate/loading protection, recording/review blocking, failed native recall and navigation to Tone. Standalone and VST3 builds, all four native suites (38.04 seconds), independent ZIP64-fixture CRC verification, three level-10 pluginval runs and isolated installer/upgrade/uninstall checks pass. Native checks included the owner's local bank; this does not clear its distribution rights or include it in public packages. Version identity checks pass. [The playing checklist](PLAYING-CHECKLIST.md) records the configuration/exercises to retain when the owner tests after restringing; no new human results are claimed.
+
+Real sound, beginner/fresh-PC/actual-host acceptance and signing remain separate; the owner's earlier sound feedback is retained. Browser visual inspection remains unavailable because the local control runtime failed to initialize.

@@ -128,20 +128,22 @@ export default function App() {
   const chooseTone = async name => {
     const saved = savedRigs.find(r => r.id === name);
     if (saved || startingRigs.some(r => r.id === name)) {
-      if (selectingPreset.current || status.rigLoading) return;
+      if (selectingPreset.current || status.rigLoading) return false;
       selectingPreset.current = true; setPresetLoading(true);
       try {
         if (native) { const error = await invoke(saved ? 'loadRig' : 'loadStartingRig', name); if (error) throw new Error(error); }
         else if (saved) { restoreSnapshot(saved.parameters); setPreviewActive(saved); }
         else setPreviewActive(applyStartingPreview(name));
         setChosen('');
-      } catch (e) { setNotice({title: 'Couldn’t load the rig', text: e.message || 'Please try again.'}); }
+        return true;
+      } catch (e) { setNotice({title: 'Couldn’t load the rig', text: e.message || 'Please try again.'}); return false; }
       finally { selectingPreset.current = false; setPresetLoading(false); }
       return;
     }
-    if (!presets[name]) return;
+    if (!presets[name]) return false;
     applyPreset(name); setChosen(name);
     if (!native) setPreviewActive(null);
+    return true;
   };
   // A/B: the first press stores A; each later press swaps the stored state with the current one.
   const toggleCompare = async () => {
@@ -225,7 +227,7 @@ export default function App() {
       </div>
     </main>
     {libraryOpen && <Library revision={status.libraryRevision} loading={status.rigLoading} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive} previewActiveId={previewActive?.id}/>}
-    {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : utility === 'Help' ? 'Help & setup' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : utility === 'Help' ? <Help status={status} onError={setNotice}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
+    {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : utility === 'Help' ? 'Help & setup' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : utility === 'Help' ? <Help status={status} onError={setNotice} onChooseRig={async id => { if (await chooseTone(id)) navigate('Tone'); }}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
     <footer>
       <span role="status">{footerMessage}</span>
       <button className="device-settings" onClick={() => { setNotice(null); setUtility('Help'); }}>Help &amp; setup</button>

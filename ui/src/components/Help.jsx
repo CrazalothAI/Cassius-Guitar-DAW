@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
 import { releaseLabel } from '../releaseLabel.js';
 import InputCheck from './InputCheck.jsx';
+import StarterTour from './StarterTour.jsx';
 
 const repository = 'https://github.com/CrazalothAI/Cassius-Guitar-DAW';
 const links = [['guide', 'User guide', `${repository}/blob/main/docs/USER-GUIDE.md`], ['support', 'Report an issue', `${repository}/issues`], ['source', 'Source code', repository], ['license', 'License', `${repository}/blob/main/LICENSE.txt`]];
@@ -25,7 +26,7 @@ export function supportReport(status) {
     'Add your OS, interface driver version, steps to reproduce, and expected/actual result before submitting.'
   ].join('\n');
 }
-export default function Help({status, onError}) {
+export default function Help({status, onError, onChooseRig}) {
   const [busy, setBusy] = useState(false), [copied, setCopied] = useState(false);
   const action = async (method, ...args) => {
     if (busy) return false; setBusy(true); setCopied(false);
@@ -51,6 +52,7 @@ export default function Help({status, onError}) {
       {device && <p className="practice-note">{device.inputDevice || 'No input device'} → {device.outputDevice || 'No output device'} · {device.monitoring ? 'Monitoring on' : 'Input muted'}</p>}
     </div>}
     <InputCheck status={status}/>
+    <StarterTour status={status} onChooseRig={onChooseRig} onError={onError}/>
     <h3>Playing and recording</h3>
     <p>Mix helps your guitar sit over backing tracks. Browser/YouTube audio stays outside Cassian recordings. Load a track in Practice to record its backing stem and export a mixed soundtrack from Takes. Exports are 48 kHz / 24-bit stereo WAVs.</p>
     <p>Board supports independent pedals before and after the amp, duplication, reorder and Undo/Redo. Edit scenes to organize variations; Performance connects MIDI controls.</p>

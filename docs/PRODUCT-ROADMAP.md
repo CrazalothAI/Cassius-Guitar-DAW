@@ -1,12 +1,12 @@
 # Cassian product roadmap
 
-Checkpoint: 2026-10-08. Current feature preview: **1.3.1**. The product is a guitar workstation and VST3 processor, with practice, recording and reamping; a general multitrack DAW is outside the current scope. The owner reports practical sound tests tried so far are passing. That is useful playing feedback, not an automatic certification of every interface, host or preset.
+Checkpoint: 2026-10-08. Current feature preview: **1.3.2**. The product is a guitar workstation and VST3 processor, with practice, recording and reamping; a general multitrack DAW is outside the current scope. The owner reports practical sound tests tried so far are passing. That is useful playing feedback, not an automatic certification of every interface, host or preset.
 
 | Area | Delivered | Remaining |
 | --- | --- | --- |
 | Guitar tones | Built-in clean/high-gain processing, NAM amp/pedal intake, cabinets, EQ/gate, original distortion and effects | Fresh-install audition and level consistency across the original starter collection; cleared contrasting captures |
 | Pedalboards | Bounded serial pre/post lanes, independent blocks, duplication, bypass, reordering, Undo/Redo, stable automation | Sustained demanding-board/real-host acceptance; parallel and dual-amp routing later |
-| Rigs and assets | 22 complete built-in rigs, 20 exact-capture recipes, search/relinking, portable packs, A/B and scenes | Approved public sound-bank distribution; more convincing complete clean/rock/metal/classical starters |
+| Rigs and assets | 22 complete built-in rigs, original starter-tone listening guide, 20 exact-capture recipes, search/relinking, portable packs, A/B and scenes | Approved public sound-bank distribution; more convincing complete clean/rock/metal/classical starters |
 | Practice and takes | Play Along, backing loops/sections, review waveforms, dry/processed/backing recording, reamping and video WAV exports | Streaming review for longer takes; structured local practice/session history |
 | Protection | Tone snapshots, selected/full/tone-only archives, verified ZIP64 up to 32 GiB, annotation reports | Real second-PC/large-library acceptance; automatic session recovery later |
 | Interrupted takes | Initial incomplete metadata, worker WAV checkpoints, separate verified recovery copies and explicit review confirmation | Physical power-failure evidence, RF64/damaged-header recovery and session reconstruction remain separate work |
@@ -24,7 +24,7 @@ The owner wants a fairly priced alternative to recurring software costs, using o
 
 ## Next order
 
-Recording recovery/download cleanup and guided input setup are implemented. Next prioritize the original starter-rig listening workflow and long-take review, alongside beginner setup trials. Collect the owner's next practical tests after restringing, retaining exact rig/interface/driver/rate/buffer settings when available. Complete the manual release evidence and cleared sound distribution alongside these improvements.
+Recording recovery/download cleanup, guided input setup and the original starter-tone guide are implemented. Next prioritize streaming long-take review and beginner setup/listening trials. Collect the owner's next practical tests after restringing, retaining exact rig/interface/driver/rate/buffer settings when available. Complete the manual release evidence and cleared sound distribution alongside these improvements.
 
 Pitch transpose/harmonizers, parallel amps, cabinet alignment and smoother switching are later DSP milestones with their own latency, recall and performance work. The promotional/community website remains deferred until the app is more mature. It should eventually offer demos, simple current-version downloads, documentation, transparent roadmap and suggestions, with repository-backed participation.
 

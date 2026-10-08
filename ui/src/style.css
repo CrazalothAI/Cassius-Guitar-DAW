@@ -642,6 +642,9 @@ footer .warn { color: #efb86a; }
 .input-check-controls .meter { flex: 1 1 180px; min-width: 120px; }
 .input-check-controls > span { font-size: 12px; }
 .input-check-result { padding: 8px 12px; margin-top: 10px; border-left: 2px solid var(--gold); background: #151913; }
+.starter-tour label { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.starter-tour select, .help-audio select { max-width: 100%; min-width: 0; padding: 6px; border: 1px solid #70624b; border-radius: 4px; background: #171a16; color: #ded7c6; }
+.starter-tour select { flex: 1 1 240px; }
 /* Library maintenance stays compact until explicitly opened. */
 .library-backup { flex-shrink: 0; border: 1px solid #ffffff20; border-radius: 8px; padding: 10px 12px; margin: 8px 0; font-size: 12px; }
 .library-backup summary { cursor: pointer; font-weight: 600; }

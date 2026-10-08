@@ -13,6 +13,7 @@
 - [x] Add 1.2.1 validated optional practice/review section recovery and a local per-file outcome report without blocking rig/audio recovery.
 - [x] Add 1.3.0 incomplete recording metadata, disk-worker WAV checkpoints, verified separate recovery copies, review confirmation and one-installer publication with top-level artifact cleanup.
 - [x] Add 1.3.1 guided input sampling, explicit bounded trim, clipping/dropout/stale-route protection and live callback diagnostics in Help/setup.
+- [x] Add 1.3.2 original starter-tone guide with contrasting clean/crunch/rhythm/lead/ambient/nylon exercises and explicit complete recall into Tone.
 - [ ] Validate the first-five-minutes workflow with a new user; prioritize original starter-rig listening and streaming long-take review; see [product roadmap](PRODUCT-ROADMAP.md).
 - [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries. Automatic recording/session recovery remains separate work.
 

@@ -24,6 +24,27 @@ beforeEach(() => {
 afterEach(cleanup);
 const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 describe('editor connected to the audio engine', () => {
+  it('loads a guided original starter through complete recall and returns to Tone', async () => {
+    render(<App/>);
+    fireEvent.click(screen.getByRole('tab',{name:'Practice'}));
+    fireEvent.click(screen.getByRole('button',{name:'Help & setup'}));
+    const dialog=screen.getByRole('dialog',{name:'Help & setup'});
+    fireEvent.click(within(dialog).getByText('Audition original starter tones'));
+    fireEvent.change(within(dialog).getByRole('combobox',{name:'Starter sound to try'}),{target:{value:'factory.iron-rhythm'}});
+    fireEvent.click(within(dialog).getByRole('button',{name:'Load Iron Rhythm and open Tone'}));
+    await waitFor(()=>expect(engine.calls).toContainEqual(['loadStartingRig','factory.iron-rhythm']));
+    await waitFor(()=>expect(screen.queryByRole('dialog',{name:'Help & setup'})).toBeNull());
+    expect(screen.getByRole('tab',{name:'Tone'}).getAttribute('aria-selected')).toBe('true');
+  });
+  it('keeps the starter guide open with the native error if recall is rejected', async () => {
+    engine.error='Could not prepare the selected rig.'; render(<App/>);
+    fireEvent.click(screen.getByRole('button',{name:'Help & setup'}));
+    const dialog=screen.getByRole('dialog',{name:'Help & setup'});
+    fireEvent.click(within(dialog).getByText('Audition original starter tones'));
+    fireEvent.click(within(dialog).getByRole('button',{name:'Load Prism Clean and open Tone'}));
+    await within(dialog).findByText(new RegExp(engine.error));
+    expect(screen.getByRole('dialog',{name:'Help & setup'})).toBeTruthy();
+  });
   it('shows the connected engine release channel rather than assuming the UI channel', async () => {
     engine.status={...engine.status,appVersion:'1.0.0',releaseChannel:'candidate',releaseCandidate:2};render(<App/>);
     await waitFor(()=>expect(screen.getByLabelText('Cassian version').textContent).toBe('v1.0.0 RC2'));

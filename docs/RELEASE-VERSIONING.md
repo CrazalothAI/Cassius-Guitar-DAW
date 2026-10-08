@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 1.3.1 is a feature preview following 1.0.0 RC2. The numeric binary version is 1.3.1; `ui/src/release.json` records the preview channel separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. See [guided input setup](RELEASE-1.3.1.md), [recording recovery and download cleanup](RELEASE-1.3.0.md), [validated section recovery](RELEASE-1.2.1.md) and [large personal archives](RELEASE-1.2.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 1.3.2 is a feature preview following 1.0.0 RC2. The numeric binary version is 1.3.2; `ui/src/release.json` records the preview channel separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. See [original starter-tone guide](RELEASE-1.3.2.md), [guided input setup](RELEASE-1.3.1.md), [recording recovery and download cleanup](RELEASE-1.3.0.md), [validated section recovery](RELEASE-1.2.1.md) and [large personal archives](RELEASE-1.2.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 
@@ -10,7 +10,7 @@ For the next version, run `npm version <major.minor.patch> --no-git-tag-version`
 
 ## Identify each download
 
-Normal packaging writes one `Cassian-Setup.exe`, `Cassian-1.3.1-Windows.zip`, matching `Cassian-1.3.1-Source.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` under `build/releases/1.3.1` (using the current version). It keeps the current installer and runnable `Cassian.exe` at the project root for convenient local access. Successful default packaging removes only recognized obsolete top-level package files. Custom `-OutputDirectory` retains the specified destination without root cleanup. The portable ZIP opens directly to Cassian.exe.
+Normal packaging writes one `Cassian-Setup.exe`, `Cassian-1.3.2-Windows.zip`, matching `Cassian-1.3.2-Source.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` under `build/releases/1.3.2` (using the current version). It keeps the current installer and runnable `Cassian.exe` at the project root for convenient local access. Successful default packaging removes only recognized obsolete top-level package files. Custom `-OutputDirectory` retains the specified destination without root cleanup. The portable ZIP opens directly to Cassian.exe.
 
 The checksum file covers `Cassian-Setup.exe`, the versioned portable ZIP and matching source. The installer retains its internal Windows version even though its download filename stays simple. Metadata records channel/candidate and whether signing was configured; actual signatures are independently verified by the readiness check. Build metadata records the version, checkout at packaging, tracked source modifications, private-bank status, sound count and those hashes. Checksums establish file integrity, not publisher authenticity; they are not a substitute for code signing. A checkout reference identifies packaging context and is not proof that an arbitrary supplied executable was compiled from that commit.
 
@@ -20,7 +20,7 @@ The pinned JUCE build originally omitted the version-information input from its 
 
 ## GitHub previews
 
-The workflow builds/tests before publishing. Main replaces the `latest` development prerelease with exactly one installer and the current version's portable/source files, metadata and checksums. Both artifact upload and release creation list exact current-version paths; there are no wildcards selecting older builds. The remote-main guard prevents a superseded run replacing the newest download. A separately authorized push of a tag such as `v1.3.1` must match the source version and produces a versioned prerelease containing one installer; it does not overwrite an existing versioned release. No release tag, signature or private sound publication is created by local packaging.
+The workflow builds/tests before publishing. Main replaces the `latest` development prerelease with exactly one installer and the current version's portable/source files, metadata and checksums. Both artifact upload and release creation list exact current-version paths; there are no wildcards selecting older builds. The remote-main guard prevents a superseded run replacing the newest download. A separately authorized push of a tag such as `v1.3.2` must match the source version and produces a versioned prerelease containing one installer; it does not overwrite an existing versioned release. No release tag, signature or private sound publication is created by local packaging.
 
 Regression checks cover package/lock mismatch, invalid versions, stale binaries, version resources, checksum/alias consistency, installed version registration during upgrade and removal of the isolated registration on uninstall. These tests do not establish fresh-PC prerequisite readiness or audible performance.
 
