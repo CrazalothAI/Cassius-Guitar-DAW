@@ -94,6 +94,16 @@ it('refreshes the library once when an observed restore finishes', async () => {
   bridge.status = {available:true,busy:false,operation:'restore',summary:'Recovered rigs added',path:'C:/Library/Recovered/first'};
   await waitFor(() => expect(refreshed).toHaveBeenCalledTimes(1),{timeout:2000});
 });
+it('shows nonfatal section recovery warnings and keeps the recovered output available', async () => {
+  const refreshed=vi.fn();
+  bridge.status={available:true,busy:false,operation:'restore',error:'',path:'C:/Library/Recovered/sections',summary:'2 recovered rigs and 1 takes added. 2 section files added; 1 existing files kept. 3 section files were skipped. See Recovery report.json for details.'};
+  render(<Backup onRestored={refreshed}/>);
+  await screen.findByText(/3 section files were skipped/);
+  expect(screen.queryByRole('alert')).toBeNull();
+  await waitFor(()=>expect(refreshed).toHaveBeenCalledTimes(1));
+  fireEvent.click(screen.getByRole('button',{name:'Show saved files'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('revealBackup'));
+});
 it('refreshes after a restore that completes between polls and recognizes later recoveries', async () => {
   const refreshed = vi.fn();
   bridge.status = {available:true,busy:false,operation:'restore',path:'C:/Library/Recovered/first'};

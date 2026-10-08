@@ -1,6 +1,7 @@
 #include "PracticeSections.h"
 #include <cmath>
 #include <stdexcept>
+#include <limits>
 
 namespace {
 void require(bool ok, const char* reason) { if (!ok) throw std::runtime_error(reason); }
@@ -10,6 +11,19 @@ struct Guard {
     juce::InterProcessLock& lock;
 };
 bool number(const juce::var& v) { return (v.isInt() || v.isInt64() || v.isDouble()) && std::isfinite(static_cast<double>(v)); }
+void validateNesting(const juce::String& text) {
+    int depth = 0; bool quoted = false, escaped = false;
+    for (const auto c : text) {
+        if (quoted) {
+            if (escaped) escaped = false;
+            else if (c == '\\') escaped = true;
+            else if (c == '"') quoted = false;
+        } else if (c == '"') quoted = true;
+        else if (c == '{' || c == '[') require(++depth <= 64, "Practice section document is nested too deeply.");
+        else if (c == '}' || c == ']') require(--depth >= 0, "Practice section document has invalid nesting.");
+    }
+    require(depth == 0 && !quoted, "Practice section document is incomplete.");
+}
 juce::String lockName(const juce::File& root, const juce::String& key) {
     const auto path = root.getFullPathName().toLowerCase();
     return "CassianSections-" + juce::SHA256(path.toRawUTF8(), static_cast<size_t>(path.getNumBytesAsUTF8())).toHexString() + key;
@@ -39,10 +53,20 @@ juce::var PracticeSections::read(const juce::String& key, double seconds)
     }
     const auto file = root.getChildFile(key + ".json");
     if (!file.existsAsFile()) return juce::var(juce::Array<juce::var>());
-    require(file.getSize() <= 65536, "Practice section document is too large; it has not been overwritten.");
-    const auto data = juce::JSON::parse(file.loadFileAsString());
-    require(data.isObject() && data["version"].isInt() && static_cast<int>(data["version"]) == 1 && data["track"].isString() && data["track"].toString() == key, "Practice section document could not be read; it has not been overwritten.");
-    validate(data["sections"], seconds); return data["sections"];
+    return readDocument(file,key,seconds)["sections"];
+}
+juce::var PracticeSections::readDocument(const juce::File& file, const juce::String& key, std::optional<double> duration)
+{
+    validateKey(key);
+    require(!duration || (std::isfinite(*duration) && *duration >= 0), "Invalid track duration for section validation.");
+    require(file.existsAsFile() && file.getSize() <= 65536, "Practice section document is missing or too large; it has not been overwritten.");
+    auto input = file.createInputStream(); require(input != nullptr, "Cannot read practice section document.");
+    juce::MemoryBlock bytes; input->readIntoMemoryBlock(bytes,65537);
+    require(bytes.getSize() <= 65536 && input->isExhausted() && input->getStatus().wasOk(), "Practice section read failed or exceeded its size limit.");
+    const auto text = juce::String::createStringFromData(bytes.getData(),static_cast<int>(bytes.getSize())); validateNesting(text);
+    const auto data = juce::JSON::parse(text);
+    require(data.getDynamicObject() && data["version"].isInt() && static_cast<int>(data["version"]) == 1 && data["track"].isString() && data["track"].toString() == key, "Practice section document could not be read; it has not been overwritten.");
+    validate(data["sections"], duration.value_or(std::numeric_limits<double>::max())); return data;
 }
 juce::var PracticeSections::load(const juce::String& key, double seconds)
 {

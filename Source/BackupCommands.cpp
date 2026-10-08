@@ -20,6 +20,7 @@ juce::String AmpSuiteAudioProcessor::requestBackup(bool restore, const juce::Fil
             const juce::ScopedLock guard(backupLock); backupLocation = report.location.getFullPathName();
             backupSummary = restore ? juce::String(report.rigs) + " recovered rigs and " + juce::String(report.takes) + " takes added. Current tone preserved."
                                     : juce::String(selectedTakeIds ? "Verified selected-takes backup saved: " : includeTakes ? "Verified complete backup saved: " : "Verified tone-library backup saved: ") + juce::String(report.files) + " files, " + juce::String(report.takes) + " takes.";
+            if (restore) backupSummary += " " + juce::String(report.sectionsAdded) + " section files added; " + juce::String(report.sectionsKept) + " existing files kept.";
             if (report.warning.isNotEmpty()) backupSummary += " " + report.warning;
         } catch (const std::exception& e) { const juce::ScopedLock guard(backupLock); backupError = e.what(); }
         backupBusy.store(false);

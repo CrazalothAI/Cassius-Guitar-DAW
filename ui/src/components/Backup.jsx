@@ -73,6 +73,7 @@ export default function Backup({onRestored = () => {}}) {
     </div>
     {confirm && !state.busy && <div className="backup-confirm" role="group" aria-label="Restore backup confirmation">
       <p>Restore adds recovered copies of saved rigs and takes. Existing work and the current playing tone stay intact. Matching sound files are reused; existing practice/review sections take priority.</p>
+      <p>New section documents are validated before adding them. Skipped copies stay in the recovered folder with a Recovery report.json explaining the results.</p>
       <button className="text-button" disabled={disabled} onClick={() => {setConfirm(false); run('restoreBackup');}}>Choose backup to restore</button>
       <button className="text-button quiet" onClick={() => setConfirm(false)}>Cancel restore</button>
     </div>}

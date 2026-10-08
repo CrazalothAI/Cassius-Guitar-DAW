@@ -1,4 +1,6 @@
 #include "LibraryBackup.h"
+#include "PracticeSections.h"
+#include <cmath>
 #include <map>
 #include <stdexcept>
 
@@ -349,18 +351,46 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
     } catch (...) { if (!keepMediaOnFailure) recovered.deleteRecursively(); throw; }
     // Practice/review sections are keyed by audio content. Never replace a
     // user's existing ranges; keep conflicts in the recovered archive copy.
-    int sectionWarnings = 0;
+    int sectionsAdded = 0, sectionsKept = 0, sectionsSkipped = 0;
+    juce::Array<juce::var> sectionResults;
+    std::map<juce::String,juce::File> audio;
+    std::map<juce::String,double> durations;
+    for (const auto& item : files) if (item.file.hasFileExtension("wav")) audio.emplace(item.hash,recovered.getChildFile(item.name));
     for (const auto& item : files) if (item.name.startsWith("practice/") || item.name.startsWith("take-sections/")) {
         const auto target = root.getChildFile(item.name), sectionRoot = target.getParentDirectory();
         const auto sectionPath = sectionRoot.getFullPathName().toLowerCase();
         juce::InterProcessLock mutex("CassianSections-" + juce::SHA256(sectionPath.toRawUTF8(), static_cast<size_t>(sectionPath.getNumBytesAsUTF8())).toHexString() + target.getFileNameWithoutExtension());
+        juce::String outcome, reason; bool validated = false;
         try {
-            Guard guard(mutex); if (target.exists()) continue;
-            require(sectionRoot.createDirectory().wasOk(), "Cannot create section folder."); juce::TemporaryFile temporary(target);
-            require(recovered.getChildFile(item.name).copyFileTo(temporary.getFile()) && temporary.overwriteTargetFileWithTemporary(), "Cannot recover sections.");
-        } catch (const std::exception&) { ++sectionWarnings; }
+            Guard guard(mutex);
+            if (target.exists()) { ++sectionsKept; outcome = "kept-existing"; reason = "Existing section file takes priority; incoming copy retained in this recovery folder."; }
+            else {
+                const auto track = target.getFileNameWithoutExtension(); std::optional<double> seconds;
+                if (const auto found = audio.find(track); found != audio.end()) {
+                    if (!durations.contains(track)) {
+                        std::unique_ptr<juce::AudioFormatReader> reader(formats.createReaderFor(found->second));
+                        require(reader && reader->lengthInSamples > 0 && std::isfinite(reader->sampleRate) && reader->sampleRate > 0, "Cannot validate sections against their archived audio.");
+                        durations[track] = static_cast<double>(reader->lengthInSamples) / reader->sampleRate;
+                    }
+                    seconds = durations.at(track);
+                }
+                const auto document = PracticeSections::readDocument(recovered.getChildFile(item.name),track,seconds); validated = true;
+                require(sectionRoot.createDirectory().wasOk(), "Cannot create section folder."); juce::TemporaryFile temporary(target);
+                // Publish the document we validated, rather than reopening an
+                // incoming file that could have changed since its read.
+                require(temporary.getFile().replaceWithText(juce::JSON::toString(document)) && temporary.overwriteTargetFileWithTemporary(), "Cannot recover sections.");
+                ++sectionsAdded; outcome = "added";
+                reason = seconds ? "Validated against archived audio duration." : "Structure validated; external audio duration will be checked when loaded.";
+            }
+        } catch (const std::exception& error) { ++sectionsSkipped; outcome = validated ? "write-failed" : "skipped"; reason = error.what(); }
+        auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("file",item.name); row->setProperty("result",outcome); row->setProperty("reason",reason); sectionResults.add(juce::var(row.release()));
     }
+    auto details = std::make_unique<juce::DynamicObject>(); details->setProperty("format","Cassian recovery report"); details->setProperty("schema",1); details->setProperty("appVersion",JucePlugin_VersionString);
+    details->setProperty("created",juce::Time::getCurrentTime().toISO8601(true)); details->setProperty("rigsAdded",rigs); details->setProperty("takesAdded",takes.getNumChildren());
+    details->setProperty("sectionsAdded",sectionsAdded); details->setProperty("sectionsKept",sectionsKept); details->setProperty("sectionsSkipped",sectionsSkipped); details->setProperty("sections",sectionResults);
+    juce::String warning = sectionsSkipped > 0 ? juce::String(sectionsSkipped) + " section files were skipped. Verified copies remain in the recovered folder." : juce::String();
+    try { replace(recovered.getChildFile("Recovery report.json"),juce::JSON::toString(juce::var(details.release()))); if (sectionsSkipped > 0) warning += " See Recovery report.json for details."; }
+    catch (const std::exception&) { warning += (warning.isEmpty() ? "" : " ") + juce::String("The detailed recovery report could not be saved."); }
     if (progress) progress(1);
-    const auto warning = sectionWarnings > 0 ? juce::String(sectionWarnings) + " section files could not be added automatically. Their verified copies remain in the recovered folder." : juce::String();
-    return {recovered, static_cast<int>(files.size()), rigs, takes.getNumChildren(), bytes, warning};
+    return {recovered, static_cast<int>(files.size()), rigs, takes.getNumChildren(), bytes, warning, sectionsAdded, sectionsKept, sectionsSkipped};
 }

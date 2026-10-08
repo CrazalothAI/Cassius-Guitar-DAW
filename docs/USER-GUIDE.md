@@ -4,6 +4,8 @@ In standalone, **Library → Automatic tone recovery** keeps up to 64 changed re
 
 For personal library/take protection, open **Library → Backup & recovery**. Create a verified archive on another drive, or restore recovered copies without replacing existing work. Complete backups are the default. Clear **Include recorded takes and reamps** for tones only, or enable **Choose specific takes** and select recordings for a smaller archive. All library sounds/tones stay included. Archives support up to 32 GiB; ZIP64 is selected automatically when needed. Allow disk space for the archive and an expanded verification copy. See [backup and recovery](BACKUP-AND-RECOVERY.md) for included files and DAW/session exclusions.
 
+Recovery validates new practice/review sections and preserves existing ones. If optional section files are skipped, your audio and rigs still recover. Choose **Show saved files** and inspect **Recovery report.json** for individual results; verified originals remain alongside recovered media.
+
 Cassian is a guitar workstation for live amp/pedal tones, backing-track practice, recording and reamping. The 1.0 release candidate targets Windows x64 standalone and VST3. Linux source exists but has no validated release package. All 22 built-in rigs include their sounds; the 20 capture recipes require the listed user-imported files.
 
 ## Install and connect

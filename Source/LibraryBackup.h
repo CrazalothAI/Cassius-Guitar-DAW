@@ -10,7 +10,7 @@
 class LibraryBackup
 {
 public:
-    struct Report { juce::File location; int files = 0, rigs = 0, takes = 0; juce::int64 bytes = 0; juce::String warning; };
+    struct Report { juce::File location; int files = 0, rigs = 0, takes = 0; juce::int64 bytes = 0; juce::String warning; int sectionsAdded = 0, sectionsKept = 0, sectionsSkipped = 0; };
     using Progress = std::function<void(double)>;
     using Validator = std::function<juce::String(const juce::var&)>;
     // Small archives retain classic ZIP; large ones automatically use ZIP64.

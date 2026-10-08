@@ -14,6 +14,9 @@ void wave(const juce::File& file, int channels) {
 template<typename F> void rejected(F run) { bool failed = false; try { run(); } catch (const std::exception&) { failed = true; } require(failed, "Invalid/cancelled backup must reject"); }
 juce::ValueTree read(const juce::File& file) { auto xml = juce::XmlDocument::parse(file); require(xml != nullptr, "Recovery catalog must parse"); return juce::ValueTree::fromXml(*xml); }
 juce::ValueTree readTreeFromXML(const juce::String& text) { auto xml = juce::XmlDocument::parse(text); require(xml != nullptr, "Fixture/recovered state must parse"); return juce::ValueTree::fromXml(*xml); }
+juce::String sectionDocument(const juce::String& key, const juce::String& rows = R"([{"id":"run","name":"Fast run","a":0,"b":0.08}])") {
+    auto doc=std::make_unique<juce::DynamicObject>(); doc->setProperty("version",1); doc->setProperty("track",key); doc->setProperty("sections",juce::JSON::parse(rows)); doc->setProperty("note",juce::String(R"(Literal {braces}, [brackets], and \"quotes\")")); return juce::JSON::toString(juce::var(doc.release()));
+}
 void mutateArchive(const juce::File& original, const juce::File& output, const juce::String& replaceName, const juce::String& newName, bool corrupt = false) {
     juce::ZipFile zip(original); juce::ZipFile::Builder builder;
     for (int i = 0; i < zip.getNumEntries(); ++i) {
@@ -78,7 +81,7 @@ void runBackupChecks(const juce::File& model)
     version.setProperty("id", "reamp-1", nullptr); version.setProperty("name", "Tighter lead", nullptr); version.setProperty("path", originals.getChildFile("Reamp.wav").getFullPathName(), nullptr); version.setProperty("rigPath", originals.getChildFile("Reamp.json").getFullPathName(), nullptr); take.addChild(version, -1, nullptr); takes.addChild(take, -1, nullptr);
     source.getChildFile("takes.xml").replaceWithText(takes.toXmlString());
     const auto section = juce::SHA256(originals.getChildFile("Guitar processed.wav")).toHexString() + ".json";
-    source.getChildFile("take-sections").createDirectory(); source.getChildFile("take-sections").getChildFile(section).replaceWithText("{\"version\":1,\"sections\":[]}");
+    source.getChildFile("take-sections").createDirectory(); source.getChildFile("take-sections").getChildFile(section).replaceWithText(sectionDocument(section.dropLastCharacters(5)));
     const auto destination = base.getChildFile("Personal.cassian-backup.zip"); std::atomic<bool> cancelled {false};
     const auto sourceHash = juce::SHA256(source.getChildFile("library.xml")).toHexString(), audioHash = juce::SHA256(originals.getChildFile("Guitar dry.wav")).toHexString();
     const auto report = LibraryBackup::create(source, destination, rig, cancelled);
@@ -203,6 +206,54 @@ void runBackupChecks(const juce::File& model)
     require(juce::SHA256(destination).toHexString() == priorBackup, "Cancellation must preserve the previous backup"); cancelled.store(false);
     rejected([&] {LibraryBackup::create(source, destination, rig, cancelled, [&](double p) {if (p > .15) cancelled.store(true);});}); cancelled.store(false);
     require(juce::SHA256(destination).toHexString() == priorBackup, "Mid-copy cancellation must preserve the previous backup");
+    // Checksum-valid optional metadata may still be unusable. Protect audio
+    // and rigs, keep rejected copies for inspection, and report every outcome.
+    const auto practiceFolder=source.getChildFile("practice"), reviewFolder=source.getChildFile("take-sections"); practiceFolder.createDirectory();
+    const auto externalKey=juce::SHA256(juce::CharPointer_UTF8("external backing")).toHexString();
+    const auto externalDoc=sectionDocument(externalKey,R"([{"id":"chorus","name":"Chorus","a":1,"b":2}])");
+    practiceFolder.getChildFile(externalKey+".json").replaceWithText(externalDoc);
+    juce::StringArray badFiles;
+    auto badSection=[&](const juce::String& label, const juce::String& body) {
+        const auto key=juce::SHA256(label.toRawUTF8(),static_cast<size_t>(label.getNumBytesAsUTF8())).toHexString();
+        const auto name=key+".json"; badFiles.add(name); require(reviewFolder.getChildFile(name).replaceWithText(body.replace("TRACK_KEY",key)),"Malformed section fixture must write");
+    };
+    badSection("invalid JSON","unreadable section document");
+    badSection("unsupported version",R"({"version":2,"track":"TRACK_KEY","sections":[]})");
+    badSection("mismatched track",sectionDocument(externalKey));
+    badSection("null document","null");
+    badSection("missing rows",R"({"version":1,"track":"TRACK_KEY"})");
+    badSection("duplicate row identities",sectionDocument("TRACK_KEY",R"([{"id":"same","name":"A","a":0,"b":0.08},{"id":"same","name":"B","a":0,"b":0.08}])"));
+    badSection("negative range",sectionDocument("TRACK_KEY",R"([{"id":"a","name":"Negative","a":-1,"b":0.08}])"));
+    badSection("nonnumeric range",sectionDocument("TRACK_KEY",R"([{"id":"a","name":"Invalid","a":0,"b":"0.08"}])"));
+    badSection("oversized document",juce::String::repeatedString(" ",65537));
+    badSection("excessive nesting",R"({"version":1,"track":"TRACK_KEY","sections":)"+juce::String::repeatedString("[",20000)+juce::String::repeatedString("]",20000)+"}");
+    const auto dryKey=juce::SHA256(originals.getChildFile("Guitar dry.wav")).toHexString(), outOfRangeName=dryKey+".json";
+    badFiles.add(outOfRangeName); reviewFolder.getChildFile(outOfRangeName).replaceWithText(sectionDocument(dryKey,R"([{"id":"beyond","name":"Too long","a":0,"b":2}])"));
+    const auto annotatedArchive=base.getChildFile("Annotated library.zip"), annotatedTarget=base.getChildFile("Annotated target");
+    LibraryBackup::create(source,annotatedArchive,rig,cancelled);
+    const auto annotated=LibraryBackup::restore(annotatedArchive,annotatedTarget,cancelled,validate);
+    require(annotated.takes==1 && annotated.rigs==2 && annotated.sectionsAdded==2 && annotated.sectionsSkipped==badFiles.size() && annotated.sectionsKept==0 && annotated.warning.contains("Recovery report.json"),"Damaged optional sections must warn without preventing audio/rig recovery");
+    const auto reportDoc=juce::JSON::parse(annotated.location.getChildFile("Recovery report.json").loadFileAsString());
+    require(reportDoc["format"].toString()=="Cassian recovery report" && static_cast<int>(reportDoc["sectionsSkipped"])==badFiles.size() && reportDoc["sections"].size()==badFiles.size()+2,"Recovery report must enumerate all added/skipped section outcomes");
+    for(const auto& name:badFiles) {
+        require(!annotatedTarget.getChildFile("take-sections").getChildFile(name).exists() && annotated.location.getChildFile("take-sections").getChildFile(name).loadFileAsString()==reviewFolder.getChildFile(name).loadFileAsString(),"Invalid section documents must stay out of active storage and remain unchanged in recovered media");
+    }
+    require(PracticeSections::readDocument(annotatedTarget.getChildFile("take-sections").getChildFile(section),section.dropLastCharacters(5),.1)["sections"].size()==1,"Valid review sections must load through the normal shared validator");
+    require(PracticeSections::readDocument(annotatedTarget.getChildFile("practice").getChildFile(externalKey+".json"),externalKey)["sections"].size()==1,"External practice sections must retain structural validation without requiring unarchived audio");
+    require(PracticeSections::readDocument(annotatedTarget.getChildFile("practice").getChildFile(externalKey+".json"),externalKey)["note"].toString().contains("brackets"),"Validated publication must preserve extra metadata and allow escaped quotes/literal braces in strings");
+    rejected([&]{PracticeSections::readDocument(annotatedTarget.getChildFile("practice").getChildFile(externalKey+".json"),externalKey,.1);});
+    PracticeSections recoveredSections(annotatedTarget.getChildFile("take-sections"));
+    require(recoveredSections.change(dryKey,.1,{},"New loop",0,.08,false).size()==1,"A skipped invalid annotation must not block creating a fresh section for recovered audio");
+    const auto conflictTarget=base.getChildFile("Section conflict target"); conflictTarget.getChildFile("take-sections").createDirectory();
+    conflictTarget.getChildFile("take-sections").getChildFile(section).replaceWithText("existing owner metadata");
+    // A file where a folder is needed simulates an unavailable section target.
+    conflictTarget.getChildFile("practice").replaceWithText("keep this existing file");
+    const auto conflict=LibraryBackup::restore(annotatedArchive,conflictTarget,cancelled,validate);
+    require(conflict.sectionsKept==1 && conflict.sectionsAdded==0 && conflict.sectionsSkipped==badFiles.size()+1 && conflictTarget.getChildFile("practice").loadFileAsString()=="keep this existing file" && conflictTarget.getChildFile("take-sections").getChildFile(section).loadFileAsString()=="existing owner metadata","Section conflicts/write failures must preserve existing work and still recover recordings");
+    const auto conflictDoc=juce::JSON::parse(conflict.location.getChildFile("Recovery report.json").loadFileAsString()); int failedWrites=0;
+    for(const auto& row:*conflictDoc["sections"].getArray()) if(row["result"].toString()=="write-failed") ++failedWrites;
+    require(failedWrites==1,"Recovery report must distinguish validation skips from filesystem failures");
+    for(const auto& name:badFiles) reviewFolder.getChildFile(name).deleteFile(); practiceFolder.getChildFile(externalKey+".json").deleteFile();
     source.getChildFile("assets").deleteRecursively(); rejected([&] {LibraryBackup::create(source, destination, rig, cancelled);});
     require(juce::SHA256(destination).toHexString() == priorBackup, "Missing sound files must not replace a valid backup");
     // Exercise the public worker API and prove restore does not recall a tone.
@@ -224,6 +275,7 @@ void runBackupChecks(const juce::File& model)
     auto* drive = live->apvts.getParameter("DRIVE_GAIN"); drive->setValueNotifyingHost(drive->convertTo0to1(7)); const auto beforeRestore = live->getRig()["state"].toString();
     require(live->requestBackup(true,liveArchive).isEmpty(), "Restore must queue on its worker"); wait();
     require(live->backupStatus()["error"].toString().isEmpty() && live->getLibrary()["rigs"].size() == 3, "Worker restore must refresh its library and retain existing rigs");
+    require(live->backupStatus()["summary"].toString().contains("section files added") && juce::File(live->backupStatus()["path"].toString()).getChildFile("Recovery report.json").existsAsFile(),"Public worker completion must expose section outcomes and the local report");
     require(live->apvts.getRawParameterValue("DRIVE_GAIN")->load() == 7 && live->getRig()["state"].toString() != juce::String(), "Restore must preserve the live parameter edit");
     require(live->getRig()["state"].toString().contains("My live clean") && beforeRestore.contains("My live clean"), "Recovery must preserve current rig identity");
     std::cout << "Personal backup/recovery checks passed\n";
