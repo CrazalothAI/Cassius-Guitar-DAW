@@ -11,6 +11,7 @@ void runSoundChecks(const juce::File& fixture);
 void runPracticeChecks();
 void runTakeChecks();
 void runMidiChecks();
+void runMidiBoardChecks();
 void runWahChecks();
 void runDistortionChecks();
 void runPlateChecks();
@@ -668,6 +669,7 @@ int main(int argc, char** argv)
         runPracticeChecks();
         runTakeChecks();
         runMidiChecks();
+        runMidiBoardChecks();
         runWahChecks();
         runDistortionChecks();
         runPlateChecks();

@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 0.8.2 is a development preview. Saved-scene copying is documented in [0.8.2 notes](RELEASE-0.8.2.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 0.9.0 is a development preview. Independent pedal MIDI control and scene organization are documented in [0.9.0 notes](RELEASE-0.9.0.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 
@@ -10,7 +10,7 @@ For the next version, run `npm version <major.minor.patch> --no-git-tag-version`
 
 ## Identify each download
 
-Normal packaging retains `Cassian-Setup.exe`, `Cassian-Windows.zip` and the root `Cassian.exe`. It also emits `Cassian-0.8.0-Setup.exe`, `Cassian-0.8.0-Windows.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` (using the current version). Versioned copies are byte-identical to their convenient aliases. The ZIP still opens directly to Cassian.exe.
+Normal packaging retains `Cassian-Setup.exe`, `Cassian-Windows.zip` and the root `Cassian.exe`. It also emits `Cassian-0.9.0-Setup.exe`, `Cassian-0.9.0-Windows.zip`, `SHA256SUMS.txt` and `Cassian-Build.json` (using the current version). Versioned copies are byte-identical to their convenient aliases. The ZIP still opens directly to Cassian.exe.
 
 The checksum file covers the versioned installer and ZIP. Build metadata records the version, checkout at packaging, tracked source modifications, private-bank status, sound count and those hashes. Checksums establish file integrity, not publisher authenticity; they are not a substitute for code signing. A checkout reference identifies packaging context and is not proof that an arbitrary supplied executable was compiled from that commit.
 

@@ -2,7 +2,9 @@
 
 Planning checkpoint: 2026-10-07. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Latest patch: 0.8.2 adds saved-scene copies to another slot without changing live tone. Independent distortion/plate/spring MIDI targets follow in 0.9.0. See [0.8.2](RELEASE-0.8.2.md).
+Latest milestone: 0.9.0 adds independent footswitch bypass and expression targets for both distortion/plate/spring instances, with missing/deleted-slot protection. It includes 0.8.1 scene renaming and 0.8.2 saved-scene copying. See [0.9.0](RELEASE-0.9.0.md).
+
+Previous patch: 0.8.2 adds saved-scene copies to another slot without changing live tone. See [0.8.2](RELEASE-0.8.2.md).
 
 Previous patch: 0.8.1 adds rename-only scene metadata and selection without recall while editing. See [0.8.1](RELEASE-0.8.1.md).
 

@@ -20,6 +20,8 @@ public:
     juce::String restore(const juce::var&);
     juce::var status();
     static bool expression(const juce::String&);
+    struct BoardTarget { const char* action; const char* type; int slot; const char* control; };
+    static const BoardTarget* boardTarget(const juce::String&);
 private:
     struct Event { unsigned epoch = 0, packed = 0; };
     static juce::var describe(const Mapping&);

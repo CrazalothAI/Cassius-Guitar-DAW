@@ -22,6 +22,9 @@ Apply edits before Learn. Selecting another row discards unapplied edits. Confli
 | Recall scene | One of four guitar-parameter snapshots sharing the current files. Preserves Input, Master and click settings; an empty slot reports an error. See [performance scenes](PERFORMANCE-SCENES.md). |
 | Toggle overdrive / NAM pedal / EQ / gate / metronome / modulation | Changes that enable parameter. An empty NAM pedal slot remains empty. |
 | Wah 1 / Wah 2 position | CC sweeps the selected independent wah's Position from 0–100%; inversion reverses its direction. Add and enable that instance in Board and choose Manual. See [wah setup](WAH-PEDAL.md). |
+| Toggle distortion / plate / spring 1 or 2 | Bypass the numbered instance in the current serial board; missing/deleted slots report an error. |
+| Distortion 1 / 2 drive | CC controls the numbered distortion Drive, 0–100%; separate from main amp Drive. |
+| Plate / Spring 1 / 2 blend | CC controls the numbered tank’s Blend, 0–100%; does not enable a bypassed instance. |
 | Master expression | Absolute listening level, −60 to 0 dB, affecting guitar, backing and click together. |
 | Drive expression | Main amp Drive, 0 to 24 dB; separate from the overdrive pedal's Drive dial. |
 | Reverb / Delay expression | Absolute wet mix, 0 to 100%. |
@@ -29,6 +32,12 @@ Apply edits before Learn. Selecting another row discards unapplied edits. Confli
 CC toggles fire on a rising crossing into 64–127. Release below 64 before the next press; repeated held values do not retrigger. Use a momentary controller sending press/release, or PC. A latching controller alternating 0/127 toggles only on its high-value presses. Each matching PC triggers its action.
 
 Expression requires CC and supports reversed direction. It follows absolute pedal position with existing DSP smoothing; there is no soft takeover. Moving the pedal can change a value previously set by the UI or a rig.
+
+## Numbered board targets
+
+Add the selected pedal in **Board** before using its assignment. The number refers to its persistent, kind-qualified automation slot, not its card position. Reordering and moving permitted lanes keep the target stable; duplication gives the second instance its own controls. Removal reserves its slot, so it reports an error until Undo restores it or a rig/scene with that slot is recalled. A missing/deleted target or loading/unresolved assets leave controls unchanged. Assignments follow the numbered slot of the current rig when rigs/scenes change. Expression can adjust a bypassed instance without enabling it. Legacy overdrive/EQ/reverb/delay actions retain their original parameter bindings.
+
+These targets add no host parameter IDs; the existing 215 IDs and MIDI configuration version 1 are unchanged. Existing mappings still restore. A pre-0.9 app does not recognize the new action names and will disable a configuration containing them; save an older-compatible session before downgrading.
 
 ## Persistence and timing
 
@@ -43,5 +52,7 @@ Changing assignments, restoring settings, cancelling Learn or disabling mapping 
 ## Validation
 
 Windows checks on 2026-10-03: 83 UI tests, four native CTest suites, standalone and VST3 Release builds pass. Coverage includes disabled defaults, channel matching, switch edges, range/overlap rejection, Learn/cancel, overflow/stale-command rejection, callback failure recovery, session round trips and malformed/legacy state, expression limits/inversion, ignored messages, complete rig recall with preserved globals and missing-target rollback. The browser layout fits 860×620 with internal panel scrolling.
+
+On 2026-10-07, all 179 UI tests and four native suites passed through 0.9.0, including all twelve independent distortion/plate/spring actions, CC edges, repeated PC, expression ranges/inversion, bypass preservation, reorder/deletion, missing slots, scene topology recall, alternate-rate native sessions, rig mapping preservation and loading guards.
 
 Physical MIDI controllers, DAW MIDI routing and Linux MIDI backends have not been validated in this update. Tests inject MIDI into the processor and do not establish end-to-end hardware latency or compatibility.

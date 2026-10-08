@@ -1008,6 +1008,21 @@ juce::String AmpSuiteAudioProcessor::handleMidiAction(const MidiControl::Mapping
 {
     if (mapping.action == "rig") return loadRig(mapping.rig);
     if (mapping.action == "scene") return recallScene(mapping.scene);
+    if (const auto* pedal = MidiControl::boardTarget(mapping.action)) {
+        const juce::ScopedLock guard(requestLock);
+        if (sceneAssetsLoading()) return "Finish loading the rig before controlling a pedal.";
+        bool present = false;
+        if (PedalboardState::serial(apvts.state)) for (const auto& block : apvts.state.getChildWithName("PEDALBOARD"))
+            if (block["type"].toString() == pedal->type && static_cast<int>(block["automationSlot"]) == pedal->slot && static_cast<int>(block["deleted"]) == 0) present = true;
+        if (!present) return "Add " + juce::String(pedal->type) + " " + juce::String(pedal->slot + 1) + " in Board before using this MIDI assignment.";
+        const int kind = BoardParams::types.indexOf(pedal->type);
+        const auto id = pedal->control == nullptr ? BoardParams::onId(kind, pedal->slot) : BoardParams::parameter(kind, pedal->slot, pedal->control);
+        auto* parameter = apvts.getParameter(id);
+        if (parameter == nullptr) return "This pedal control is unavailable.";
+        const float target = pedal->control == nullptr ? (apvts.getRawParameterValue(id)->load() >= .5f ? 0.f : 1.f)
+            : parameter->convertFrom0to1((mapping.inverted ? 127 - amount : amount) / 127.f);
+        parameter->beginChangeGesture(); parameter->setValueNotifyingHost(parameter->convertTo0to1(target)); parameter->endChangeGesture(); return {};
+    }
     if (rigLoading.load()) return "Rig is preparing; try the control again when it is ready.";
     const char* id = nullptr; float target = 0;
     const auto& action = mapping.action;

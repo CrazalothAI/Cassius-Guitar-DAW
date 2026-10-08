@@ -4,7 +4,24 @@ MidiControl::MidiControl() : Thread("Cassian MIDI control")
 { for (int i = 0; i < 8; ++i) mappings[static_cast<size_t>(i)].number = 16 + i; }
 void MidiControl::start(Action callback) { action = std::move(callback); startThread(); }
 void MidiControl::shutdown() { signalThreadShouldExit(); notify(); stopThread(-1); }
-bool MidiControl::expression(const juce::String& s) { return s == "master" || s == "drive" || s == "reverb" || s == "delay" || s == "wah1" || s == "wah2"; }
+const MidiControl::BoardTarget* MidiControl::boardTarget(const juce::String& action)
+{
+    // Kind-qualified automation slots remain stable when cards change order.
+    static constexpr BoardTarget targets[] {
+        {"distortion1", "distortion", 0, nullptr}, {"distortion2", "distortion", 1, nullptr},
+        {"plate1", "plate", 0, nullptr}, {"plate2", "plate", 1, nullptr},
+        {"spring1", "spring", 0, nullptr}, {"spring2", "spring", 1, nullptr},
+        {"dist-drive1", "distortion", 0, "DIST_DRIVE"}, {"dist-drive2", "distortion", 1, "DIST_DRIVE"},
+        {"plate-mix1", "plate", 0, "PLATE_MIX"}, {"plate-mix2", "plate", 1, "PLATE_MIX"},
+        {"spring-mix1", "spring", 0, "SPRING_MIX"}, {"spring-mix2", "spring", 1, "SPRING_MIX"}
+    };
+    for (const auto& target : targets) if (action == target.action) return &target;
+    return nullptr;
+}
+bool MidiControl::expression(const juce::String& s) {
+    const auto* target = boardTarget(s);
+    return s == "master" || s == "drive" || s == "reverb" || s == "delay" || s == "wah1" || s == "wah2" || (target != nullptr && target->control != nullptr);
+}
 juce::var MidiControl::describe(const Mapping& m)
 {
     auto o = std::make_unique<juce::DynamicObject>();
@@ -20,7 +37,7 @@ juce::String MidiControl::parse(const juce::var& v, Mapping& m)
         || (v.hasProperty("inverted") && !v["inverted"].isBool()) || (v.hasProperty("rig") && !v["rig"].isString()) || (v.hasProperty("scene") && !integer("scene", 0, 3))) return "Invalid MIDI assignment.";
     m.scene = v.hasProperty("scene") ? static_cast<int>(v["scene"]) : 0;
     m.type = v["type"].toString(); m.action = v["action"].toString(); m.channel = v["channel"]; m.number = v["number"]; m.rig = v["rig"].toString(); m.inverted = v["inverted"];
-    if ((m.type != "cc" && m.type != "pc") || (!juce::StringArray {"none", "rig", "overdrive", "pedal", "eq", "gate", "metronome", "modulation", "scene"}.contains(m.action) && !expression(m.action))) return "Unsupported MIDI assignment.";
+    if ((m.type != "cc" && m.type != "pc") || (!juce::StringArray {"none", "rig", "overdrive", "pedal", "eq", "gate", "metronome", "modulation", "scene"}.contains(m.action) && !expression(m.action) && boardTarget(m.action) == nullptr)) return "Unsupported MIDI assignment.";
     if (m.type == "pc" && expression(m.action)) return "Expression control needs a CC message.";
     if (m.rig.length() > 128 || (m.action == "rig" && m.rig.isEmpty())) return "Choose a saved rig for this assignment.";
     return {};

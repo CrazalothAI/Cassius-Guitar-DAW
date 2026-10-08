@@ -84,3 +84,26 @@ it('assigns one of the current rig scenes including an empty future slot', async
   fireEvent.click(screen.getByRole('button', {name: 'Apply assignment'}));
   await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('setMidiMapping', 0, {...rows[0], action: 'scene', type: 'pc', scene: 1}));
 });
+
+it('offers independent board expressions with CC-only inverted control', async () => {
+  render(<Midi status={status} onError={vi.fn()}/>);
+  fireEvent.change(screen.getByLabelText('MIDI message type'), {target: {value: 'pc'}});
+  fireEvent.change(screen.getByLabelText('MIDI action'), {target: {value: 'plate-mix2'}});
+  expect(screen.getByLabelText('MIDI message type').value).toBe('cc');
+  expect(screen.getByRole('option', {name: 'Program change · PC'}).disabled).toBe(true);
+  for (const label of ['Distortion 1 drive', 'Distortion 2 drive', 'Plate 1 blend', 'Spring 1 blend', 'Spring 2 blend']) expect(screen.getByRole('option', {name: label})).toBeTruthy();
+  expect(screen.getByText(/Expression leaves a bypassed pedal off/)).toBeTruthy();
+  fireEvent.click(screen.getByLabelText('Invert expression'));
+  fireEvent.click(screen.getByRole('button', {name: 'Apply assignment'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('setMidiMapping', 0, {...rows[0], action: 'plate-mix2', inverted: true}));
+});
+it('offers independent board toggles with program-change control', async () => {
+  render(<Midi status={status} onError={vi.fn()}/>);
+  for (const label of ['Toggle distortion 1', 'Toggle distortion 2', 'Toggle plate 1', 'Toggle plate 2', 'Toggle spring 1', 'Toggle spring 2']) expect(screen.getByRole('option', {name: label})).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('MIDI action'), {target: {value: 'distortion2'}});
+  expect(screen.queryByLabelText('Invert expression')).toBeNull();
+  expect(screen.getByRole('option', {name: 'Program change · PC'}).disabled).toBe(false);
+  fireEvent.change(screen.getByLabelText('MIDI message type'), {target: {value: 'pc'}});
+  fireEvent.click(screen.getByRole('button', {name: 'Apply assignment'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('setMidiMapping', 0, {...rows[0], action: 'distortion2', type: 'pc'}));
+});
