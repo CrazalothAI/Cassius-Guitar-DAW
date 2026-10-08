@@ -1,5 +1,8 @@
 name: Windows build
 on: [push, pull_request, workflow_dispatch]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: windows-2022
@@ -86,6 +89,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CASSIAN_VERSION: ${{ steps.version.outputs.value }}
         run: |
+          $currentMain = & git ls-remote origin refs/heads/main
+          if ($LASTEXITCODE -ne 0 -or !$currentMain) { throw 'Cannot verify the current main revision before publishing.' }
+          if (($currentMain -split '\s+')[0] -ne '${{ github.sha }}') {
+            Write-Host 'A newer main revision exists; skipping replacement of the latest download.'
+            exit 0
+          }
           gh release view latest *> $null
           if ($LASTEXITCODE -eq 0) { gh release delete latest --yes --cleanup-tag }
           $notes = "Cassian $env:CASSIAN_VERSION preview. Built from ${{ github.sha }}.`n`nDownload Cassian-Setup.exe and run it to install Cassian, shortcuts and the optional VST3 plugin. Setup installs Microsoft WebView2 if needed (internet required for that step).`n`nFor portable use, extract Cassian-Windows.zip and run Cassian.exe at the top of the folder. The GitHub source ZIP is for developers.`n`nVersioned copies, SHA256SUMS.txt and Cassian-Build.json identify this download. Includes 22 original rigs. Private third-party capture files are excluded. Matching source is supplied under AGPL-3.0-or-later. This is a preview; signing and acceptance items are listed in RELEASE-READINESS.json."
