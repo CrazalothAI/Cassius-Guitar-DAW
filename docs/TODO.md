@@ -14,7 +14,9 @@
 - [x] Add 1.3.0 incomplete recording metadata, disk-worker WAV checkpoints, verified separate recovery copies, review confirmation and one-installer publication with top-level artifact cleanup.
 - [x] Add 1.3.1 guided input sampling, explicit bounded trim, clipping/dropout/stale-route protection and live callback diagnostics in Help/setup.
 - [x] Add 1.3.2 original starter-tone guide with contrasting clean/crunch/rhythm/lead/ambient/nylon exercises and explicit complete recall into Tone.
-- [ ] Validate the first-five-minutes workflow with a new user; prioritize original starter-rig listening and streaming long-take review; see [product roadmap](PRODUCT-ROADMAP.md).
+- [x] Add 1.4.0 bounded standard-WAV long-take review with normal-speed transport, fixed cache, waveform/sections, buffering and changed-media protection.
+- [ ] Add streamed-loop prefetch after sustained real-take acceptance; speed changes/RF64 remain separate work.
+- [ ] Validate the first-five-minutes workflow with a new user and sustained long-take review; see [product roadmap](PRODUCT-ROADMAP.md).
 - [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries. Automatic recording/session recovery remains separate work.
 
 - [x] Prepare 1.0.0 RC1: in-app Help/setup, AGPL licensing, matching source, publisher attribution, signing support and stable-release gate.

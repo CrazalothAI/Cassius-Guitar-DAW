@@ -4,13 +4,14 @@
 #include <memory>
 #include <array>
 #include "PracticeSections.h"
+#include "ReviewStream.h"
 
 // One audio producer, one disk consumer. No decoding, file writes, allocation,
 // mutex acquisition or ownership destruction happens in process().
 class PracticeEngine final : private juce::Thread
 {
 public:
-    explicit PracticeEngine(int fifoFrames = 262144, juce::File sectionsDirectory = {});
+    explicit PracticeEngine(int fifoFrames = 262144, juce::File sectionsDirectory = {}, juce::int64 streamingThreshold = -1);
     ~PracticeEngine() override;
     void prepare(double sampleRate);
     void load(const juce::File&);
@@ -30,7 +31,7 @@ public:
     bool counting() const { return countActive.load(); }
     void interrupted() { if (recordMode.load() >= 2 && recordMode.load() <= 3) { startRequested.store(false); countActive.store(false); recordingFault.store(2); recordMode.store(4); } }
 private:
-    struct Track { juce::AudioBuffer<float> audio; double rate = 48000, speed = 1, duration = 0; juce::String name; };
+    struct Track { juce::AudioBuffer<float> audio; std::unique_ptr<ReviewStream> stream; double rate = 48000, speed = 1, duration = 0; juce::String name; };
     void run() override;
     void readTrack(const juce::File&, unsigned generation, double speed, bool preservePosition);
     bool cancelled(unsigned generation);
@@ -41,6 +42,7 @@ private:
     void startCount();
     bool sectionsBlocked() const;
     PracticeSections sections;
+    const juce::int64 streamingThreshold;
     juce::var wavePeaks, sectionRows {juce::Array<juce::var>()};
     juce::String trackKey, sectionError;
     int waveRevision = 0, sectionRevision = 0;

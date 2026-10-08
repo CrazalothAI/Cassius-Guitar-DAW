@@ -8,7 +8,7 @@ Setup detects WebView2 through Microsoft's documented per-user/machine registry 
 
 Run a newer installer to upgrade using the same application identity and installation location. Close Cassian and any DAW using its plugin beforehand; setup can request closure when files are in use. Uninstall removes installed app/plugin files and shortcuts, leaving saved app settings, managed library data, practice sections and recordings alone.
 
-**Cassian-1.3.2-Windows.zip** (using the release version) is the portable alternative: its root contains `Cassian.exe`, the VST3 bundle, quick-start instructions, user guide, project license, source reference and third-party notices. Extract it before running. The portable app uses the same normal user settings/library locations and needs WebView2 already installed. GitHub's source ZIP is for source builds and contains no executable.
+**Cassian-1.4.0-Windows.zip** (using the release version) is the portable alternative: its root contains `Cassian.exe`, the VST3 bundle, quick-start instructions, user guide, project license, source reference and third-party notices. Extract it before running. The portable app uses the same normal user settings/library locations and needs WebView2 already installed. GitHub's source ZIP is for source builds and contains no executable.
 
 ## Build and verify
 

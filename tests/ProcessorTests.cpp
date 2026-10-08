@@ -12,6 +12,7 @@ void runToneRecoveryChecks();
 void runQualityChecks(const juce::File& fixture);
 void runSoundChecks(const juce::File& fixture);
 void runPracticeChecks();
+void runStreamingReviewChecks();
 void runTakeChecks();
 void runMidiChecks();
 void runMidiBoardChecks();
@@ -679,6 +680,7 @@ int main(int argc, char** argv)
         runQualityChecks(juce::File(argv[1]));
         runSoundChecks(juce::File(argv[1]));
         runPracticeChecks();
+        runStreamingReviewChecks();
         runTakeChecks();
         runMidiChecks();
         runMidiBoardChecks();

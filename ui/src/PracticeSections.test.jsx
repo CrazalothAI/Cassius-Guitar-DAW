@@ -7,6 +7,14 @@ import PracticeWaveform from './components/PracticeWaveform.jsx';
 const p = {duration: 120, position: 30, a: 10.25, b: 40.75, sectionRevision: 1, sections: [{id: 'solo', name: 'Solo', a: 10.25, b: 40.75}]};
 beforeEach(() => { bridge.invoke.mockReset().mockResolvedValue(''); });
 afterEach(cleanup);
+it('describes streamed take sections as seek/export ranges rather than loops', async () => {
+  render(<PracticeSections p={{...p, loopAvailable: false}} available={true} takeId="take" takeVersion="processed" onError={vi.fn()}/>);
+  fireEvent.click(screen.getByRole('button', {name: 'Sections · 1'}));
+  expect(screen.getByRole('button', {name: 'Save range'}).disabled).toBe(false);
+  expect(screen.getByText(/without enabling a loop/)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', {name: 'Save range'}));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('takeReviewSection', 'take', 'processed', 'save', 'New section', ''));
+});
 it('routes take section save, recall and delete to the exact loaded version', async () => {
   render(<PracticeSections p={p} available={true} takeId="take-one" takeVersion="reamp-2" onError={vi.fn()}/>);
   fireEvent.click(screen.getByRole('button', {name: 'Sections · 1'}));

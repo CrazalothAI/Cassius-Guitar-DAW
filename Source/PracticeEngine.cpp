@@ -1,9 +1,25 @@
 #include "PracticeEngine.h"
 #include "TakeRecovery.h"
 #include <cmath>
+#include <optional>
 #include <signalsmith-stretch/signalsmith-stretch.h>
 
 namespace {
+class CheckedHashInput final : public juce::InputStream {
+public:
+    CheckedHashInput(juce::FileInputStream& s, std::function<bool()> c) : input(s), cancelled(std::move(c)) {}
+    juce::int64 getTotalLength() override { return input.getTotalLength(); }
+    juce::int64 getPosition() override { return input.getPosition(); }
+    bool setPosition(juce::int64 p) override { return input.setPosition(p); }
+    bool isExhausted() override { return input.isExhausted(); }
+    int read(void* out, int n) override {
+        if (cancelled()) throw std::runtime_error("Track preparation cancelled.");
+        const int got = input.read(out, juce::jmin(n, 65536));
+        if (got == 0 && !input.isExhausted()) throw std::runtime_error("Could not read track identity."); return got;
+    }
+private:
+    juce::FileInputStream& input; std::function<bool()> cancelled;
+};
 // AudioFormatReaderSource discards decoder read failures; retain them so a
 // truncated/unreadable track is not silently published as a successful import.
 class CheckedDecoder final : public juce::AudioSource {
@@ -23,7 +39,7 @@ private:
 };
 }
 
-PracticeEngine::PracticeEngine(int frames, juce::File sectionsDirectory) : Thread("Cassian practice disk IO"), sections(std::move(sectionsDirectory)), fifo(juce::jmax(32, frames)), recordingAudio(5, juce::jmax(32, frames))
+PracticeEngine::PracticeEngine(int frames, juce::File sectionsDirectory, juce::int64 threshold) : Thread("Cassian practice disk IO"), sections(std::move(sectionsDirectory)), streamingThreshold(threshold), fifo(juce::jmax(32, frames)), recordingAudio(5, juce::jmax(32, frames))
 { gain.setCurrentAndTargetValue(juce::Decibels::decibelsToGain(-12.0f)); startThread(); }
 PracticeEngine::~PracticeEngine()
 {
@@ -58,9 +74,10 @@ juce::String PracticeEngine::command(const juce::String& name, double x)
     }
     if (name == "stop") { startRequested.store(false); startEpoch.fetch_add(1); playing.store(false); countActive.store(false); if (recordMode.load() != 0) recordMode.store(4); seek.store(0); notify(); }
     else if (name == "pause") { startRequested.store(false); startEpoch.fetch_add(1); playing.store(false); countActive.store(false); if (recordMode.load() != 0) recordMode.store(4); notify(); }
-    else if (name == "play") { if (loadingTrack.load()) return "Wait for the backing track to load."; if (recordMode.load() != 0) return "Finish the current take first."; if (duration.load() <= 0) return "Load a backing track first."; startCount(); }
+    else if (name == "play") { if (loadingTrack.load()) return "Wait for the backing track to load."; if (ownedTrack && ownedTrack->stream && ownedTrack->stream->hasFailed()) return "Reload this take version before listening."; if (recordMode.load() != 0) return "Finish the current take first."; if (duration.load() <= 0) return "Load a backing track first."; startCount(); }
     else if (name == "level") levelDb.store(static_cast<float>(juce::jlimit(-60., 6., x)));
     else if (name == "speed") {
+        if (ownedTrack && ownedTrack->stream && x != 1) return "Long-take review currently plays at normal speed.";
         if (x < .5 || x > 1.5) return "Choose a practice speed between 50% and 150%.";
         if (recordMode.load() != 0 || countActive.load() || startRequested.load()) return "Stop the take or count-in before changing speed.";
         if (loadingTrack.load()) return "Wait for the track to finish preparing.";
@@ -77,7 +94,7 @@ juce::String PracticeEngine::command(const juce::String& name, double x)
         (name == "a" ? loopA : loopB).store(juce::jlimit(0., duration.load(), x));
         if (loopB.load() - loopA.load() < .05) loop.store(false);
     }
-    else if (name == "loop") { if (loadingTrack.load() || recordMode.load() != 0 || countActive.load() || startRequested.load()) return "Finish preparation, the take or count-in before changing looping."; if (x != 0 && loopB.load() - loopA.load() < .05) return "Set B at least 0.05 seconds after A."; loop.store(x != 0); }
+    else if (name == "loop") { if (x != 0 && ownedTrack && ownedTrack->stream) return "Long-take review supports A–B export ranges; looping is not available yet."; if (loadingTrack.load() || recordMode.load() != 0 || countActive.load() || startRequested.load()) return "Finish preparation, the take or count-in before changing looping."; if (x != 0 && loopB.load() - loopA.load() < .05) return "Set B at least 0.05 seconds after A."; loop.store(x != 0); }
     else return "Unknown practice control.";
     return {};
 }
@@ -85,6 +102,7 @@ juce::String PracticeEngine::record(const juce::File& parent, const juce::var& r
 {
     const juce::ScopedLock lock(control);
     if (loadingTrack.load()) return "Wait for the backing track to load.";
+    if (ownedTrack && ownedTrack->stream) return "Record with the Practice transport; long-take review is for listening only.";
     int idle = 0;
     if (!recordMode.compare_exchange_strong(idle, 1)) return "Finish the current take first.";
     recordingFault.store(0);
@@ -107,7 +125,19 @@ void PracticeEngine::readTrack(const juce::File& file, unsigned generation, doub
     const double targetRate = rate.load();
     const double targetFrames = reader && reader->sampleRate > 0 ? std::ceil(reader->lengthInSamples * targetRate / reader->sampleRate) : 0;
     const double stretchedFrames = std::ceil(targetFrames / speed);
-    if (!reader || !std::isfinite(targetFrames) || targetFrames < 1 || targetFrames > maximumFrames || stretchedFrames > maximumFrames || reader->numChannels < 1 || reader->numChannels > 2)
+    const bool streaming = reader && std::isfinite(targetFrames) && targetFrames < 1e12 && targetFrames > streamingThreshold && streamingThreshold >= 0 && file.hasFileExtension("wav");
+    if (streaming && speed == 1 && reader->numChannels >= 1 && reader->numChannels <= 2) {
+        next = std::make_unique<Track>(); next->rate = targetRate; next->name = file.getFileName(); next->duration = targetFrames / targetRate;
+        next->stream = std::make_unique<ReviewStream>(file, std::move(reader), targetRate);
+        next->stream->validate();
+        nextPeaks = next->stream->envelope([&] { return cancelled(generation); }, [&](double p) { loadProgress.store(p * .7); });
+        if (cancelled(generation)) return;
+        // Two blocks are ready before publication; the worker fills the rest
+        // afterward. A cached block is always identified by its source frame.
+        for (int i = 0; i < 2; ++i) next->stream->service([&] { return cancelled(generation); });
+        if (next->stream->hasFailed()) { failure = next->stream->failure(); next.reset(); }
+    }
+    else if (!reader || !std::isfinite(targetFrames) || targetFrames < 1 || targetFrames > maximumFrames || stretchedFrames > maximumFrames || reader->numChannels < 1 || reader->numChannels > 2)
         failure = "Choose a supported mono/stereo file under 256 MiB when decoded at the selected speed.";
     else {
         next = std::make_unique<Track>(); next->rate = targetRate; next->name = file.getFileName();
@@ -175,7 +205,9 @@ void PracticeEngine::readTrack(const juce::File& file, unsigned generation, doub
     }
     if (next) {
         if (cancelled(generation)) return;
-        nextKey = juce::SHA256(file).toHexString(); // Streaming file hash on the worker.
+        auto input = file.createInputStream(); if (!input) throw std::runtime_error("Could not read track identity.");
+        CheckedHashInput hashInput(*input, [&] { return cancelled(generation); });
+        nextKey = juce::SHA256(hashInput).toHexString(); // Cancellable, bounded worker hash.
         if (cancelled(generation)) return;
         if (!file.existsAsFile() || file.getSize() != fileSize || file.getLastModificationTime() != modified) { next.reset(); failure = "The backing track changed during preparation. Reload it."; }
         else try { nextSections = sections.load(nextKey, next->duration); } catch (const std::exception& e) { nextSectionError = e.what(); }
@@ -302,11 +334,18 @@ void PracticeEngine::run()
             if (loading) readTrack(file, generation, speed, preservePosition);
             if (recording) beginRecording(destination);
         } catch (const std::exception& e) {
-            const juce::ScopedLock lock(control); error = "Practice file error: " + juce::String(e.what());
+            const juce::ScopedLock lock(control);
+            if (!loading || generation == loadGeneration) error = "Practice file error: " + juce::String(e.what());
             if (generation == loadGeneration) { loadingTrack.store(false); requestedSpeed.store(playbackSpeed.load()); }
             if (recording) recordMode.store(4);
         }
         drainRecording(); reclaimTracks();
+        if (ownedTrack && ownedTrack->stream) {
+            auto& stream = *ownedTrack->stream;
+            try { stream.service([&] { return threadShouldExit() || loadingTrack.load(); }); }
+            catch (const std::exception& e) { const juce::ScopedLock lock(control); error = e.what(); playing.store(false); startRequested.store(false); }
+            if (stream.hasFailed()) { const juce::ScopedLock lock(control); error = stream.failure(); playing.store(false); countActive.store(false); startRequested.store(false); }
+        }
         if (recordMode.load() == 4 && callbacks.load() == 0) {
             finishTake();
             if (recordingFault.load() != 0) {
@@ -317,7 +356,7 @@ void PracticeEngine::run()
             }
             recordMode.store(0);
         }
-        wait(recordMode.load() != 0 || !retired.empty() ? 10 : 250);
+        wait(ownedTrack && ownedTrack->stream ? (transportActive() ? 2 : 20) : recordMode.load() != 0 || !retired.empty() ? 10 : 250);
     }
     // Destruction is off the audio thread and flushes the remaining FIFO/header.
     finishTake();
@@ -338,10 +377,12 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
     }
     const auto requestedSeek = seek.exchange(-1);
     if (requestedSeek >= 0) position = requestedSeek;
+    std::optional<ReviewStream::Read> streamRead;
+    if (source && source->stream) { source->stream->request(static_cast<juce::int64>(position * source->rate)); streamRead.emplace(*source->stream); }
     gain.setTargetValue(juce::Decibels::decibelsToGain(levelDb.load()));
     if (!playing.load() && !countActive.load() && recordMode.load() != 2 && recordMode.load() != 3) {
         gain.skip(output.getNumSamples()); reportedPosition.store(position);
-        hazard.store(nullptr); callbacks.fetch_sub(1); return false;
+        streamRead.reset(); hazard.store(nullptr); callbacks.fetch_sub(1); return false;
     }
     const bool counted = countActive.load() && countLength > 0;
     int start1 = 0, size1 = 0, start2 = 0, size2 = 0, written = 0;
@@ -392,6 +433,17 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
             if (position >= end) { playing.store(false); position = end; }
             else {
                 const double frame = position * frameRate;
+                if (source->stream) {
+                    float left = 0, right = 0;
+                    const auto index = juce::jlimit<juce::int64>(0, source->stream->frameCount() - 1, static_cast<juce::int64>(frame));
+                    if (streamRead->sample(index, static_cast<float>(frame - index), left, right)) {
+                        if (output.getNumChannels() > 0) output.addSample(0, i, volume * left);
+                        if (output.getNumChannels() > 1) output.addSample(1, i, volume * right);
+                        position += 1. / sampleRate;
+                        if (position >= end) { position = end; playing.store(false); }
+                    } // Underruns hold the cursor and never skip or reuse stale audio.
+                    else if (source->stream->hasFailed()) playing.store(false);
+                } else {
                 const int index = juce::jlimit(0, source->audio.getNumSamples() - 1, static_cast<int>(frame));
                 const float fraction = static_cast<float>(frame - index);
                 int next = juce::jmin(index + 1, source->audio.getNumSamples() - 1);
@@ -414,12 +466,14 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
                 }
                 position += source->speed / sampleRate;
                 if ((!looping || b <= a || b > end) && position >= end) { position = end; playing.store(false); }
+                }
             }
         }
         for (int ch = 0; ch < output.getNumChannels(); ++ch) output.addSample(ch, i, click);
     }
     if (written > 0) { fifo.finishedWrite(written); recordedFrames.fetch_add(written); }
-    reportedPosition.store(position); hazard.store(nullptr); callbacks.fetch_sub(1);
+    if (source && source->stream) source->stream->request(static_cast<juce::int64>(position * source->rate));
+    streamRead.reset(); reportedPosition.store(position); hazard.store(nullptr); callbacks.fetch_sub(1);
     return counted;
 }
 juce::var PracticeEngine::status()
@@ -427,6 +481,10 @@ juce::var PracticeEngine::status()
     auto o = std::make_unique<juce::DynamicObject>();
     { const juce::ScopedLock lock(control); o->setProperty("track", trackName); o->setProperty("error", error); o->setProperty("takePath", takePath);
       o->setProperty("waveRevision", waveRevision); o->setProperty("sections", sectionRows); o->setProperty("sectionRevision", sectionRevision); o->setProperty("sectionError", sectionError); }
+    { const juce::ScopedLock lock(control); const auto* stream = ownedTrack ? ownedTrack->stream.get() : nullptr;
+      o->setProperty("streaming", stream != nullptr); o->setProperty("loopAvailable", stream == nullptr);
+      o->setProperty("buffering", stream && stream->isBuffering() && transportActive()); o->setProperty("reviewUnderruns", stream ? stream->underrunCount() : 0);
+      o->setProperty("reviewCacheBytes", stream ? ReviewStream::cacheBytes : 0); }
     o->setProperty("loading", loadingTrack.load());
     o->setProperty("speed", playbackSpeed.load()); o->setProperty("requestedSpeed", requestedSpeed.load()); o->setProperty("loadProgress", loadProgress.load()); o->setProperty("fade", loopFadeMs.load());
     o->setProperty("duration", duration.load()); o->setProperty("position", reportedPosition.load());
@@ -473,7 +531,7 @@ juce::String PracticeEngine::recallSection(const juce::String& id)
         for (const auto& row : *latest.getArray()) if (row["id"].toString() == id) {
             const double a = row["a"], b = juce::jmin(duration.load(), static_cast<double>(row["b"]));
             playing.store(false); startRequested.store(false); startEpoch.fetch_add(1);
-            loop.store(false); loopA.store(a); loopB.store(b); seek.store(a); loop.store(true);
+            loop.store(false); loopA.store(a); loopB.store(b); seek.store(a); loop.store(!ownedTrack || !ownedTrack->stream);
             sectionRows = latest; sectionError.clear(); ++sectionRevision; return {};
         }
         sectionRows = latest; ++sectionRevision; return "That practice section no longer exists. Reload the track.";

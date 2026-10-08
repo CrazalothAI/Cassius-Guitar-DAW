@@ -22,10 +22,10 @@ export default function PracticeSections({p, available, disabled, onError, takeI
     {open && <form onSubmit={e => { e.preventDefault(); action('savePracticeSection', name.trim(), selected); }}>
       <label>Section<select aria-label="Saved section" value={selected} disabled={blocked} onChange={e => { const id = e.target.value; setSelected(id); setName(rows.find(row => row.id === id)?.name || 'New section'); }}><option value="">New section</option>{rows.map(row => <option key={row.id} value={row.id}>{row.name} · {preciseTime(row.a)}–{preciseTime(row.b)}</option>)}</select></label>
       <label>Name<input aria-label="Section name" value={name} maxLength={48} disabled={blocked} onChange={e => setName(e.target.value)}/></label>
-      <button type="submit" disabled={blocked || !name.trim() || (p.b || 0) - (p.a || 0) < .05 || (!selected && rows.length >= 32)}>{selected ? 'Replace section' : 'Save loop'}</button>
+      <button type="submit" disabled={blocked || !name.trim() || (p.b || 0) - (p.a || 0) < .05 || (!selected && rows.length >= 32)}>{selected ? 'Replace section' : p.loopAvailable === false ? 'Save range' : 'Save loop'}</button>
       <button type="button" disabled={blocked || !selected} onClick={() => action('recallPracticeSection', selected)}>Recall section</button>
       <button type="button" disabled={blocked || !selected} onClick={() => action('removePracticeSection', selected)}>Delete section</button>
-      <p className="practice-note">Save the current A–B range. Recall pauses at A and enables looping; press {takeId ? 'Resume' : 'Play'} when ready. Sections follow the same file contents, including renamed copies, and stay separate from tone rigs.{takeId && ' Take sections are saved separately from backing-track sections.'}</p>
+      <p className="practice-note">Save the current A–B range. Recall pauses at A{p.loopAvailable === false ? ' without enabling a loop' : ' and enables looping'}; press {takeId ? 'Resume' : 'Play'} when ready. Sections follow the same file contents, including renamed copies, and stay separate from tone rigs.{takeId && ' Take sections are saved separately from backing-track sections.'}</p>
     </form>}
     {p.sectionError && <p className="practice-error" role="alert">{p.sectionError}</p>}
   </section>;

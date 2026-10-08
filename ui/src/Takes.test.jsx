@@ -9,6 +9,26 @@ beforeEach(() => {
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
+it('explains streaming buffering, disables looping and keeps export ranges usable', async () => {
+  const streamed = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'processed'}, review: {...status.review, streaming: true, loopAvailable: false, playing: true, buffering: true, reviewUnderruns: 2, a: 1, b: 3}};
+  const {rerender} = render(<Takes status={streamed} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  expect(screen.getByLabelText('Loop take review').disabled).toBe(true);
+  expect(screen.getByLabelText('Take review position').disabled).toBe(false);
+  expect(screen.getByRole('status', {name: 'Take review status'}).textContent).toContain('Buffering');
+  expect(screen.getByRole('status', {name: 'Take review status'}).textContent).toContain('Playback waits here');
+  expect(screen.getByText(/Playback buffer interruptions: 2/)).toBeTruthy();
+  fireEvent.click(screen.getByText('Video soundtrack'));
+  expect(screen.getByRole('button', {name: 'Use review A–B'}).disabled).toBe(false);
+  fireEvent.click(screen.getByRole('button', {name: 'Use review A–B'}));
+  expect(screen.getByLabelText('Export start seconds').value).toBe('1');
+  expect(screen.getByLabelText('Export end seconds').value).toBe('3');
+  rerender(<Takes status={{...streamed, review: {...streamed.review, buffering: false, error: 'Take audio changed. Reload it.'}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('status', {name: 'Take review status'}).textContent).toContain('Playing');
+  expect(screen.getByRole('alert').textContent).toContain('Take audio changed');
+  rerender(<Takes status={{...streamed, takes: {...streamed.takes, reviewLoading: true}, review: {...streamed.review, loadProgress: .7}}} onError={vi.fn()}/>);
+  expect(screen.getByRole('status', {name: 'Take review status'}).textContent).toContain('Preparing take review… 70%');
+  expect(screen.getByLabelText('Take review position').disabled).toBe(true);
+});
 it('offers explicit interrupted-folder recovery and disables it during recording/export/backup', async () => {
   const {rerender}=render(<Takes status={status} onError={vi.fn()}/>); await screen.findByText('Lead take');
   const choose=screen.getByRole('button',{name:'Choose interrupted take folder'});

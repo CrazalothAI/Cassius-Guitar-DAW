@@ -58,7 +58,7 @@ AmpSuiteAudioProcessor::AmpSuiteAudioProcessor(bool sharedLibrary, juce::File li
     : AudioProcessor(BusesProperties().withInput("Input", juce::AudioChannelSet::mono(), true)
                                      .withInput("Backing track", juce::AudioChannelSet::stereo(), false)
                                      .withOutput("Output", juce::AudioChannelSet::stereo(), true)),
-      Thread("AmpSuite asset loader"), takeReview(262144, sharedLibrary ? libraryRoot.getChildFile("take-sections") : juce::File()),
+      Thread("AmpSuite asset loader"), takeReview(262144, sharedLibrary ? libraryRoot.getChildFile("take-sections") : juce::File(), 256 * 1024 * 1024 / (2 * sizeof(float))),
       takes(sharedLibrary ? libraryRoot.getChildFile("takes.xml") : juce::File(), takeReview),
       practice(262144, sharedLibrary ? libraryRoot.getChildFile("practice") : juce::File()),
       apvts(*this, nullptr, "AmpSuiteState", BoardParams::layout()), sharedStore(sharedLibrary ? libraryRoot : juce::File())
