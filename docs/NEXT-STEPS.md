@@ -2,9 +2,9 @@
 
 Planning checkpoint: 2026-10-08. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
-Current milestone: **1.1.2 Preview — backup scope and automatic tone recovery**, following the 1.1.0 personal backup workflow. The owner authorized continued post-1.0 work on 2026-10-08. Verified personal archives, additive rig/take recovery, referenced sound/media relocation and standalone tone snapshots with retention and complete/tone-library archive choice are implemented. See [backup and recovery](BACKUP-AND-RECOVERY.md) and [tone snapshots](RELEASE-1.1.1.md). Signing remains deferred; manual acceptance results are not invented.
+Current milestone: **1.1.3 Preview — selective take backups**, following the personal backup and tone recovery workflow. The owner authorized continued post-1.0 work on 2026-10-08. Verified personal archives, additive rig/take recovery, referenced sound/media relocation and standalone tone snapshots with retention are implemented. Complete and tone-library archives now also support selected whole takes with matching review sections. See [backup and recovery](BACKUP-AND-RECOVERY.md) and [selective archives](RELEASE-1.1.3.md). Signing remains deferred; manual acceptance results are not invented.
 
-Next: try backup/restore and tone recovery on a second PC and larger real libraries, then add ZIP64/subsets. Automatic recording/session recovery is separate from tone reference snapshots. Fresh Windows install/real upgrade, actual DAW recall/automation, physical MIDI and export/camera checks still need recorded configurations in the acceptance matrix. Consider advanced routing/pitch after the recovery workflow is validated. The website remains deferred.
+Next: try backup/restore and tone recovery on a second PC and larger real libraries, then add ZIP64. Automatic recording/session recovery is separate from tone reference snapshots. Fresh Windows install/real upgrade, actual DAW recall/automation, physical MIDI and export/camera checks still need recorded configurations in the acceptance matrix. Consider advanced routing/pitch after the recovery workflow is validated. The website remains deferred.
 
 Previous candidate: **1.0.0 RC2 reliability** added independent actual-VST3 validation in CI, isolated test storage, reproducible runs and preserved evidence.
 

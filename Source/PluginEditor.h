@@ -8,7 +8,7 @@ public:
     void resized() override;
 private:
     void chooseFile(int);
-    juce::String chooseBackup(bool restore, bool includeTakes = true);
+    juce::String chooseBackup(bool restore, bool includeTakes = true, std::optional<juce::StringArray> selectedTakeIds = std::nullopt);
     juce::String chooseRigFile(bool save, bool pack = false, const juce::String& savedId = {});
     void chooseRelink(const juce::String& id);
     void chooseImports(const juce::String& kind);

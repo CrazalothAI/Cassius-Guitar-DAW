@@ -1,7 +1,8 @@
 #include "PluginProcessor.h"
 
-juce::String AmpSuiteAudioProcessor::requestBackup(bool restore, const juce::File& file, bool includeTakes)
+juce::String AmpSuiteAudioProcessor::requestBackup(bool restore, const juce::File& file, bool includeTakes, std::optional<juce::StringArray> selectedTakeIds)
 {
+    if (selectedTakeIds && (restore || !includeTakes || selectedTakeIds->isEmpty())) return "Choose recorded takes for a new selective backup.";
     if (!sharedStore.enabled()) return "Backups require shared library storage.";
     if (static_cast<int>(practice.status()["recordMode"]) != 0) return "Finish recording before backup/recovery.";
     if (rigLoading.load()) return "Finish rig loading before backup/recovery.";
@@ -11,14 +12,14 @@ juce::String AmpSuiteAudioProcessor::requestBackup(bool restore, const juce::Fil
     if (current.hasProperty("error")) { backupBusy.store(false); return current["error"].toString(); }
     backupCancelled.store(false); backupProgress.store(0);
     { const juce::ScopedLock guard(backupLock); backupOperation = restore ? "restore" : "backup"; backupError.clear(); backupSummary.clear(); backupLocation.clear(); }
-    const auto failure = takes.maintenance([this, restore, file, current, includeTakes] {
+    const auto failure = takes.maintenance([this, restore, file, current, includeTakes, selectedTakeIds] {
         try {
             const auto update = [this](double value) { backupProgress.store(value); };
             const auto report = restore ? LibraryBackup::restore(file, sharedStore.root(), backupCancelled, [this](const juce::var& doc) { return validateRigDocument(doc); }, update)
-                                        : LibraryBackup::create(sharedStore.root(), file, current, backupCancelled, update, includeTakes);
+                                        : LibraryBackup::create(sharedStore.root(), file, current, backupCancelled, update, includeTakes, selectedTakeIds);
             const juce::ScopedLock guard(backupLock); backupLocation = report.location.getFullPathName();
             backupSummary = restore ? juce::String(report.rigs) + " recovered rigs and " + juce::String(report.takes) + " takes added. Current tone preserved."
-                                    : juce::String(includeTakes ? "Verified complete backup saved: " : "Verified tone-library backup saved: ") + juce::String(report.files) + " files, " + juce::String(report.takes) + " takes.";
+                                    : juce::String(selectedTakeIds ? "Verified selected-takes backup saved: " : includeTakes ? "Verified complete backup saved: " : "Verified tone-library backup saved: ") + juce::String(report.files) + " files, " + juce::String(report.takes) + " takes.";
             if (report.warning.isNotEmpty()) backupSummary += " " + report.warning;
         } catch (const std::exception& e) { const juce::ScopedLock guard(backupLock); backupError = e.what(); }
         backupBusy.store(false);

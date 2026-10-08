@@ -1,11 +1,11 @@
 import {afterEach, beforeEach, expect, it, vi} from 'vitest';
 import {cleanup, fireEvent, render, screen, waitFor} from '@testing-library/react';
-const bridge = vi.hoisted(() => ({invoke:vi.fn(), native:true, status:{}}));
+const bridge = vi.hoisted(() => ({invoke:vi.fn(), native:true, status:{}, takes:[]}));
 vi.mock('./juce/bridge.js', () => ({get native() {return bridge.native;}, invoke:bridge.invoke}));
 import Backup from './components/Backup.jsx';
 beforeEach(() => {
-  bridge.native = true; bridge.status = {available:true,busy:false};
-  bridge.invoke.mockReset().mockImplementation(async name => name === 'getBackupStatus' ? bridge.status : '');
+  bridge.native = true; bridge.status = {available:true,busy:false}; bridge.takes = [];
+  bridge.invoke.mockReset().mockImplementation(async name => name === 'getBackupStatus' ? bridge.status : name === 'getTakes' ? bridge.takes : '');
 });
 afterEach(cleanup);
 const open = () => {render(<Backup/>); fireEvent.click(screen.getByText('Backup & recovery'));};
@@ -39,6 +39,45 @@ it('surfaces missing-file errors and shows the verified output', async () => {
   cleanup(); bridge.status = {available:true,busy:false,summary:'Verified backup saved',path:'C:/Backup.zip'}; open();
   await screen.findByText('Verified backup saved'); fireEvent.click(screen.getByRole('button',{name:'Show saved files'}));
   await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('revealBackup'));
+});
+it('requires a nonempty explicit subset and sends stable take identities', async () => {
+  bridge.takes=[{id:'first',name:'Clean solo'},{id:'second',name:'Heavy lead',incomplete:true}]; open();
+  fireEvent.click(screen.getByRole('checkbox',{name:'Choose specific takes'}));
+  await screen.findByRole('checkbox',{name:'Clean solo'});
+  expect(screen.getByRole('button',{name:'Create backup'}).disabled).toBe(true);
+  fireEvent.click(screen.getByRole('checkbox',{name:'Clean solo'}));
+  expect(screen.getByText('Recorded takes (1 selected)')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button',{name:'Create backup'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('createSelectedBackup',['first']));
+  expect(bridge.invoke).not.toHaveBeenCalledWith('createBackup');
+});
+it('prunes deleted selections on refresh and can switch back to complete backups', async () => {
+  bridge.takes=[{id:'first',name:'Clean solo'}]; open(); fireEvent.click(screen.getByRole('checkbox',{name:'Choose specific takes'}));
+  fireEvent.click(await screen.findByRole('checkbox',{name:'Clean solo'}));
+  bridge.takes=[]; fireEvent.click(screen.getByRole('button',{name:'Refresh take list'}));
+  await screen.findByText(/No recorded takes yet/);
+  expect(screen.getByRole('button',{name:'Create backup'}).disabled).toBe(true);
+  fireEvent.click(screen.getByRole('checkbox',{name:'Choose specific takes'}));
+  fireEvent.click(screen.getByRole('button',{name:'Create backup'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('createBackup'));
+});
+it('keeps tone-only backups independent of a stored take selection', async () => {
+  bridge.takes=[{id:'first',name:'Clean solo'}]; open(); fireEvent.click(screen.getByRole('checkbox',{name:'Choose specific takes'}));
+  fireEvent.click(await screen.findByRole('checkbox',{name:'Clean solo'}));
+  fireEvent.click(screen.getByRole('checkbox',{name:'Include recorded takes and reamps in new backups'}));
+  expect(screen.queryByRole('group',{name:/Recorded takes/})).toBeNull();
+  fireEvent.click(screen.getByRole('button',{name:'Create backup'}));
+  await waitFor(()=>expect(bridge.invoke).toHaveBeenCalledWith('createBackup',false));
+});
+it('blocks subset creation when the take list fails and allows retry', async () => {
+  let failed=true;
+  bridge.invoke.mockImplementation(async name=>name==='getBackupStatus'?bridge.status:name==='getTakes'?(failed?Promise.reject(new Error('Catalog unavailable')):[{id:'ok',name:'Recovered list'}]):'');
+  open(); fireEvent.click(screen.getByRole('checkbox',{name:'Choose specific takes'}));
+  expect((await screen.findByRole('alert')).textContent).toContain('Catalog unavailable');
+  expect(screen.getByRole('button',{name:'Create backup'}).disabled).toBe(true);
+  failed=false; fireEvent.click(screen.getByRole('button',{name:'Refresh take list'}));
+  fireEvent.click(await screen.findByRole('checkbox',{name:'Recovered list'}));
+  expect(screen.getByRole('button',{name:'Create backup'}).disabled).toBe(false);
 });
 it('disables real file operations in browser preview and keeps duplicate requests out', async () => {
   bridge.native = false; open(); expect(screen.getByRole('button',{name:'Create backup'}).disabled).toBe(true);

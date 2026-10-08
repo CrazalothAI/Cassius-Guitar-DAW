@@ -8,7 +8,8 @@
 - [x] Add the 1.1.0 preview personal backup/recovery workflow with sound/take relocation, verified streaming archives, additive restores and progress/cancellation.
 - [x] Add 1.1.1 standalone automatic tone reference snapshots, explicit additive preset recovery, local preferences and 64-entry retention.
 - [x] Add 1.1.2 complete/tone-library archive choice, keeping complete backups as the default and excluding recordings only on explicit selection.
-- [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries; add ZIP64/subsets for personal archives. Automatic recording/session recovery remains separate work.
+- [x] Add 1.1.3 selective take backups with stable identities, matching review sections, preserved snapshots/reamps and unchanged complete/tone-only defaults.
+- [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries; add ZIP64 for larger personal archives. Automatic recording/session recovery remains separate work.
 
 - [x] Prepare 1.0.0 RC1: in-app Help/setup, AGPL licensing, matching source, publisher attribution, signing support and stable-release gate.
 - [ ] Complete the acceptance evidence and signatures in [commercial release](COMMERCIAL-RELEASE.md) before stable sale publication.

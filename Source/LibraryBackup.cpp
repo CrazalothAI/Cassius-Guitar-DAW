@@ -183,7 +183,7 @@ juce::String lockName(const char* prefix, const juce::File& file) { const auto p
 void replace(const juce::File& file, const juce::String& text) { juce::TemporaryFile temp(file); writeText(temp.getFile(), text); require(temp.overwriteTargetFileWithTemporary(), "Could not commit restored catalog."); }
 }
 
-LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::File& archive, const juce::var& currentRig, const std::atomic<bool>& cancelled, Progress progress, bool includeTakes)
+LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::File& archive, const juce::var& currentRig, const std::atomic<bool>& cancelled, Progress progress, bool includeTakes, std::optional<juce::StringArray> selectedTakeIds)
 {
     require(root != juce::File() && archive != juce::File(), "Backups require shared library storage and an output file.");
     require(archive.getParentDirectory().isDirectory(), "Choose an existing backup destination folder.");
@@ -196,6 +196,17 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
     const auto libraryFile = root.getChildFile("library.xml"), takesFile = root.getChildFile("takes.xml"); watch(libraryFile);
     auto library = readTree(libraryFile, "LIBRARY", 32 * 1024 * 1024); juce::ValueTree takes("TAKES");
     if (includeTakes) {watch(takesFile); takes = readTree(takesFile, "TAKES", 8 * 1024 * 1024);}
+    if (selectedTakeIds) {
+        require(includeTakes && !selectedTakeIds->isEmpty() && selectedTakeIds->size() <= 2048, "Choose at least one recorded take for a selective backup.");
+        juce::ValueTree selected("TAKES"); juce::StringArray seen;
+        for (const auto& id : *selectedTakeIds) {
+            require(id.isNotEmpty() && id.length() <= 128 && !seen.contains(id), "Invalid or duplicate backup take selection."); seen.add(id);
+            int matches = 0;
+            for (const auto& take : takes) if (take.hasType("TAKE") && take["id"].toString() == id) { selected.addChild(take.createCopy(), -1, nullptr); ++matches; }
+            require(matches == 1, "A selected take is missing or has an ambiguous identity. Refresh the take list and choose again.");
+        }
+        takes = selected;
+    }
     require(takes.getNumChildren() <= 2048, "Too many takes to back up.");
     juce::int64 total = 0;
     auto add = [&](const juce::File& file, const juce::String& name, bool observe = true) {
@@ -258,16 +269,23 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
     if (currentRig.isObject()) {
         discoverRig(currentRig); auto rig = juce::ValueTree("RIG"); rig.setProperty("id", juce::Uuid().toString(), nullptr); rig.setProperty("name", "Current tone at backup", nullptr); rig.setProperty("schema", currentRig["schema"], nullptr); rig.setProperty("state", currentRig["state"], nullptr); library.addChild(rig, -1, nullptr);
     }
+    // Review sections are keyed by whole-file audio hashes. A subset must not
+    // include annotations for unrelated takes, even when stored in one folder.
+    juce::StringArray selectedAudioHashes;
+    if (selectedTakeIds) for (const auto& item : items) if (item.name.startsWith("takes/") && item.file.hasFileExtension("wav")) selectedAudioHashes.addIfNotAlreadyThere(item.hash);
     for (const auto* section : {"practice", "take-sections"}) {
         if (!includeTakes && juce::String(section) == "take-sections") continue;
-        for (const auto& file : root.getChildFile(section).findChildFiles(juce::File::findFiles, false, "*.json")) add(file, juce::String(section) + "/" + file.getFileName());
+        for (const auto& file : root.getChildFile(section).findChildFiles(juce::File::findFiles, false, "*.json")) {
+            if (selectedTakeIds && juce::String(section) == "take-sections" && !selectedAudioHashes.contains(file.getFileNameWithoutExtension())) continue;
+            add(file, juce::String(section) + "/" + file.getFileName());
+        }
     }
     for (const auto& document : documents) { const auto file = staging.file.getChildFile(document.name); writeText(file, juce::JSON::toString(rewriteValue({}, document.value, paths, true, 0))); add(file, document.name, false); }
     rewriteTree(library, paths, true); rewriteTree(takes, paths, true);
     const auto portableLibrary = staging.file.getChildFile("library.xml"), portableTakes = staging.file.getChildFile("takes.xml");
     writeText(portableLibrary, library.toXmlString()); writeText(portableTakes, takes.toXmlString()); add(portableLibrary, "library.xml", false); add(portableTakes, "takes.xml", false);
     juce::Array<juce::var> rows; for (const auto& item : items) { auto row = std::make_unique<juce::DynamicObject>(); row->setProperty("path", item.name); row->setProperty("bytes", item.bytes); row->setProperty("sha256", item.hash); rows.add(juce::var(row.release())); }
-    auto manifest = std::make_unique<juce::DynamicObject>(); manifest->setProperty("format", "Cassian personal backup"); manifest->setProperty("schema", 1); manifest->setProperty("scope", includeTakes ? "complete" : "tone-library"); manifest->setProperty("appVersion", JucePlugin_VersionString); manifest->setProperty("created", juce::Time::getCurrentTime().toISO8601(true)); manifest->setProperty("files", rows);
+    auto manifest = std::make_unique<juce::DynamicObject>(); manifest->setProperty("format", "Cassian personal backup"); manifest->setProperty("schema", 1); manifest->setProperty("scope", selectedTakeIds ? "selected-takes" : includeTakes ? "complete" : "tone-library"); manifest->setProperty("takeCount", takes.getNumChildren()); manifest->setProperty("appVersion", JucePlugin_VersionString); manifest->setProperty("created", juce::Time::getCurrentTime().toISO8601(true)); manifest->setProperty("files", rows);
     const auto manifestFile = staging.file.getChildFile("backup.json"); writeText(manifestFile, juce::JSON::toString(juce::var(manifest.release()))); items.push_back({manifestFile, "backup.json", digest(manifestFile), manifestFile.getSize()});
     checkCancel(cancelled); juce::TemporaryFile temporary(archive); writeZip(temporary.getFile(), items, cancelled, progress);
     Folder verification(archive.getParentDirectory()); verifyArchive(temporary.getFile(), verification.file, cancelled, [&](double p) {if (progress) progress(.75 + .2 * p);});

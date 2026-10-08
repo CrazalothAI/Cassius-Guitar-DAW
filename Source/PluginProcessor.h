@@ -85,7 +85,7 @@ public:
     // Validate and migrate on an isolated tree before live recall or pack writes.
     juce::String migrateRigDocument(const juce::var& rig, juce::ValueTree& state);
     void requestRigPack(bool save, const juce::File& file, const juce::var& snapshot = {});
-    juce::String requestBackup(bool restore, const juce::File& file, bool includeTakes = true);
+    juce::String requestBackup(bool restore, const juce::File& file, bool includeTakes = true, std::optional<juce::StringArray> selectedTakeIds = std::nullopt);
     juce::var backupStatus();
     void cancelBackup() { backupCancelled.store(true); }
     juce::String revealBackup();

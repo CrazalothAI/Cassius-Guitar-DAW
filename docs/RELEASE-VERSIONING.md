@@ -1,6 +1,6 @@
 # Versioned preview builds
 
-Cassian 1.1.2 is a feature preview following 1.0.0 RC2. The numeric binary version is 1.1.2; `ui/src/release.json` records the preview channel separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. Personal backup/recovery and standalone snapshots are documented in [1.1.0 notes](RELEASE-1.1.0.md) and [1.1.1 notes](RELEASE-1.1.1.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
+Cassian 1.1.3 is a feature preview following 1.0.0 RC2. The numeric binary version is 1.1.3; `ui/src/release.json` records the preview channel separately. Native status supplies both to the UI, so a browser build cannot incorrectly relabel an older connected engine. Personal backup/recovery, standalone snapshots and selective take archives are documented in [1.1.0 notes](RELEASE-1.1.0.md), [1.1.1 notes](RELEASE-1.1.1.md) and [1.1.3 notes](RELEASE-1.1.3.md). Signing, sound redistribution clearance, sustained interface testing and real DAW validation remain release work.
 
 ## One version source
 
