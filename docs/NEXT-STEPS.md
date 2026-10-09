@@ -1,6 +1,6 @@
 # Cassian next steps
 
-Current implementation milestone: **1.6.0 Preview — recording-linked practice progress**. See [1.6.0](RELEASE-1.6.0.md) and [Path to 2.0.0](ROAD-TO-2.0.md) for the active sequence. The earlier handoff below remains as historical scope and acceptance context.
+Current implementation milestone: **1.7.0 Preview — custom amplifier collection and first-session polish**, following recording-linked practice progress. See [1.7.0](RELEASE-1.7.0.md) and [Path to 2.0.0](ROAD-TO-2.0.md) for the active sequence. Next prioritize measured cabinet/tone refinement and owner trials of the new workflow. The earlier handoff below remains as historical scope and acceptance context.
 
 Planning checkpoint: 2026-10-08. This is an implementation handoff, not an instruction to publish or merge the current branch.
 

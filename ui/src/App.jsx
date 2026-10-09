@@ -21,6 +21,9 @@ import { allParameters } from './parameters.js';
 import { applyStartingPreview, resolveStartingRigs, startingRigs } from './startingRigs.js';
 import cassianLogo from './assets/cassian-logo-192.png'; // shown at 34 px; the full-size original stays in assets
 import { releaseLabel } from './releaseLabel.js';
+import HeadSelector from './components/HeadSelector.jsx';
+import WorkspaceIcon from './components/WorkspaceIcon.jsx';
+import { headForTone, headDriveControl, headSpaceControl } from './ampHeads.js';
 
 const initialStatus = {
   model: '', ir: '', pedal: '', input: 0, prePedal: 0, postPedal: 0, postAmp: 0, postCab: 0, output: 0, gate: 0, overruns: 0, dropouts: -1,
@@ -198,10 +201,13 @@ export default function App() {
   const destinations = ['Tone', 'Board', 'Practice', 'Takes'];
   const navigate = destination => { if (destination !== 'Takes') setTakeSelection(null); setView(destination); setUtility(null); };
   const openPracticeTake = link => { setTakeSelection({ ...link }); navigate('Takes'); };
+  const head = headForTone(source, clean, currentRig || previewActive, values, status.board);
+  const driveControl = headDriveControl(source, values, status.board, !native ? currentRig || previewActive : null);
+  const spaceControl = headSpaceControl(values, status.board, !native ? currentRig || previewActive : null);
 
-  return <div className={`app-shell ${clean ? 'clean' : 'metal'}`}>
+  return <div className={`app-shell ${clean ? 'clean' : 'metal'} head-${head.id}`}>
     <header>
-      <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><h1>CASSIAN</h1></div>
+      <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><div><h1>CASSIAN</h1><span className="brand-subtitle">AMPLIFIER STUDIO</span></div></div>
       <PresetBrowser current={currentRig ? null : current} currentRig={currentRig && {...currentRig, amp: currentRig.amp || identity, saved: savedRigs.some(r => r.id === currentRig.id)}} rigs={resolveStartingRigs(presetAssets, !native)} savedRigs={savedRigs} loading={presetLoading || status.rigLoading} edited={currentRig ? (native ? status.activeRigEdited : previewEdited) : edited} onChoose={chooseTone} onRevert={() => chooseTone(currentRig?.id || current)}
         compare={compare} compareSide={compareSide} onCompare={toggleCompare} showCompare={false} />
       <div className="header-tools">
@@ -221,15 +227,15 @@ export default function App() {
         else if (e.key === 'Home') next = 0; else if (e.key === 'End') next = destinations.length - 1;
         else return;
         e.preventDefault(); navigate(destinations[next]); e.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus();
-      }}>{destinations.map(destination => <button key={destination} role="tab" id={`view-${destination}`} aria-controls="workspace-content" aria-selected={view === destination} tabIndex={view === destination ? 0 : -1} onClick={() => navigate(destination)}>{destination}</button>)}</div><div className="workspace-tools"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Mix'); }}>Mix</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Performance'); }}>Performance</button></div></div>
+      }}>{destinations.map(destination => <button key={destination} role="tab" id={`view-${destination}`} aria-controls="workspace-content" aria-selected={view === destination} tabIndex={view === destination ? 0 : -1} onClick={() => navigate(destination)}><WorkspaceIcon name={destination}/>{destination}</button>)}</div><div className="workspace-tools"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Mix'); }}>Mix</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Performance'); }}>Performance</button></div></div>
       <div className={`workspace-content view-${view.toLowerCase()}`} role="tabpanel" id="workspace-content" aria-labelledby={`view-${view}`}>
-        {view === 'Tone' ? <AmpHead clean={clean} tunerOpen={tunerOpen} status={status}/> : <CompactAmp clean={clean} tunerOpen={tunerOpen} status={status}/>}
+        {view === 'Tone' ? <><HeadSelector head={head} busy={presetLoading || status.rigLoading || status.practice?.recordMode > 0 || status.review?.playing} onChoose={chooseTone}/><AmpHead head={head} driveControl={driveControl} spaceControl={spaceControl} clean={clean} tunerOpen={tunerOpen} status={status}/></> : <CompactAmp head={head} driveControl={driveControl} clean={clean} tunerOpen={tunerOpen} status={status}/>}
         {view === 'Board' && !status.board?.serial && <Pedalboard status={status} onError={setNotice}/>}
         {view === 'Practice' ? <Practice status={status} onError={setNotice} onTakes={() => { setTakeSelection(null); navigate('Takes'); }} onOpenTake={openPracticeTake}/> : view === 'Takes' ? <section className="takes-workspace" aria-label="Take library"><div className="practice-heading"><h2>Your take library</h2><button className="text-button" onClick={() => { setTakeSelection(null); navigate('Practice'); }}>Record a take</button></div><Takes status={status} onError={setNotice} selectionRequest={takeSelection}/></section> : view === 'Board' && status.board?.serial ? <Pedalboard status={status} onError={setNotice}/> : <Stages page={view === 'Tone' ? tonePage : page} onPage={view === 'Tone' ? setTonePage : setPage} availablePages={view === 'Tone' ? ['Amp', 'Cab'] : undefined} showScenes={view === 'Board'} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice}/>}
       </div>
     </main>
     {libraryOpen && <Library revision={status.libraryRevision} loading={status.rigLoading} onClose={() => setLibraryOpen(false)} onPreset={chooseTone} onPreviewRig={setPreviewActive} previewActiveId={previewActive?.id}/>}
-    {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : utility === 'Help' ? 'Help & setup' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : utility === 'Help' ? <Help status={status} onError={setNotice} onChooseRig={async id => { if (await chooseTone(id)) navigate('Tone'); }}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
+    {utility && <UtilityDialog title={utility === 'Mix' ? 'Play along mix' : utility === 'Help' ? 'Help & setup' : 'Performance settings'} onClose={() => setUtility(null)} notice={notice}>{utility === 'Mix' ? <PlayAlong status={status} onError={setNotice}/> : utility === 'Help' ? <Help status={status} onError={setNotice} onNavigate={navigate} onChooseRig={async id => { if (await chooseTone(id)) navigate('Tone'); }}/> : <Midi status={status} onError={setNotice}/>}</UtilityDialog>}
     <footer>
       <span role="status">{footerMessage}</span>
       <button className="device-settings" onClick={() => { setNotice(null); setUtility('Help'); }}>Help &amp; setup</button>

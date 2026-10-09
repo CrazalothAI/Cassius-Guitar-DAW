@@ -18,7 +18,7 @@ export default function RigBar({status, previewActive, previewEdited, onPreviewR
         if (error) throw new Error(error);
       } else {
         const list = previewRigs();
-        const row = {...list.find(x => x.id === previewActive?.id), id: asNew ? `preview-${Date.now()}-${Math.random()}` : previewActive.id, name: asNew ? name.trim() : activeName, parameters: snapshotParameters()};
+        const row = {...list.find(x => x.id === previewActive?.id), gain: previewActive?.gain, id: asNew ? `preview-${Date.now()}-${Math.random()}` : previewActive.id, name: asNew ? name.trim() : activeName, parameters: snapshotParameters()};
         writePreviewRigs([...list.filter(x => x.id !== row.id), row]); onPreviewRig(row);
       }
       setSaving(false);

@@ -18,6 +18,7 @@
 - [x] Add 1.5.0 streamed-loop prefetch with fixed cache, fractional/EOF boundaries, fades and separate review-buffer diagnostics; sustained playing, speed changes/RF64 remain separate work.
 - [x] Add 1.5.0 reusable practice sets, native timer/pause/notes/history, interrupted-session checkpoints, portable JSON transfer and personal-backup retention.
 - [x] Add 1.6.0 finished-session progress, per-exercise target summaries, bounded exact recording/version links and explicit take selection without autoplay.
+- [x] Add 1.7.0 custom covered clean/crunch/metal/classical heads, graphical full-rig switching, coordinated studio/pedal graphics and current-route setup navigation.
 - [x] Add schema-1 journal migration and personal-recovery linked-history copies with fresh take IDs, preserved originals and explicit conflict handling.
 - [x] Fix the sanitizer-proven status/rig-replacement tree lifetime race and add concurrent polling through 64 complete recalls; full ordinary and ASan suites pass afterward.
 - [ ] Validate practice sets/history, links/progress and looped long-take review with real playing and a second-PC transfer.

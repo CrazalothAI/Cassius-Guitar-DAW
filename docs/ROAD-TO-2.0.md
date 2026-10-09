@@ -1,18 +1,18 @@
 # Path to Cassian 2.0.0
 
-Checkpoint: 2026-10-08. The owner requested continued work toward 2.0.0. Current implementation milestone: **1.6.0 Preview**. These are delivery goals, not promises of dates, sound superiority or completed acceptance. Advance versions when the behavior, compatibility and appropriate checks are ready.
+Checkpoint: 2026-10-09. The owner requested continued work toward 2.0.0. Current implementation milestone: **1.7.0 Preview**. These are delivery goals, not promises of dates, sound superiority or completed acceptance. Advance versions when the behavior, compatibility and appropriate checks are ready.
 
 The release should make a complete guitar workflow easier: choose an interface, find a convincing clean or driven rig, play with backing, record protected DI, compare reamps, and export useful audio. Maintain local ownership, open-source code and optional paid installers/support. Keep general multitrack editing and the promotional/community website outside this app milestone.
 
 | Milestone | Intended result | Evidence required |
 | --- | --- | --- |
 | **1.6 — practice progress** | Finished-session progress, exact take/version links, safe history migration, backup link remapping | Native persistence/import/recovery and UI navigation tests; real planner/second-PC feedback remains separate |
-| **1.7 — first-session polish** | A concise setup-to-playing flow, visible selected input/monitor state, starter choices for clean/crunch/rhythm/lead, actionable empty/error states | Beginner workflow tests and an actual installer-to-recording trial; do not guess driver capability or claim calibration that was not measured |
+| **1.7 — first-session polish and amplifier collection** | Four custom covered heads and graphical complete-rig switching; current-route guidance, explicit Tone/Practice/Takes setup navigation and original starter listening guide | UI workflow/guard tests and responsive browser renders; actual installer-to-recording beginner trial remains pending |
 | **1.8 — cabinet and tone refinement** | Audition-driven cabinet improvements and, if measurement supports it, explicit alignment/polarity tools for blended cabinets | Deterministic impulse/latency tests, rig/scene/automation migration, level-matched clean/high-gain listening and demanding-board timing |
 | **1.9 — finish and preserve work** | Refine take/version comparison, recording-to-export discoverability and interruption/transfer handling using the preceding trials | Original-audio preservation tests, long-take stress, actual camera/export sync and recovery/upgrade trials |
 | **2.0 — release hardening** | Freeze documented state/automation contracts, resolve regressions, ship one current installer/portable/source set with verified provenance/checksums and clear support terms | Actual host/interface acceptance, fresh-PC prerequisites and upgrades, dependency/asset distribution review and honest release-readiness records |
 
-1.6 implements the first row. Later rows need scoped designs and measurements before code is committed; optional cabinet alignment should not replace or destabilize current rigs. Signing is deferred at the owner's request. A 2.0 preview can remain unsigned, but it must state that clearly and must not mark the existing trusted-signature stable gate passed.
+1.6 and 1.7 implement the first two rows. Later rows need scoped designs and measurements before code is committed; optional cabinet alignment should not replace or destabilize current rigs. Signing is deferred at the owner's request. A 2.0 preview can remain unsigned, but it must state that clearly and must not mark the existing trusted-signature stable gate passed.
 
 ## Compatibility and release rules
 

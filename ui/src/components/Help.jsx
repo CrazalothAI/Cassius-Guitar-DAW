@@ -3,6 +3,7 @@ import { invoke, native } from '../juce/bridge.js';
 import { releaseLabel } from '../releaseLabel.js';
 import InputCheck from './InputCheck.jsx';
 import StarterTour from './StarterTour.jsx';
+import SetupRoute from './SetupRoute.jsx';
 
 const repository = 'https://github.com/CrazalothAI/Cassius-Guitar-DAW';
 const links = [['guide', 'User guide', `${repository}/blob/main/docs/USER-GUIDE.md`], ['support', 'Report an issue', `${repository}/issues`], ['source', 'Source code', repository], ['license', 'License', `${repository}/blob/main/LICENSE.txt`]];
@@ -28,7 +29,7 @@ export function supportReport(status) {
     'Add your OS, interface driver version, steps to reproduce, and expected/actual result before submitting.'
   ].join('\n');
 }
-export default function Help({status, onError, onChooseRig}) {
+export default function Help({status, onError, onChooseRig, onNavigate}) {
   const [busy, setBusy] = useState(false), [copied, setCopied] = useState(false);
   const action = async (method, ...args) => {
     if (busy) return false; setBusy(true); setCopied(false);
@@ -40,6 +41,7 @@ export default function Help({status, onError, onChooseRig}) {
   return <section className="help-panel" aria-label="Help and setup">
     <p className="practice-note">Cassian {releaseLabel(status,native)} · Guitar workstation · Crazaloth</p>
     <h3>Get your first sound</h3>
+    <SetupRoute status={status} native={native} onNavigate={onNavigate}/>
     <ol>
       <li>Connect your guitar and headphones to the audio interface.</li>
       <li>{status.deviceSettingsAvailable ? 'Choose the interface, input and playback outputs in Audio settings.' : native ? 'Select your interface and guitar input in your DAW, then enable monitoring on its Cassian track.' : 'Open the installed Cassian app to connect audio. This browser is a preview.'}</li>

@@ -24,6 +24,24 @@ beforeEach(() => {
 afterEach(cleanup);
 const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 describe('editor connected to the audio engine', () => {
+  it('loads graphical heads through complete recall and blocks those switches during recording', async () => {
+    render(<App/>);
+    fireEvent.click(screen.getByRole('button',{name:'Load Rubicon crunch rig'}));
+    await waitFor(()=>expect(engine.calls).toContainEqual(['loadStartingRig','factory.classic-rock']));
+    engine.status={...engine.status,practice:{recordMode:1}};
+    await waitFor(()=>expect(screen.getByRole('button',{name:'Load Ferrum metal rig'}).disabled).toBe(true));
+    const before=engine.calls.filter(call=>call[0]==='loadStartingRig').length;
+    fireEvent.click(screen.getByRole('button',{name:'Load Ferrum metal rig'}));
+    expect(engine.calls.filter(call=>call[0]==='loadStartingRig')).toHaveLength(before);
+  });
+  it('leaves setup for Takes without starting playback, recording, or rig recall', async () => {
+    render(<App/>);
+    fireEvent.click(screen.getByRole('button',{name:'Help & setup'}));
+    fireEvent.click(screen.getByRole('button',{name:'Review & export in Takes'}));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('tab',{name:'Takes'}).getAttribute('aria-selected')).toBe('true');
+    expect(engine.calls.some(call=>['loadRig','loadStartingRig','practiceControl','reviewControl','applyRig'].includes(call[0]))).toBe(false);
+  });
   it('loads a guided original starter through complete recall and returns to Tone', async () => {
     render(<App/>);
     fireEvent.click(screen.getByRole('tab',{name:'Practice'}));

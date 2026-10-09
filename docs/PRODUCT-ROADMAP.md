@@ -1,6 +1,6 @@
 # Cassian product roadmap
 
-Checkpoint: 2026-10-08. Current feature preview: **1.6.0**. See the [versioned path to 2.0.0](ROAD-TO-2.0.md). The product is a guitar workstation and VST3 processor, with practice, recording and reamping; a general multitrack DAW is outside the current scope. The owner reports practical sound tests tried so far are passing. That is useful playing feedback, not an automatic certification of every interface, host or preset.
+Checkpoint: 2026-10-09. Current feature preview: **1.7.0**, with four custom covered amplifier heads, graphical starter switching and first-session route guidance. See the [versioned path to 2.0.0](ROAD-TO-2.0.md). The product is a guitar workstation and VST3 processor, with practice, recording and reamping; a general multitrack DAW is outside the current scope. The owner reports practical sound tests tried so far are passing. That is useful playing feedback, not an automatic certification of every interface, host or preset.
 
 | Area | Delivered | Remaining |
 | --- | --- | --- |
