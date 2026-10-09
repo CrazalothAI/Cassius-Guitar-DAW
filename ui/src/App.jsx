@@ -21,7 +21,6 @@ import { allParameters } from './parameters.js';
 import { applyStartingPreview, resolveStartingRigs, startingRigs } from './startingRigs.js';
 import cassianLogo from './assets/cassian-logo-192.png'; // shown at 34 px; the full-size original stays in assets
 import { releaseLabel } from './releaseLabel.js';
-import HeadSelector from './components/HeadSelector.jsx';
 import WorkspaceIcon from './components/WorkspaceIcon.jsx';
 import { headForTone, headDriveControl, headSpaceControl } from './ampHeads.js';
 
@@ -208,7 +207,7 @@ export default function App() {
   return <div className={`app-shell ${clean ? 'clean' : 'metal'} head-${head.id}`}>
     <header>
       <div className="brand"><img className="brand-logo" src={cassianLogo} alt="" /><div><h1>CASSIAN</h1><span className="brand-subtitle">AMPLIFIER STUDIO</span></div></div>
-      <PresetBrowser current={currentRig ? null : current} currentRig={currentRig && {...currentRig, amp: currentRig.amp || identity, saved: savedRigs.some(r => r.id === currentRig.id)}} rigs={resolveStartingRigs(presetAssets, !native)} savedRigs={savedRigs} loading={presetLoading || status.rigLoading} edited={currentRig ? (native ? status.activeRigEdited : previewEdited) : edited} onChoose={chooseTone} onRevert={() => chooseTone(currentRig?.id || current)}
+      <PresetBrowser current={currentRig ? null : current} currentRig={currentRig && {...currentRig, amp: currentRig.amp || identity, saved: savedRigs.some(r => r.id === currentRig.id)}} rigs={resolveStartingRigs(presetAssets, !native)} savedRigs={savedRigs} loading={presetLoading || status.rigLoading || status.practice?.recordMode > 0 || status.review?.playing} edited={currentRig ? (native ? status.activeRigEdited : previewEdited) : edited} onChoose={chooseTone} onRevert={() => chooseTone(currentRig?.id || current)}
         compare={compare} compareSide={compareSide} onCompare={toggleCompare} showCompare={false} />
       <div className="header-tools">
         <MetronomeButton open={metronomeOpen} onToggle={() => setMetronomeOpen(!metronomeOpen)} status={status} />
@@ -229,7 +228,7 @@ export default function App() {
         e.preventDefault(); navigate(destinations[next]); e.currentTarget.querySelectorAll('[role="tab"]')[next]?.focus();
       }}>{destinations.map(destination => <button key={destination} role="tab" id={`view-${destination}`} aria-controls="workspace-content" aria-selected={view === destination} tabIndex={view === destination ? 0 : -1} onClick={() => navigate(destination)}><WorkspaceIcon name={destination}/>{destination}</button>)}</div><div className="workspace-tools"><button className="text-button" onClick={() => setLibraryOpen(true)}>Library</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Mix'); }}>Mix</button><button className="text-button" onClick={() => { setNotice(null); setUtility('Performance'); }}>Performance</button></div></div>
       <div className={`workspace-content view-${view.toLowerCase()}`} role="tabpanel" id="workspace-content" aria-labelledby={`view-${view}`}>
-        {view === 'Tone' ? <><HeadSelector head={head} busy={presetLoading || status.rigLoading || status.practice?.recordMode > 0 || status.review?.playing} onChoose={chooseTone}/><AmpHead head={head} driveControl={driveControl} spaceControl={spaceControl} clean={clean} tunerOpen={tunerOpen} status={status}/></> : <CompactAmp head={head} driveControl={driveControl} clean={clean} tunerOpen={tunerOpen} status={status}/>}
+        {view === 'Tone' ? <AmpHead head={head} driveControl={driveControl} spaceControl={spaceControl} clean={clean} tunerOpen={tunerOpen} status={status}/> : <CompactAmp head={head} driveControl={driveControl} clean={clean} tunerOpen={tunerOpen} status={status}/>}
         {view === 'Board' && !status.board?.serial && <Pedalboard status={status} onError={setNotice}/>}
         {view === 'Practice' ? <Practice status={status} onError={setNotice} onTakes={() => { setTakeSelection(null); navigate('Takes'); }} onOpenTake={openPracticeTake}/> : view === 'Takes' ? <section className="takes-workspace" aria-label="Take library"><div className="practice-heading"><h2>Your take library</h2><button className="text-button" onClick={() => { setTakeSelection(null); navigate('Practice'); }}>Record a take</button></div><Takes status={status} onError={setNotice} selectionRequest={takeSelection}/></section> : view === 'Board' && status.board?.serial ? <Pedalboard status={status} onError={setNotice}/> : <Stages page={view === 'Tone' ? tonePage : page} onPage={view === 'Tone' ? setTonePage : setPage} availablePages={view === 'Tone' ? ['Amp', 'Cab'] : undefined} showScenes={view === 'Board'} clean={clean} native={native} status={status} onLoad={load} onRemove={remove} onError={setNotice}/>}
       </div>

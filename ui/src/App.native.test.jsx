@@ -24,14 +24,16 @@ beforeEach(() => {
 afterEach(cleanup);
 const stage = name => { if (!screen.queryByRole('tab', {name})) fireEvent.click(screen.getByRole('tab', {name: 'Board'})); fireEvent.click(screen.getByRole('tab', {name})); };
 describe('editor connected to the audio engine', () => {
-  it('loads graphical heads through complete recall and blocks those switches during recording', async () => {
+  it.each(['recording', 'review', 'loading'])('loads complete rigs from the preset menu and blocks recall during %s', async operation => {
     render(<App/>);
-    fireEvent.click(screen.getByRole('button',{name:'Load Rubicon crunch rig'}));
+    fireEvent.change(screen.getByRole('combobox',{name:'Preset'}),{target:{value:'factory.classic-rock'}});
     await waitFor(()=>expect(engine.calls).toContainEqual(['loadStartingRig','factory.classic-rock']));
-    engine.status={...engine.status,practice:{recordMode:1}};
-    await waitFor(()=>expect(screen.getByRole('button',{name:'Load Ferrum metal rig'}).disabled).toBe(true));
+    engine.status={...engine.status, ...(operation === 'recording' ? {practice:{recordMode:1}} : operation === 'review' ? {review:{playing:true}} : {rigLoading:true})};
+    await waitFor(()=>expect(screen.getByRole('combobox',{name:'Preset'}).disabled).toBe(true));
+    const next=screen.getByRole('button',{name:'Next preset'});
+    expect(next.disabled).toBe(true);
     const before=engine.calls.filter(call=>call[0]==='loadStartingRig').length;
-    fireEvent.click(screen.getByRole('button',{name:'Load Ferrum metal rig'}));
+    fireEvent.click(next);
     expect(engine.calls.filter(call=>call[0]==='loadStartingRig')).toHaveLength(before);
   });
   it('leaves setup for Takes without starting playback, recording, or rig recall', async () => {

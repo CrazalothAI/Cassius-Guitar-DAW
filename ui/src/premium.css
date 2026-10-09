@@ -26,39 +26,21 @@ header { height: 66px; border-bottom-color: #ffffff16; }
 .workspace-tools { gap: 6px; }
 .text-button, .device-settings { border-color: #ffffff24; border-radius: 6px; background: #25282b; color: #dad6ce; }
 .text-button:not(:disabled):hover, .device-settings:not(:disabled):hover { border-color: var(--accent); color: #fff1de; background: #313438; }
-.head-selector { flex-shrink: 0; display: flex; align-items: center; gap: 18px; padding: 4px 0 9px; }
-.head-selector-heading { flex: 0 0 122px; }
-.head-selector-heading > span { color: #ddd4c4; font-size: 8px; letter-spacing: .2em; }
-.head-selector-heading small { display: block; margin-top: 5px; color: #a29f98; font-size: 9px; line-height: 1.5; }
-.head-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: 1; min-width: 0; }
-.head-option { position: relative; display: flex; align-items: center; justify-content: center; gap: 9px; min-width: 0; padding: 5px 10px 5px 6px; border: 1px solid #ffffff16; border-radius: 8px; background: #0e1114; text-align: left; transition: border-color .15s, background .15s; }
-.head-option:not(:disabled):hover { border-color: var(--accent); background: #23262a; }
-.head-option[aria-pressed=true] { border-color: var(--accent); background: #24272b; box-shadow: inset 0 -2px 0 var(--accent); }
-.head-option img { width: clamp(50px, 7vw, 95px); height: 35px; object-fit: contain; flex-shrink: 1; }
-.head-option > span { min-width: 0; }
-.head-option strong { display: block; font-size: 12px; font-weight: 600; color: var(--head-ink); }
-.head-option small { display: block; font-size: 9px; margin-top: 3px; color: #b1aba2; }
-.head-option i { width: 4px; height: 4px; border-radius: 50%; background: #505052; position: absolute; right: 6px; top: 6px; }
-.head-option[aria-pressed=true] i { background: var(--accent); }
 .view-tone { overflow-y: auto; padding-right: 6px; scrollbar-width: thin; scrollbar-color: #6b6d70 #14171a; }
 .view-tone .rig { flex: 0 0 auto; min-height: 220px; }
 .view-tone .stage-panel { min-height: 155px; overflow: visible; }
 .amp { padding-top: 0; margin: 0 auto; width: 100%; max-width: 1080px; filter: none; }
-.amp-cab { padding: 0; border-radius: 12px; background: transparent; box-shadow: none; }
-.grille { height: clamp(150px, calc(100vh - 545px), 285px); border-radius: 9px 9px 0 0; background: #090a0c; box-shadow: 0 10px 28px #0007; overflow: hidden; }
-.head-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 48%; pointer-events: none; }
-.badge { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 24px; border: 0; border-radius: 0; background: transparent; box-shadow: none; filter: drop-shadow(0 2px 2px #000) drop-shadow(0 0 3px #000); pointer-events: none; }
+
+.badge { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 9px 24px; border: 0; border-radius: 0; background: transparent; box-shadow: none; filter: drop-shadow(0 2px 2px #000) drop-shadow(0 0 3px #000); pointer-events: none; }
 .badge-maker { color: var(--head-ink); font-size: 8px; letter-spacing: .36em; font-weight: 700; }
 .badge-word { color: var(--head-ink); background: none; font: italic 600 clamp(27px, 3vw, 42px)/1.1 Georgia, serif; letter-spacing: -.03em; filter: none; text-shadow: 0 1px 0 #fff4, 0 3px 4px #000c; }
 .badge-model { margin: 0; font-size: 7px; letter-spacing: .21em; color: var(--head-ink); text-transform: uppercase; opacity: .85; }
 .head-metal .badge-word { font: 700 clamp(25px, 3vw, 40px)/1.1 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: .13em; }
 .head-crunch .badge-word { font-style: italic; letter-spacing: .04em; }
 .head-classical .badge-word { font-weight: 400; letter-spacing: .1em; }
-.faceplate { margin: 0 1.5%; gap: 13px; padding: 14px 14px 10px; border-radius: 0 0 7px 7px; background: repeating-linear-gradient(0deg, #ffffff09 0 1px, transparent 1px 3px), linear-gradient(#989d9f, #ced0cd 22%, #9b9e9d 60%, #b7b9b6); box-shadow: inset 0 1px 0 #ffffff80, 0 0 0 1px #414649, 0 12px 20px #0006; color: #16191b; }
+
 .faceplate::before, .faceplate::after { background: linear-gradient(90deg, transparent, #0004 15% 85%, transparent); }
-.head-crunch .faceplate { background: repeating-linear-gradient(0deg, #ffffff0a 0 1px, transparent 1px 3px), linear-gradient(#8d7356, #d2b78f 22%, #a88e6a 60%, #c3a983); }
-.head-metal .faceplate { background: repeating-linear-gradient(0deg, #ffffff05 0 1px, transparent 1px 3px), linear-gradient(#444a50, #60666c 22%, #30363c 64%, #454b51); color: #eee9df; }
-.head-classical .faceplate { background: repeating-linear-gradient(0deg, #ffffff09 0 1px, transparent 1px 3px), linear-gradient(#a5a095, #d8d1c2 22%, #a5a092 60%, #c5beaf); }
+
 .plate-brand { display: flex; align-items: center; gap: 6px; flex: 0 0 106px; padding-right: 10px; border-right: 1px solid #0003; }
 .plate-brand img { width: 34px; height: 40px; object-fit: contain; clip-path: inset(0 0 24% 0); filter: drop-shadow(0 1px 0 #fff5); }
 .plate-brand > span { font-size: 9px; font-weight: 800; letter-spacing: .12em; }
@@ -70,7 +52,6 @@ header { height: 66px; border-bottom-color: #ffffff16; }
 .channel:hover { background: #0000000a; }
 .amp-controls .knob { min-width: 54px; }
 .amp-controls .knob-label { color: inherit; font-size: 8px; letter-spacing: .14em; }
-.amp-controls .dial { width: 58px; height: 58px; padding: 7px; }
 .amp-controls .dial::before { background: repeating-conic-gradient(from 225deg, #171b1d 0deg 1deg, transparent 1deg 27deg); opacity: .75; }
 .head-metal .amp-controls .dial::before { background: repeating-conic-gradient(from 225deg, #c1c6cb 0deg 1deg, transparent 1deg 27deg); }
 .amp-controls .dial-face { background: repeating-conic-gradient(#191c1e 0deg 4deg, #353a3e 4deg 8deg); box-shadow: 0 4px 7px #0009, 0 0 0 1px #191d20, inset 0 1px 1px #fff5; }
@@ -91,7 +72,7 @@ header { height: 66px; border-bottom-color: #ffffff16; }
 .control-group { border-color: #ffffff16; }
 .knob-label { color: #c8c6c0; }
 .knob output { color: #d9d5ca; opacity: .9; }
-.faceplate .amp-controls output { color: inherit; }
+
 .small .dial-face { background: radial-gradient(ellipse at 30% 15%, #4d545c, #20262c 75%); border-color: #11161b; box-shadow: 0 3px 5px #0008, inset 0 1px 0 #ffffff35; }
 .chain-node { background: #191d21; border-color: #ffffff1d; }
 .chain-node[aria-selected=true] { background: #303439; border-color: var(--accent); box-shadow: none; }
@@ -133,22 +114,15 @@ button { transition: border-color .15s, background-color .15s, color .15s; }
 button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #f0cf92; outline-offset: 3px; }
 @media (max-width: 1000px) {
   .app-shell { padding: 0 18px; }
-  .head-selector-heading { display: none; }
-  .head-option img { width: 80px; }
   .plate-brand { flex-basis: 85px; padding-right: 5px; }
   .plate-brand img { width: 28px; }
   .plate-brand > span { font-size: 8px; }
-  .faceplate { gap: 8px; }
 }
 @media (max-height: 780px) {
   header { height: 56px; }
   .rig-bar { padding: 8px 13px; margin-top: 6px; }
   .workspace-nav { padding: 7px 0; }
-  .head-selector { padding-bottom: 7px; }
-  .grille { height: clamp(130px, calc(100vh - 530px), 250px); }
-  .faceplate { padding-top: 11px; padding-bottom: 8px; }
   .amp-detail { padding-top: 9px; }
-  .head-option img { height: 30px; }
   .stage-panel { padding: 14px 18px; }
   footer { padding: 9px 4px; }
 }
@@ -156,10 +130,6 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   header { height: 50px; }
   .brand-subtitle { display: none; }
   .rig-title strong { font-size: 15px; }
-  .head-option { padding-top: 3px; padding-bottom: 3px; }
-  .head-option img { height: 25px; }
-  .grille { height: 115px; }
-  .amp-controls .dial { width: 49px; height: 49px; padding: 6px; }
   .amp-detail > span { display: none; }
   .amp-detail { justify-content: center; padding-top: 7px; }
 }
@@ -167,12 +137,9 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   .rig-actions { gap: 5px; flex-wrap: wrap; justify-content: flex-end; max-width: 240px; }
   .workspace-nav [role=tab] { padding: 7px 10px; }
   .workspace-tools .text-button { padding: 6px 8px; }
-  .head-option { gap: 5px; }
-  .head-option img { width: 52px; }
   .compact-amp .compact-head-art { width: 95px; }
   .plate-brand { flex-basis: 50px; border: 0; }
   .plate-brand > span { display: none; }
-  .amp-controls .dial { width: 48px; height: 48px; padding: 6px; }
   .amp-controls .knob { min-width: 42px; }
 }
 @media (max-width: 620px) {
@@ -185,14 +152,8 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   .rig-title strong { max-width: 180px; font-size: 14px; }
   .workspace-nav { flex-wrap: wrap; }
   .workspace-tools { margin-left: auto; }
-  .head-option { flex-direction: column; padding: 5px; gap: 3px; text-align: center; }
-  .head-option img { width: 68px; }
-  .head-option strong { font-size: 10px; }
-  .head-option small { margin-top: 1px; }
   .plate-brand, .faceplate .channel, .plate-side.power { display: none; }
-  .faceplate { padding: 9px 5px; }
   .amp-controls .knob-label { font-size: 7px; letter-spacing: .05em; }
-  .amp-controls .dial { width: 39px; height: 39px; padding: 5px; }
   .compact-amp { gap: 9px; padding: 8px; }
   .compact-amp .compact-logo { display: none; }
   .compact-amp .compact-head-art { width: 75px; }
@@ -206,3 +167,50 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
 .cabinet-compare-actions button { padding: 7px 10px; border: 1px solid #ffffff24; border-radius: 5px; font-size: 12px; }
 .cabinet-compare-actions button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
 .cabinet-compare small { display: block; color: #aaaeb1; font-size: 11px; line-height: 1.5; }
+
+/* The photograph includes the whole enclosure and panel. Live controls sit on its metal. */
+.amp .amp-cab { position: relative; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
+.amp .grille { position: relative; display: block; height: auto; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.amp .head-art { position: relative; display: block; width: 100%; height: auto; pointer-events: none; }
+.amp { --panel-top: 63%; --panel-bottom: 17%; }
+.amp.head-clean { --panel-top: 59%; --panel-bottom: 20%; }
+.amp.head-crunch { --panel-top: 58%; --panel-bottom: 21%; }
+.amp.head-classical { --panel-top: 60%; --panel-bottom: 20%; }
+.amp .amp-cab .faceplate { position: absolute; top: var(--panel-top); bottom: var(--panel-bottom); left: 8%; right: 8%; display: flex; flex-direction: row; align-items: center; gap: 12px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; color: #191b1b; }
+.amp.head-metal .faceplate { color: #eee9df; }
+.amp .faceplate::before, .amp .faceplate::after { content: none; }
+.amp .amp-controls { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 5px; }
+.amp .amp-controls .knob { min-width: 0; gap: 2px; }
+.amp .amp-controls .knob-label { line-height: 1.2; }
+.amp .amp-controls output { line-height: 1.2; }
+.amp .amp-controls .knob output { color: inherit; }
+.amp .amp-controls .dial { width: 44px; height: 44px; padding: 6px; }
+.amp .plate-brand { flex-basis: 90px; padding-right: 0; border: 0; }
+.amp .channel { padding: 0; gap: 4px; }
+.amp .plate-side.power { width: 23px; gap: 6px; }
+.amp .grille .tuner { inset: 24% 13% 45%; gap: 5px; }
+@media (max-width: 1000px) {
+  .amp .amp-cab .faceplate { gap: 7px; }
+  .amp .plate-brand { flex-basis: 72px; gap: 3px; }
+  .amp .plate-brand img { width: 25px; height: 32px; }
+  .amp .plate-brand > span { font-size: 7px; }
+  .amp .plate-brand small { font-size: 11px; }
+  .amp .amp-controls .dial { width: 30px; height: 30px; padding: 4px; }
+  .amp .amp-controls .knob-label { font-size: 7px; letter-spacing: .08em; }
+  .amp .amp-controls output { font-size: 9px; }
+}
+@media (max-width: 760px) {
+  .amp .plate-brand { flex-basis: 26px; }
+  .amp .plate-brand > span, .amp .plate-side.power { display: none; }
+  .amp .amp-controls .dial { width: 32px; height: 32px; padding: 4px; }
+  .amp .channel > span:not(.lever) { font-size: 6px; letter-spacing: 0; }
+}
+@media (max-width: 620px) {
+  .amp .plate-brand, .amp .faceplate .channel { display: none; }
+  .amp .amp-controls .knob-label { font-size: 6px; letter-spacing: 0; }
+  .amp .amp-controls .dial { width: 26px; height: 26px; padding: 3px; }
+  .amp .amp-controls output { font-size: 7px; }
+  .amp .grille .tuner { gap: 2px; }
+  .amp .tuner-note { font-size: 22px; }
+  .amp .tuner-detail { font-size: 8px; }
+}

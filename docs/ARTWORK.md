@@ -9,9 +9,19 @@ Final project assets:
 - `ui/src/assets/head-metal.webp` — Ferrum, graphite / steel.
 - `ui/src/assets/head-classical.webp` — Aurelia, walnut / linen.
 
-Names, logo, secondary branding and working faceplate controls are live UI elements layered around the artwork. All decorative images and SVG illustrations are hidden from assistive technology. The layout intentionally crops the photographs to the available head-window height, while preserving the covered grille and materials. Workspace and pedal SVGs are original code graphics; no external icon font or trademark logo set is used.
+Names, logo, secondary branding and working faceplate controls are live UI elements layered on the artwork. All decorative images and SVG illustrations are hidden from assistive technology. The complete photographs scale proportionally without cropping. Workspace and pedal SVGs are original code graphics; no external icon font or trademark logo set is used.
 
-## Generation prompt set
+In 1.8.1, the four graphics were edited into complete heads with blank metal control panels inside their continuous enclosures. Working knobs, channel switch and branding are HTML overlays aligned to those panels. Head-selection cards are removed. The optimized assets total approximately 836 KB.
+
+## Complete-head edit prompt (1.8.1)
+
+Each original cabinet image was used as its own edit reference, with this shared prompt:
+
+> Edit the referenced Cassian amplifier cabinet photograph into a complete premium amplifier head with a real blank metal control panel built into the SAME cabinet. Keep the exact straight-on front view, 3:1 panoramic aspect ratio, full carry handle and entire head visible, black seamless background, restrained realistic materials, side corner protectors, small feet. The physical front panel MUST be enclosed by the same continuous cabinet side rails and bottom edge as the grille. Expand the currently narrow metal strip below the grille into a wide blank front control panel occupying y=65% through y=92% of the entire image, spanning x=6% to x=94%. Grille occupies about y=20% to y=63%; keep its original style but make room for the panel. No separate floating slab, no detached panel, no black gap between grille and control panel. No knobs, buttons, jacks, switches, lettering, brand names, logos or meters anywhere: a live HTML interface will add six working knobs and logo on this empty panel. Flat frontal panel, softly brushed metal with realistic machining, screws only at the edges. Ensure the blank panel is light enough for black knob controls for clean/classical, darker steel for metal, warm brass for crunch. Keep precisely rectangular mounting surfaces and coherent lighting; photorealistic expensive audio hardware, no toy, no neon.
+
+Material instructions retained graphite leather/perforated grille/four identical tubes and electronics with dark steel for Metal; ivory/silver cloth/satin nickel for Clean; oxblood/bronze cloth/brass for Crunch; walnut/espresso/linen/champagne nickel for Classical. Only resized WebP encoding was applied after generation.
+
+## Original cabinet reference prompt set (1.7.0)
 
 Shared prompt, after each head-specific description:
 

@@ -1,6 +1,6 @@
 # Cassian next steps
 
-Current implementation milestone: **1.8.0 Preview — cabinet comparison and deterministic alignment measurement**, following the custom amplifier collection and first-session polish. See [1.8.0](RELEASE-1.8.0.md), [cabinet refinement](CABINET-REFINEMENT.md) and [Path to 2.0.0](ROAD-TO-2.0.md) for the active sequence. Next prioritize real clean/high-gain cabinet comparison, then refine recording/export and interruption workflows for 1.9 using observed issues. The earlier handoff below remains as historical scope and acceptance context.
+Current implementation milestone: **1.8.1 Preview — unified amplifier chassis**, following cabinet comparison and deterministic alignment measurement. See [1.8.1](RELEASE-1.8.1.md), [cabinet refinement](CABINET-REFINEMENT.md) and [Path to 2.0.0](ROAD-TO-2.0.md) for the active sequence. Next prioritize real clean/high-gain cabinet comparison and the export bounds/long-take cancellation targets recorded in TODO for 1.9. The earlier handoff below remains as historical scope and acceptance context.
 
 Planning checkpoint: 2026-10-08. This is an implementation handoff, not an instruction to publish or merge the current branch.
 

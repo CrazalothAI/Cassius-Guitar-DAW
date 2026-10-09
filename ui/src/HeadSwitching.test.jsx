@@ -1,8 +1,7 @@
 import React from 'react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import App from './App.jsx';
-import HeadSelector from './components/HeadSelector.jsx';
 import { ampHeads, headForTone, headDriveControl, headSpaceControl } from './ampHeads.js';
 import { startingRigs } from './startingRigs.js';
 import { applyPreset } from './presets.js';
@@ -14,10 +13,9 @@ describe('graphical amplifier collection', () => {
   it('loads four complete voices, changes artwork, and preserves calibrated listening controls', () => {
     setParameter('INPUT_GAIN', -3); setParameter('MASTER_VOL', -21); setParameter('GUITAR_MIX_LEVEL', 4); setParameter('METRO_BPM', 117);
     render(<App/>);
-    const selector = within(screen.getByRole('region', {name: 'Amplifier collection'}));
+    expect(screen.queryByRole('region', {name: 'Amplifier collection'})).toBeNull();
     for (const head of ampHeads) {
-      fireEvent.click(selector.getByRole('button', {name: `Load ${head.name} ${head.voice.toLowerCase()} rig`}));
-      expect(selector.getByRole('button', {pressed: true}).textContent).toContain(head.name);
+      fireEvent.change(screen.getByRole('combobox', {name: 'Preset'}), {target: {value: head.rig}});
       const amp = screen.getByRole('region', {name: 'Amplifier'});
       expect(amp.classList.contains(`head-${head.id}`)).toBe(true);
       expect(amp.querySelector('.head-art').getAttribute('src')).toBe(head.art);
@@ -32,7 +30,7 @@ describe('graphical amplifier collection', () => {
   });
   it('follows channel edits and existing crunch presets while retaining the actual amp identity', () => {
     render(<App/>);
-    fireEvent.click(screen.getByRole('button', {name: 'Load Rubicon crunch rig'}));
+    fireEvent.change(screen.getByRole('combobox',{name:'Preset'}),{target:{value:'factory.classic-rock'}});
     expect(screen.getByRole('region', {name: 'Amplifier'}).classList.contains('head-crunch')).toBe(true);
     expect(screen.getByRole('region', {name: 'Amplifier'}).textContent).toContain('Ferrum · built-in high gain');
     fireEvent.click(screen.getByRole('button', {name: 'Channel'}));
@@ -40,10 +38,13 @@ describe('graphical amplifier collection', () => {
     fireEvent.click(screen.getByRole('button', {name: 'Channel'}));
     expect(screen.getByRole('region', {name: 'Amplifier'}).classList.contains('head-crunch')).toBe(true);
   });
-  it('disables rig loading when the caller reports an operation in progress', () => {
-    const choose = vi.fn(); render(<HeadSelector head={ampHeads[0]} busy onChoose={choose}/>);
-    for (const button of screen.getAllByRole('button')) { expect(button.disabled).toBe(true); fireEvent.click(button); }
-    expect(choose).not.toHaveBeenCalled();
+  it('keeps six working controls and the channel switch on the head without selection cards', () => {
+    render(<App/>);
+    const amp=screen.getByRole('region',{name:'Amplifier'});
+    expect(within(amp).getAllByRole('slider')).toHaveLength(6);
+    expect(within(amp).getAllByRole('button').map(button=>button.getAttribute('aria-label'))).toEqual(['Channel']);
+    fireEvent.change(within(amp).getByRole('slider',{name:'Bass'}),{target:{value:'3'}});
+    expect(readParameter('AMP_BASS')).toBe(3);
   });
   it('categorizes imported/unknown captures without claiming a new engine model', () => {
     expect(headForTone(3, false, null).id).toBe('metal');
@@ -59,25 +60,25 @@ describe('graphical amplifier collection', () => {
     expect(headDriveControl(4,{'BOARD_DISTORTION_1_ON':1},board)).toBe('BOARD_DISTORTION_1_DIST_DRIVE');
     expect(headDriveControl(4,{'BOARD_DISTORTION_1_ON':0},board)).toBe('AMP_OUT');
     expect(headDriveControl(2,{'BOARD_DISTORTION_1_ON':1},board)).toBe('DRIVE_GAIN');
-    render(<App/>); fireEvent.click(screen.getByRole('button',{name:'Load Ferrum metal rig'}));
+    render(<App/>); fireEvent.change(screen.getByRole('combobox',{name:'Preset'}),{target:{value:'factory.iron-rhythm'}});
     const drive=within(screen.getByRole('region',{name:'Amplifier'})).getByRole('slider',{name:'Drive'});
     expect(drive.max).toBe('100');
     fireEvent.change(drive,{target:{value:'71'}});
     expect(readParameter('BOARD_DISTORTION_0_DIST_DRIVE')).toBe(71);
     expect(readParameter('DRIVE_GAIN')).toBe(0);
-    fireEvent.click(screen.getByRole('button',{name:'Load Aurelia classical rig'}));
+    fireEvent.change(screen.getByRole('combobox',{name:'Preset'}),{target:{value:'factory.natural-nylon'}});
     expect(within(screen.getByRole('region',{name:'Amplifier'})).getByRole('slider',{name:'Output'})).toBeTruthy();
   });
   it('edits the active space pedal and gives a dry rhythm head a working Presence control', () => {
     const board={serial:true,blocks:[{type:'spring',lane:'post',automationSlot:1,enabledId:'on'}]};
     expect(headSpaceControl({on:1},board)).toBe('BOARD_SPRING_1_SPRING_MIX');
     expect(headSpaceControl({on:0},board)).toBe('PRESENCE');
-    render(<App/>); fireEvent.click(screen.getByRole('button',{name:'Load Lumen clean rig'}));
+    render(<App/>); fireEvent.change(screen.getByRole('combobox',{name:'Preset'}),{target:{value:'factory.prism-clean'}});
     const blend=within(screen.getByRole('region',{name:'Amplifier'})).getByRole('slider',{name:'Blend'});
     fireEvent.change(blend,{target:{value:'22'}});
     expect(readParameter('BOARD_PLATE_0_PLATE_MIX')).toBe(22);
     expect(readParameter('REVERB_MIX')).toBe(0);
-    fireEvent.click(screen.getByRole('button',{name:'Load Ferrum metal rig'}));
+    fireEvent.change(screen.getByRole('combobox',{name:'Preset'}),{target:{value:'factory.iron-rhythm'}});
     expect(within(screen.getByRole('region',{name:'Amplifier'})).getByRole('slider',{name:'Presence'})).toBeTruthy();
   });
 });

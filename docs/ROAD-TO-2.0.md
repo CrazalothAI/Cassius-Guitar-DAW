@@ -1,6 +1,6 @@
 # Path to Cassian 2.0.0
 
-Checkpoint: 2026-10-09. The owner requested continued work toward 2.0.0. Current implementation milestone: **1.8.0 Preview**. These are delivery goals, not promises of dates, sound superiority or completed acceptance. Advance versions when the behavior, compatibility and appropriate checks are ready.
+Checkpoint: 2026-10-09. The owner requested continued work toward 2.0.0. Current implementation milestone: **1.8.1 Preview**, including the unified amp front panel. These are delivery goals, not promises of dates, sound superiority or completed acceptance. Advance versions when the behavior, compatibility and appropriate checks are ready.
 
 The release should make a complete guitar workflow easier: choose an interface, find a convincing clean or driven rig, play with backing, record protected DI, compare reamps, and export useful audio. Maintain local ownership, open-source code and optional paid installers/support. Keep general multitrack editing and the promotional/community website outside this app milestone.
 

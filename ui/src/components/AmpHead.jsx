@@ -12,7 +12,7 @@ export default function AmpHead({ clean, tunerOpen, status, head, driveControl =
   return <section className={`amp head-${head.id}`} aria-label="Amplifier">
     <div className="amp-cab">
       <div className="grille">
-        <img className="head-art" src={head.art} alt="" fetchPriority="high"/>
+        <img className="head-art" src={head.art} alt="" width="1600" height={head.id === 'clean' ? 541 : head.id === 'classical' ? 535 : 533} fetchPriority="high"/>
         <div className="badge">
           <span className="badge-maker">CASSIAN</span>
           <span className="badge-word">{head.name}</span>

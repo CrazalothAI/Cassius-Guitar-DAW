@@ -2,6 +2,8 @@
 
 ## Current milestone
 
+- [x] Integrate 1.8.1 channel switch, branding and live knobs onto each complete head’s photographed metal panel; remove redundant head-selection cards and use guarded preset recall.
+- [ ] For 1.9, reject export trims that round to zero frames and ranges above the existing standard-WAV size limit before the destination chooser; add a long-take mid-write cancellation/original-audio preservation check. The export audit identified these targets; the integrated-amp UI request takes priority.
 - [x] Add 1.8.0 cabinet route/comparison shortcuts, relative alignment/polarity guidance and deterministic mono/stereo impulse checks, preserving the existing cabinet response and state contracts. Real cabinet auditions remain separate.
 - [x] Complete 1.0.0 RC2: independent VST3 validation, isolated host-test storage, reproducible reports and CI evidence.
 - Signing is deferred at the owner's request on 2026-10-08; continue unsigned candidate builds. The stable-release signature check remains pending rather than being marked passed.
