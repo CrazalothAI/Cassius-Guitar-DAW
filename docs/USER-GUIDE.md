@@ -12,13 +12,15 @@ Recovery validates new practice/review sections and preserves existing ones. If 
 
 Recovered recordings receive fresh identities. If history links to an included take, recovery keeps the verified `practice-journal.json` and supplies **practice-journal-linked.json** with updated recording links. Import that linked copy from Practice on the destination PC. Conflicting current sessions reject import; keep existing history and manually relink instead. Excluded recordings remain unavailable. Importing recording folders separately also needs new links; history JSON carries no audio.
 
-Cassian is a guitar workstation for live amp/pedal tones, backing-track practice, recording and reamping. The 1.7.0 preview targets Windows x64 standalone and VST3. Linux source exists but has no validated release package. All 22 built-in rigs include their sounds; the 20 capture recipes require the listed user-imported files.
+Cassian is a guitar workstation for live amp/pedal tones, backing-track practice, recording and reamping. The 1.8.0 preview targets Windows x64 standalone and VST3. Linux source exists but has no validated release package. All 22 built-in rigs include their sounds; the 20 capture recipes require the listed user-imported files.
 
 In **Tone**, choose a pictured Lumen clean, Rubicon crunch, Ferrum metal or Aurelia classical head to load its complete starter rig. Save edits before switching. Each head has its own covered cabinet, branding and finish; the actual amp/capture identity remains visible below it. All other tones remain in the preset menu and Library. The head stays compact in Board, Practice and Takes, and Tone details scroll in smaller windows. The classical starting point is Natural DI for an appropriate acoustic/nylon pickup, not an electric-to-nylon conversion. [Amplifier collection](RELEASE-1.7.0.md).
 
 **Help & setup → Your next step** summarizes the currently reported audio route and offers guidance for missing input/output, monitoring, inactive callbacks, clipping or recent dropouts. Its Tone/Practice/Takes buttons change views only; recording, playback, rig loading and monitoring still require explicit actions. Unreported route state is shown as unavailable rather than assumed to work.
 
 ## Install and connect
+
+**Tone → Cab** shows active cabinet routing. With two active external IRs, compare **A only**, **50/50 blend**, and **B only** before choosing your preferred blend. These shortcuts edit the real tone; save the blend you want to keep. **Reset alignment & polarity** clears only A/B delays and inversion, preserving cabinet levels, pan and cuts. Relative delay and opposite-polarity guidance help investigate hollow blends. Comparison shortcuts are disabled during loading, recording and take playback. [Cabinet behavior and listening sequence](CABINET-REFINEMENT.md).
 
 Download **Cassian-Setup.exe**, close any previous Cassian/DAW instance, and run Setup. Standalone is selected by default; VST3 is optional. Setup installs to your user profile and offers shortcuts. WebView2 is installed when missing and needs internet for that step. Portable users must extract the complete ZIP and already have WebView2. GitHub's source archive is for building, not running the app.
 

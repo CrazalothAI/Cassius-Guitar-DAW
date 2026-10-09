@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import Knob from './Knob.jsx';
 import Switch from './Switch.jsx';
 import Scenes from './Scenes.jsx';
+import CabinetCompare from './CabinetCompare.jsx';
 import { setParameter, useParameters, useToggle } from '../parameterState.js';
 
 // The rig in signal order. Each stage is a tab; its controls open in the panel below.
@@ -124,7 +125,8 @@ function Cab({ clean, status, load, remove }) {
   const fullRig = values.AMP_SOURCE === 3 && (values.CAPTURE_KIND === 3 || (values.CAPTURE_KIND === 0 && status.ampHasCab));
   return <div className="rig-list">
     <Choice id="CAB_MODE" label="Cabinet mode" disabled={legacy} options={['Auto', 'External IR · intentional override', '4×12 · built-in', 'Off']} />
-    <RigRow label="CAB A" file={status.ir} empty={status.speakerSim ? 'Built-in 4×12 speaker' : 'Off · optional for full-rig captures'}
+    <CabinetCompare status={status}/>
+    <RigRow label="CAB A" file={status.ir} empty={values.CAB_MODE === 2 || status.speakerSim ? 'Built-in 4×12 speaker' : 'No external cabinet A'}
       note={legacy ? 'Current rig keeps its original routing. Choose an amp source on the Amp page to change cabinet mode.' : values.CAB_MODE === 0 && fullRig ? 'Separate cabinet bypassed · full-rig capture' : values.AMP_SOURCE === 4 && values.CAB_MODE === 0 ? 'Natural DI has no guitar cabinet · choose External IR for an optional body IR' : values.CAB_MODE === 3 ? 'Cabinet bypassed' : values.CAB_MODE === 1 && !status.ir && !(values.CAB_B_ON >= .5 && status.irB) ? 'Load an external IR for this mode' : ''}>
       {remove('cab', status.ir, 'cabinet IR')}{load('cab', status.ir ? 'Change cabinet' : 'Load cabinet IR')}
     </RigRow>

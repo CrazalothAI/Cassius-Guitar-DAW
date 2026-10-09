@@ -199,3 +199,10 @@ button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-
   footer { flex-wrap: wrap; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
+.cabinet-compare { border: 1px solid #ffffff20; border-radius: 9px; padding: 14px 16px; background: #15191b; }
+.cabinet-compare h3 { margin: 0 0 5px; font-size: 13px; }
+.cabinet-compare p { margin: 5px 0 10px; font-size: 12px; line-height: 1.5; color: #aaaeb1; }
+.cabinet-compare-actions { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+.cabinet-compare-actions button { padding: 7px 10px; border: 1px solid #ffffff24; border-radius: 5px; font-size: 12px; }
+.cabinet-compare-actions button[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); }
+.cabinet-compare small { display: block; color: #aaaeb1; font-size: 11px; line-height: 1.5; }

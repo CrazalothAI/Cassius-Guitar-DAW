@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "version": "1.7.0",
+  "version": "1.8.0",
   "scope": "Windows x64 standalone and VST3; original built-in sounds; owner-imported captures",
   "ownerSoundReport": {
     "date": "2026-10-08",

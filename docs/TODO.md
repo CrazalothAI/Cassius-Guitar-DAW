@@ -2,6 +2,7 @@
 
 ## Current milestone
 
+- [x] Add 1.8.0 cabinet route/comparison shortcuts, relative alignment/polarity guidance and deterministic mono/stereo impulse checks, preserving the existing cabinet response and state contracts. Real cabinet auditions remain separate.
 - [x] Complete 1.0.0 RC2: independent VST3 validation, isolated host-test storage, reproducible reports and CI evidence.
 - Signing is deferred at the owner's request on 2026-10-08; continue unsigned candidate builds. The stable-release signature check remains pending rather than being marked passed.
 - [ ] Run and record the fresh-install/real-upgrade and actual DAW/MIDI/export acceptance matrix.

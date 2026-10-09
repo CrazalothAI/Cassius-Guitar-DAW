@@ -11,6 +11,7 @@ void runBackupChecks(const juce::File& fixture);
 void runToneRecoveryChecks();
 void runQualityChecks(const juce::File& fixture);
 void runSoundChecks(const juce::File& fixture);
+void runCabinetChecks();
 void runPracticeChecks();
 void runStreamingReviewChecks();
 void runPracticeJournalChecks();
@@ -83,6 +84,7 @@ int main(int argc, char** argv)
             }
             if (phase == "--starting-rigs") { runStartingRigChecks(juce::File(argv[1])); return 0; }
             if (phase == "--quality") { runQualityChecks(juce::File(argv[1])); return 0; }
+            if (phase == "--cabinet") { runCabinetChecks(); return 0; }
             throw std::runtime_error("Unknown focused native check");
         }
         std::cout << "Checking validation storage\n";
