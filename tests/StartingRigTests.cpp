@@ -1,6 +1,7 @@
 #include "../Source/PluginProcessor.h"
 #include "../Source/BundledSoundBank.h"
 #include <iostream>
+#include <thread>
 
 namespace {
 void require(bool ok, const char* reason) { if (!ok) throw std::runtime_error(reason); }
@@ -62,6 +63,29 @@ void runStartingRigChecks(const juce::File& fixture)
     }
     std::cout << "Starter synthetic level spread: " << loudest - quietest << " dB\n";
     require(loudest - quietest < 6, "Built-in starter levels must stay within six dB on the reference signal");
+    {
+        // status() compares the active scene's live board while the worker
+        // replaces APVTS trees. ASan exposed a freed-child traversal here.
+        std::atomic<int> polls {0}; std::atomic<bool> failed {false};
+        std::jthread observer([&](std::stop_token stop) {
+            while (!stop.stop_requested()) {
+                try {
+                    const auto snapshot = p.status();
+                    if (!snapshot["scenes"].isObject() || !snapshot["board"].isObject()) failed.store(true);
+                    ++polls;
+                } catch (...) { failed.store(true); }
+                std::this_thread::yield();
+            }
+        });
+        for (int pass = 0; pass < 64; ++pass) {
+            require(p.storeScene(0, "Recall baseline").isEmpty(), "Concurrent recall baseline must store");
+            require(p.loadStartingRig(catalog["rigs"][pass % 2]["id"].toString()).isEmpty(), "Concurrent starter recall must queue"); ready(p);
+            require(p.validateRigDocument(p.getRig()).isEmpty(), "Concurrent polling must not corrupt a committed rig");
+        }
+        observer.request_stop(); observer.join();
+        require(polls.load() > 0 && !failed.load(), "Concurrent scene/board polling must retain valid snapshots through complete recall");
+        std::cout << "Concurrent status polling through 64 complete starter recalls passed\n";
+    }
     const auto intactAfterBuiltins = p.getRig()["state"].toString();
     require(p.loadStartingRig("factory.capture-red2-tight").startsWith("Missing sound:") && p.getRig()["state"].toString() == intactAfterBuiltins, "Missing capture recipe must reject atomically without replacing it by an old voice");
     set(p, "AMP_MID", 3); require(static_cast<bool>(p.status()["activeRigEdited"]), "Editing a factory rig must mark it edited");

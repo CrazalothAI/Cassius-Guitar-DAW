@@ -1,5 +1,7 @@
 # Native memory and lifetime checks
 
+In 1.6.0 development, standard ASan caught a real heap-use-after-free in `PerformanceScenes::status` → `PedalboardState::equal`: polling traversed the live board while the complete-rig worker replaced the APVTS tree. The fix moves scene status under the existing request/metadata lock, serializes host preparation with the same commit lock and protects the host-state type read. The callback takes no new lock. The starter suite now polls status on a concurrent thread through 64 complete recalls. Keep the original diagnostic and rerun both full ordinary and full memory checks after this fix; this finding is distinct from the optional Windows allocator-hook limitation below.
+
 Run the normal Release build and `ctest --preset release --output-on-failure` first. Five CTest entries cover the full processor suite, repeated sound ZIP/stereo ambience construction/render/destruction, and three NAM architectures. No focused test replaces the full processor run.
 
 The native executable also accepts a pinned NAM fixture followed by `--quality`, `--starting-rigs`, `--sound-pack-stress`, or `--startup` for fault isolation. Sound-pack stress performs sixteen independent lifetimes. Normal CTest keeps the full suite and runs that stress check separately.

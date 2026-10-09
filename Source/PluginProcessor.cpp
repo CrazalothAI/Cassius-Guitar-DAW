@@ -85,6 +85,9 @@ bool AmpSuiteAudioProcessor::isBusesLayoutSupported(const BusesLayout& b) const
 }
 void AmpSuiteAudioProcessor::prepareToPlay(double sampleRate, int maximumBlockSize)
 {
+    // State metadata and rig commits share this order: requestLock, then DSP.
+    // Preparation is a host setup operation; the callback never takes requestLock.
+    const juce::ScopedLock stateGuard(requestLock);
     const juce::ScopedLock lock(dspLock);
     rate = sampleRate; hostBlock = juce::jmax(1, maximumBlockSize);
     // A bounded internal quantum keeps model, convolution, and gate state
@@ -804,9 +807,11 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("takes", takes.status());
     result->setProperty("review", takeReview.status());
     result->setProperty("midi", midiControl.status());
-    result->setProperty("scenes", scenes.status(apvts));
     {
         const juce::ScopedLock lock(requestLock);
+        // Scene edited-state comparison traverses the live pedalboard tree.
+        // Hold the same metadata lock as replaceState for the entire traversal.
+        result->setProperty("scenes", scenes.status(apvts));
         const auto displayName = [&](const juce::String& kind, const juce::String& path) {
             const auto asset = library.find(library.idForPath(kind, path));
             return sharedStore.enabled() && path.isNotEmpty() && asset["name"].toString().isNotEmpty()
@@ -941,8 +946,9 @@ juce::ValueTree AmpSuiteAudioProcessor::copyRigState(bool includeSavedRigs)
 void AmpSuiteAudioProcessor::setStateInformation(const void* data, int size)
 {
     const auto xml = getXmlFromBinary(data, size);
-    if (!xml || !xml->hasTagName(apvts.state.getType())) return;
+    if (!xml) return;
     const juce::ScopedLock stateGuard(requestLock);
+    if (!xml->hasTagName(apvts.state.getType())) return;
     auto state = juce::ValueTree::fromXml(*xml);
     // Sparse legacy host states remain supported. Present routing metadata must
     // be understood before identities, scenes, MIDI, assets or parameters change.
