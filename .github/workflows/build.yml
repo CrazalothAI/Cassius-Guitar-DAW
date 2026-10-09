@@ -65,6 +65,17 @@ jobs:
             build/native-test-results.xml
             build/Testing/Temporary/LastTest.log
             build/Testing/Temporary/LastTestsFailed.log
+      - name: Diagnose failed native tests with AddressSanitizer
+        if: failure() && steps.native_tests.outcome == 'failure'
+        shell: pwsh
+        run: ./scripts/test-native-memory.ps1
+      - name: Save native memory diagnostics
+        if: always() && steps.native_tests.outcome == 'failure'
+        uses: actions/upload-artifact@v5
+        with:
+          name: Cassian-Native-Memory-Diagnostics
+          if-no-files-found: warn
+          path: build-memory/memory-validation/
       - name: Validate actual VST3 with independent host tests
         shell: pwsh
         run: ./scripts/test-vst3-plugin.ps1

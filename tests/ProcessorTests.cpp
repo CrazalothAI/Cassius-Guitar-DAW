@@ -71,6 +71,20 @@ int main(int argc, char** argv)
     juce::ScopedJuceInitialiser_GUI initialise;
     try
     {
+        // Focused reproductions keep native failures diagnosable without
+        // weakening the default full suite used by CTest and releases.
+        if (argc == 3)
+        {
+            const auto phase = juce::String(argv[2]);
+            if (phase == "--startup") return 0;
+            if (phase == "--sound-pack-stress") {
+                for (int i = 0; i < 16; ++i) { std::cout << "Sound pack lifetime pass " << i + 1 << '\n'; runSoundPackChecks(juce::File(argv[1])); }
+                return 0;
+            }
+            if (phase == "--starting-rigs") { runStartingRigChecks(juce::File(argv[1])); return 0; }
+            if (phase == "--quality") { runQualityChecks(juce::File(argv[1])); return 0; }
+            throw std::runtime_error("Unknown focused native check");
+        }
         std::cout << "Checking validation storage\n";
         runValidationIsolationChecks();
         std::cout << "Checking personal backup/recovery\n";
@@ -701,7 +715,9 @@ int main(int argc, char** argv)
         check(runPedalboardStateTests(), "Pedalboard state checks must pass");
         runBoardIntegrationChecks(juce::File(argv[1]));
         runSerialBoardChecks(juce::File(argv[1]));
+        std::cout << "Checking sound pack and ambience lifetime\n";
         runSoundPackChecks(juce::File(argv[1]));
+        std::cout << "Checking complete starter rig recall\n";
         runStartingRigChecks(juce::File(argv[1]));
         std::cout << "Processor checks passed\n";
         return 0;

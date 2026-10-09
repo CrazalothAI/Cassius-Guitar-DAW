@@ -347,6 +347,8 @@ Interface checks cover brand-independent device matching, arbitrary physical cha
 
 MIDI checks cover Learn/cancel, switch edges, channels, expression ranges/inversion, invalid state and overlapping bindings, bounded queue overflow, stale-command rejection, worker recovery, rig recall and preserved globals. See [MIDI foot control](docs/MIDI-FOOT-CONTROL.md). Modulation checks measure phaser/flanger cancellation, tremolo rate/depth, stereo movement, click-free transitions, bounded feedback, legacy defaults, MIDI bypass and saved-tempo offline renders; see [modulation pedal](docs/MODULATION-PEDAL.md). Scene checks cover every saved parameter, globals, legacy/invalid banks, failed-load rollback, UI/MIDI recall, portable packs and uninterrupted delay history; see [performance scenes](docs/PERFORMANCE-SCENES.md).
 
+The 1.5.0 native suite includes a separate sixteen-pass sound-pack/ambience lifetime stress check. [Focused native checks and memory diagnostics](docs/NATIVE-TESTING.md) support reproducing clean-build failures; CI retains ordinary test evidence and adds an isolated AddressSanitizer run after a failure. Passing diagnostic checks do not override a failed release test.
+
 Automated renders do not establish live sound quality, long-run AudioBox reliability, or compatibility across DAW hosts. This update did not perform physical MIDI controller, DAW MIDI routing, Linux host or live AudioBox listening validation. The production UI build reports an existing `eval` warning from the official JUCE native interop shim.
 
 ## Roadmap, attribution, and dependencies
