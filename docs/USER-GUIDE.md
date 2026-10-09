@@ -1,6 +1,6 @@
 # Cassian user guide
 
-In standalone **Takes**, long standard WAV versions stream at normal speed with seeking, waveforms and saved export ranges. Buffering waits at the current cursor until audio is ready. Long-take looping is not available yet; short review loops and backing-track practice keep their existing behavior. See [long-take review](RELEASE-1.4.0.md).
+In standalone **Takes**, long standard WAV versions stream at normal speed with seeking, waveforms, saved ranges and A–B loops. The fixed cache prepares the current range and loop start; buffering holds the cursor until audio is ready. Practice also includes reusable exercise sets and a local timer/history with portable JSON exports. See [1.5.0](RELEASE-1.5.0.md) and [practice sets/history](PRACTICE-JOURNAL.md).
 
 In **Takes → Recover interrupted recording**, choose the original take folder to recover a separate readable audio copy. Listen to Original processed, acknowledge your review, then Confirm recovered take to enable export/reamping. Use Open take folder and the external-player acknowledgement if a file is unsupported. Original files stay intact. Recovery validates all copied stems and keeps a local report; unreadable headers/uncheckpointed tails are not repaired. New recordings checkpoint their WAV headers on the disk worker about every two seconds. See [take recovery and limits](TAKE-LIBRARY.md).
 

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { invoke, native } from '../juce/bridge.js';
 import PracticeWaveform from './PracticeWaveform.jsx';
 import PracticeSections from './PracticeSections.jsx';
+import PracticeJournal from './PracticeJournal.jsx';
 import { time } from '../practiceTime.js';
 export { time } from '../practiceTime.js';
 
@@ -43,6 +44,7 @@ export default function Practice({ status, onError, onTakes }) {
       <div className="practice-loop"><button disabled={!available || !duration || busy || p.loading} onClick={() => control('a', p.position || 0)}>Set A · {time(p.a)}</button><button disabled={!available || !duration || busy || p.loading} onClick={() => control('b', p.position || 0)}>Set B · {time(p.b)}</button><label><input type="checkbox" aria-label="Loop section" checked={!!p.loop} disabled={!available || !duration || busy || p.loading} onChange={e => control('loop', e.target.checked ? 1 : 0)} /> Loop A–B</label></div>
     </div>
     <PracticeSections p={p} available={available} disabled={busy || p.loading} onError={onError}/>
+    <PracticeJournal journal={status.practiceJournal} recording={recording} available={available} onError={onError}/>
     <p className="practice-note">{available ? '32-bit float WAV: dry mono + processed stereo before Master. Backing and clicks stay out of guitar recordings. Count-in uses the metronome tempo.' : native ? 'Use your DAW’s backing tracks and recording. This practice transport is available in the standalone app.' : 'Open the standalone app to load a backing track and record your guitar.'}</p>
     {p.error && <p className="practice-error" role="alert">{p.error}</p>}
     {p.takePath && !recording && <div className="practice-take"><span title={p.takePath}>Last take: {p.takePath}</span><button className="text-button" onClick={() => action('openTakeFolder')}>Open take folder</button></div>}

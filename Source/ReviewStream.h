@@ -16,6 +16,8 @@ public:
     juce::var envelope(const std::function<bool()>& cancelled, const std::function<void(double)>& progress);
     bool service(const std::function<bool()>& cancelled);
     void request(juce::int64 frame) { wanted.store(juce::jlimit<juce::int64>(0, frames - 1, frame)); }
+    void requestLoop(juce::int64 frame) { loopStart.store(frame < 0 ? -1 : juce::jlimit<juce::int64>(0, frames - 1, frame)); }
+    bool loopReady() const { const auto start = loopStart.load(); return start < 0 || loopReadyFrame.load() == start; }
     juce::int64 frameCount() const { return frames; }
     bool ready(juce::int64 frame) const; // worker only
     bool hasFailed() const { return failed.load(); }
@@ -26,7 +28,7 @@ public:
     public:
         explicit Read(ReviewStream& s) : stream(s) {}
         ~Read();
-        bool sample(juce::int64 frame, float fraction, float& left, float& right);
+        bool sample(juce::int64 frame, float fraction, float& left, float& right, juce::int64 alternateNext = -1);
     private:
         ReviewStream& stream; int slot = -1; juce::int64 missingBlock = -1;
     };
@@ -40,12 +42,15 @@ private:
     };
     bool unchanged() const;
     bool fill(Block&, juce::int64 start, const std::function<bool()>& cancelled);
+    int plan(std::array<juce::int64, slotCount>&) const;
+    bool needed(juce::int64 start) const;
     void fail(const juce::String&);
     juce::File file; juce::int64 fileSize, frames; juce::Time modified;
     std::unique_ptr<juce::AudioFormatReader> reader;
     double targetRate;
     std::array<Block, slotCount> blocks;
     std::atomic<juce::int64> wanted {0}, underruns {0};
+    std::atomic<juce::int64> loopStart {-1}, loopReadyFrame {-1};
     std::atomic<bool> failed {false}, buffering {false};
     juce::String failureText;
     juce::uint32 lastCheck = 0;

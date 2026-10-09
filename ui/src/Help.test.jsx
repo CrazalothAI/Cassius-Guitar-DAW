@@ -7,6 +7,13 @@ import Help, {supportReport} from './components/Help.jsx';
 const status={appVersion:'1.0.0',deviceSettingsAvailable:true,sampleRate:48000,bufferSize:256,selectedInput:1,dropouts:-1,cpu:7.2,overruns:2,board:{serial:true,blocks:[{},{}]},audioDevice:{driver:'ASIO',inputDevice:'USB interface',outputDevice:'USB interface',monitoring:false}};
 beforeEach(()=>bridge.invoke.mockReset().mockResolvedValue(''));
 afterEach(cleanup);
+it('reports streaming buffer waits separately and excludes reviewed take identity and paths', () => {
+  const report = supportReport({...status, review: {streaming: true, buffering: true, reviewUnderruns: 3, loop: true, loopPrefetchReady: false, reviewCacheBytes: 2097280, track: 'Private performance.wav', error: 'C:\\private\\take.wav', sections: [{name: 'Secret section'}]}});
+  expect(report).toContain('Streaming WAV; buffering Yes; buffer waits 3 (includes uncached seeks)');
+  expect(report).toContain('Review loop: On; start prefetch Preparing; cache 2097280 bytes');
+  expect(report).toContain('Device dropouts: Not reported by driver');
+  for (const secret of ['Private performance', 'private\\take', 'Secret section']) expect(report).not.toContain(secret);
+});
 it('explains first sound with built-in rigs and explicit input monitoring',async()=>{
   render(<Help status={status} onError={vi.fn()}/>);
   expect(screen.getByText(/All 22 built-in rigs work without extra files/)).toBeTruthy();

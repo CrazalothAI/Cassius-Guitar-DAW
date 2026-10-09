@@ -9,6 +9,15 @@ beforeEach(() => {
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
+it('enables streamed looping and explains loop-head prefetch without changing export ranges', async () => {
+  const loaded = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'processed'}, review: {...status.review, streaming: true, loopAvailable: true, loop: true, loopPrefetchReady: false, a: 1, b: 3}};
+  const {rerender} = render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');
+  const loop = screen.getByLabelText('Loop take review'); expect(loop.disabled).toBe(false); expect(loop.checked).toBe(true);
+  expect(screen.getByText(/Preparing loop start/)).toBeTruthy();
+  fireEvent.click(loop); await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('takeReviewControl', 'one', 'processed', 'loop', 0));
+  rerender(<Takes status={{...loaded, review: {...loaded.review, loopPrefetchReady: true}}} onError={vi.fn()}/>);
+  expect(screen.queryByText(/Preparing loop start/)).toBeNull();
+});
 it('explains streaming buffering, disables looping and keeps export ranges usable', async () => {
   const streamed = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'processed'}, review: {...status.review, streaming: true, loopAvailable: false, playing: true, buffering: true, reviewUnderruns: 2, a: 1, b: 3}};
   const {rerender} = render(<Takes status={streamed} onError={vi.fn()}/>); await screen.findByText('Lead take');
@@ -16,7 +25,7 @@ it('explains streaming buffering, disables looping and keeps export ranges usabl
   expect(screen.getByLabelText('Take review position').disabled).toBe(false);
   expect(screen.getByRole('status', {name: 'Take review status'}).textContent).toContain('Buffering');
   expect(screen.getByRole('status', {name: 'Take review status'}).textContent).toContain('Playback waits here');
-  expect(screen.getByText(/Playback buffer interruptions: 2/)).toBeTruthy();
+  expect(screen.getByText(/Playback buffer waits: 2/)).toBeTruthy();
   fireEvent.click(screen.getByText('Video soundtrack'));
   expect(screen.getByRole('button', {name: 'Use review A–B'}).disabled).toBe(false);
   fireEvent.click(screen.getByRole('button', {name: 'Use review A–B'}));

@@ -101,14 +101,14 @@ bool ReviewStream::fill(Block& b, juce::int64 start, const std::function<bool()>
     resampler.setResamplingRatio(ratio); resampler.prepareToPlay(1024, targetRate);
     juce::AudioBuffer<float> scratch(2, 1024);
     for (auto offset = restart; offset < start;) {
-        if (cancelled()) return false;
+        if (cancelled() || !needed(start)) return false;
         const int n = static_cast<int>(juce::jmin<juce::int64>(1024, start - offset));
         resampler.getNextAudioBlock({&scratch, 0, n}); offset += n;
     }
     b.start = start; b.count = static_cast<int>(juce::jmin<juce::int64>(blockFrames, frames - start));
     const int readFrames = static_cast<int>(juce::jmin<juce::int64>(b.count + 1, frames - start));
     for (int offset = 0; offset < readFrames; offset += 1024) {
-        if (cancelled() || wanted.load() / blockFrames * blockFrames > start + blockFrames || wanted.load() + slotCount * blockFrames < start) return false;
+        if (cancelled() || !needed(start)) return false;
         resampler.getNextAudioBlock({&b.audio, offset, juce::jmin(1024, readFrames - offset)});
     }
     if (decoder.failed || !unchanged()) { fail("Could not read this take; its audio may have changed or become unavailable. Reload it."); return false; }
@@ -119,17 +119,43 @@ bool ReviewStream::fill(Block& b, juce::int64 start, const std::function<bool()>
     }
     return true;
 }
+int ReviewStream::plan(std::array<juce::int64, slotCount>& starts) const {
+    const auto base = wanted.load() / blockFrames * blockFrames;
+    const auto a = loopStart.load(); const auto loopBase = a < 0 ? -1 : a / blockFrames * blockFrames;
+    int count = 0;
+    const auto add = [&](juce::int64 start) {
+        if (start < 0 || start >= frames) return;
+        for (int i = 0; i < count; ++i) if (starts[i] == start) return;
+        starts[count++] = start;
+    };
+    // Prioritise the current head and loop head before either look-ahead
+    // window. Overlapping windows share slots; the budget never grows.
+    for (int i = 0; i < (a < 0 ? slotCount : slotCount / 2); ++i) {
+        add(base + juce::int64(i) * blockFrames);
+        if (a >= 0) add(loopBase + juce::int64(i) * blockFrames);
+    }
+    return count;
+}
+bool ReviewStream::needed(juce::int64 start) const {
+    std::array<juce::int64, slotCount> starts {}; const int count = plan(starts);
+    for (int i = 0; i < count; ++i) if (starts[i] == start) return true;
+    return false;
+}
 bool ReviewStream::service(const std::function<bool()>& cancelled) {
     if (failed.load()) return false;
     const auto now = juce::Time::getMillisecondCounter();
     if (now - lastCheck >= 250) { lastCheck = now; if (!unchanged()) { fail("Take audio changed or disappeared. Reload this version before listening."); return false; } }
-    const auto base = wanted.load() / blockFrames * blockFrames;
-    for (int i = 0; i < slotCount && base + juce::int64(i) * blockFrames < frames; ++i) {
-        const auto start = base + juce::int64(i) * blockFrames;
+    const auto a = loopStart.load();
+    // Advertise a short runway, not merely the first sample. A starts close
+    // to a block edge must also have the following block prepared.
+    loopReadyFrame.store(a >= 0 && ready(a) && ready(juce::jmin(frames - 1, a + blockFrames)) ? a : -1);
+    std::array<juce::int64, slotCount> starts {}; const int count = plan(starts);
+    for (int i = 0; i < count; ++i) {
+        const auto start = starts[i];
         if (ready(start)) continue;
         for (auto& b : blocks) {
             int expected = b.state.load();
-            if (expected == Free || (expected == Ready && (b.start < base || b.start >= base + slotCount * blockFrames))) {
+            if (expected == Free || (expected == Ready && !needed(b.start))) {
                 if (!b.state.compare_exchange_strong(expected, Writing)) continue;
                 try { const bool ok = fill(b, start, cancelled); b.state.store(ok ? Ready : Free); return ok; }
                 catch (const std::exception& e) { b.state.store(Free); fail("Take playback could not prepare audio: " + juce::String(e.what())); return false; }
@@ -140,7 +166,7 @@ bool ReviewStream::service(const std::function<bool()>& cancelled) {
     return false;
 }
 ReviewStream::Read::~Read() { if (slot >= 0) stream.blocks[slot].state.store(Ready); }
-bool ReviewStream::Read::sample(juce::int64 frame, float fraction, float& left, float& right) {
+bool ReviewStream::Read::sample(juce::int64 frame, float fraction, float& left, float& right, juce::int64 alternateNext) {
     if (stream.failed.load()) { stream.buffering.store(false); return false; }
     // Once this callback misses a range, retry on the next callback rather
     // than scanning every slot for every silent sample.
@@ -159,8 +185,19 @@ bool ReviewStream::Read::sample(juce::int64 frame, float fraction, float& left, 
         if (!stream.buffering.exchange(true)) stream.underruns.fetch_add(1);
         return false;
     }
-    stream.buffering.store(false);
     const auto& b = stream.blocks[slot]; const int index = static_cast<int>(frame - b.start);
-    const auto value = [&](int ch) { const auto* x = b.audio.getReadPointer(ch); return x[index] + fraction * (x[index + 1] - x[index]); };
-    left = value(0); right = value(1); return true;
+    float nextLeft = b.audio.getSample(0, index + 1), nextRight = b.audio.getSample(1, index + 1);
+    if (alternateNext >= 0 && fraction > 0) {
+        if (alternateNext >= b.start && alternateNext < b.start + b.count) {
+            const int next = static_cast<int>(alternateNext - b.start);
+            nextLeft = b.audio.getSample(0, next); nextRight = b.audio.getSample(1, next);
+        } else {
+            // Release the temporary loop-head claim before the main cursor
+            // wraps. Keeping two claims on that slot would prevent reacquire.
+            Read head(stream);
+            if (!head.sample(alternateNext, 0, nextLeft, nextRight)) { missingBlock = frame / blockFrames; return false; }
+        }
+    }
+    const auto l = b.audio.getSample(0, index), r = b.audio.getSample(1, index);
+    left = l + fraction * (nextLeft - l); right = r + fraction * (nextRight - r); stream.buffering.store(false); return true;
 }

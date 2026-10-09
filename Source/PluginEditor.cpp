@@ -104,6 +104,20 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             complete(processor.practice.command(args[0].toString(), static_cast<double>(args[1])));
         })
         .withNativeFunction("getPracticeWaveform", [this](const auto&, auto complete) { complete(processor.practice.waveform()); })
+        .withNativeFunction("getPracticeJournal", [this](const auto&, auto complete) { complete(processor.practiceJournal ? processor.practiceJournal->document() : juce::var()); })
+        .withNativeFunction("practiceJournalCommand", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || !processor.practiceJournal) { complete(juce::String("Practice history is available in standalone.")); return; }
+            if (args.size() != 2 || !args[0].isString()) { complete(juce::String("Invalid practice history request.")); return; }
+            if (static_cast<bool>(processor.backupStatus()["busy"])) { complete(juce::String("Finish backup/recovery before editing practice history.")); return; }
+            const auto action = args[0].toString();
+            if (action != "saveSet" && action != "removeSet" && action != "start" && action != "pause" && action != "resume" && action != "finish" && action != "removeSession") { complete(juce::String("Unknown practice history action.")); return; }
+            complete(processor.practiceJournal->command(action, args[1]));
+        })
+        .withNativeFunction("transferPracticeJournal", [this](const auto& args, auto complete) {
+            if (!processor.showDeviceSettings || !processor.practiceJournal || args.size() != 1 || !args[0].isBool()) { complete(juce::String("Choose a practice history import or export in standalone.")); return; }
+            if (static_cast<bool>(processor.backupStatus()["busy"]) || static_cast<int>(processor.practice.status()["recordMode"]) != 0) { complete(juce::String("Finish recording and backup before transferring practice history.")); return; }
+            choosePracticeJournal(static_cast<bool>(args[0])); complete(juce::String());
+        })
         .withNativeFunction("getTakeReviewWaveform", [this](const auto& args, auto complete) { complete(processor.takes.reviewWaveform(args.size() == 2 && args[0].isString() ? args[0].toString() : juce::String(), args.size() == 2 && args[1].isString() ? args[1].toString() : juce::String())); })
         .withNativeFunction("savePracticeSection", [this](const auto& args, auto complete) {
             if (!processor.showDeviceSettings) { complete(juce::String("Practice sections are available in standalone.")); return; }
@@ -285,6 +299,24 @@ void AmpSuiteAudioProcessorEditor::chooseVideoAudio(const juce::String& id, cons
             safe->chooser.reset();
         });
 }
+void AmpSuiteAudioProcessorEditor::choosePracticeJournal(bool save)
+{
+    if (chooser) return;
+    chooser = std::make_unique<juce::FileChooser>(save ? "Export practice sets and history" : "Import practice sets and history", juce::File(), "*.json");
+    const juce::Component::SafePointer<AmpSuiteAudioProcessorEditor> safe(this);
+    chooser->launchAsync((save ? juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting : juce::FileBrowserComponent::openMode) | juce::FileBrowserComponent::canSelectFiles,
+        [safe, save](const juce::FileChooser& dialog) {
+            if (safe == nullptr) return;
+            const auto file = dialog.getResult();
+            if (file != juce::File() && safe->processor.practiceJournal) {
+                const auto blocked = static_cast<int>(safe->processor.practice.status()["recordMode"]) != 0 || static_cast<bool>(safe->processor.backupStatus()["busy"]);
+                const auto failure = blocked ? juce::String("Finish recording and backup before transferring practice history.") : safe->processor.practiceJournal->command(save ? "export" : "import", {}, save ? file.withFileExtension("json") : file);
+                if (failure.isNotEmpty()) safe->processor.reportLibraryResult(failure);
+            }
+            juce::MessageManager::callAsync([safe] { if (safe != nullptr) safe->chooser.reset(); });
+        });
+}
+
 void AmpSuiteAudioProcessorEditor::choosePractice(bool recording)
 {
     if (chooser) return;

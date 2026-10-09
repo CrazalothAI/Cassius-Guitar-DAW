@@ -6,6 +6,10 @@ juce::String AmpSuiteAudioProcessor::requestBackup(bool restore, const juce::Fil
     if (!sharedStore.enabled()) return "Backups require shared library storage.";
     if (static_cast<int>(practice.status()["recordMode"]) != 0) return "Finish recording before backup/recovery.";
     if (rigLoading.load()) return "Finish rig loading before backup/recovery.";
+    if (practiceJournal) {
+        const auto journal = practiceJournal->status();
+        if (static_cast<bool>(journal["busy"]) || journal["active"]["state"].toString() == "running") return "Pause the practice timer and finish saving history before backup/recovery.";
+    }
     if (file == juce::File()) return "Choose a backup file.";
     if (backupBusy.exchange(true)) return "A backup/recovery is already running.";
     const auto current = restore ? juce::var() : getRig();

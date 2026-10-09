@@ -3,6 +3,7 @@
 void AmpSuiteAudioProcessor::startToneRecovery() {
     if (!toneRecovery && showDeviceSettings && sharedStore.enabled()) {
         toneRecovery = std::make_unique<ToneRecovery>(sharedStore.root()); startTimer(60000);
+        practiceJournal = std::make_unique<PracticeJournal>(sharedStore.root().getChildFile("practice-journal.json"));
     }
 }
 void AmpSuiteAudioProcessor::timerCallback() {

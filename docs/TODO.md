@@ -15,7 +15,9 @@
 - [x] Add 1.3.1 guided input sampling, explicit bounded trim, clipping/dropout/stale-route protection and live callback diagnostics in Help/setup.
 - [x] Add 1.3.2 original starter-tone guide with contrasting clean/crunch/rhythm/lead/ambient/nylon exercises and explicit complete recall into Tone.
 - [x] Add 1.4.0 bounded standard-WAV long-take review with normal-speed transport, fixed cache, waveform/sections, buffering and changed-media protection.
-- [ ] Add streamed-loop prefetch after sustained real-take acceptance; speed changes/RF64 remain separate work.
+- [x] Add 1.5.0 streamed-loop prefetch with fixed cache, fractional/EOF boundaries, fades and separate review-buffer diagnostics; sustained playing, speed changes/RF64 remain separate work.
+- [x] Add 1.5.0 reusable practice sets, native timer/pause/notes/history, interrupted-session checkpoints, portable JSON transfer and personal-backup retention.
+- [ ] Validate practice sets/history and looped long-take review with real playing and a second-PC transfer; recording links/progress charts follow planner feedback.
 - [ ] Validate the first-five-minutes workflow with a new user and sustained long-take review; see [product roadmap](PRODUCT-ROADMAP.md).
 - [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries. Automatic recording/session recovery remains separate work.
 

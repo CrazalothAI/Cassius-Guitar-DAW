@@ -64,7 +64,7 @@ void runStreamingReviewChecks() {
     for (double sourceRate : {44100., 48000., 96000.}) for (double targetRate : {44100., 48000., 96000.}) for (int channels : {1, 2}) {
         const auto file = folder.getChildFile("compare.wav"); fixture(file, channels, sourceRate, static_cast<juce::int64>(sourceRate * 2));
         PracticeEngine decoded, streamed(262144, {}, 0); load(decoded, file, targetRate); load(streamed, file, targetRate);
-        require(static_cast<bool>(streamed.status()["streaming"]) && !static_cast<bool>(streamed.status()["loopAvailable"]), "Streaming status must describe capabilities");
+        require(static_cast<bool>(streamed.status()["streaming"]) && static_cast<bool>(streamed.status()["loopAvailable"]), "Streaming status must describe loop capabilities");
         require(static_cast<juce::int64>(streamed.status()["reviewCacheBytes"]) == ReviewStream::cacheBytes && ReviewStream::cacheBytes < 4 * 1024 * 1024, "Cache allocation must be fixed and bounded");
         for (double seconds : {0., (ReviewStream::blockFrames - 64) / targetRate, 1.417, 2. - 64 / targetRate}) {
             at(streamed, seconds); at(decoded, seconds);
@@ -74,7 +74,27 @@ void runStreamingReviewChecks() {
             require(std::abs(static_cast<double>(decoded.status()["position"]) - static_cast<double>(streamed.status()["position"])) < 1e-8, "Streamed and decoded cursors must align");
         }
         require(!static_cast<bool>(streamed.status()["playing"]), "Streaming EOF must stop without stale samples");
-        require(!streamed.command("loop", 1).isEmpty() && !streamed.command("speed", .75).isEmpty(), "Unsupported streaming loop/speed commands must fail explicitly");
+        require(!streamed.command("speed", .75).isEmpty(), "Unsupported streaming speed changes must fail explicitly");
+        // Same-block tiny loops, distant boundaries and B exactly at EOF.
+        // Compare fractional seam interpolation and fades against the
+        // existing player at every mono/stereo source/interface rate pair.
+        for (const auto& range : {std::pair<double,double>{.12345, .17378}, {.23147, 1.31791}, {.81, 2.}}) for (double fade : {0., 5.}) {
+            for (auto* e : {&decoded, &streamed}) {
+                e->command("pause"); e->command("a", range.first); e->command("b", range.second); e->command("fade", fade);
+                require(e->command("loop", 1).isEmpty(), "Streamed loops must be available");
+                e->command("seek", range.second - 40.375 / targetRate); render(*e, 1);
+            }
+            waitFor([&] { render(streamed, 1); return static_cast<bool>(streamed.status()["loopPrefetchReady"]); });
+            at(streamed, range.second - 40.375 / targetRate); at(decoded, range.second - 40.375 / targetRate);
+            const auto waits = static_cast<juce::int64>(streamed.status()["reviewUnderruns"]);
+            const auto reference = render(decoded, 128), actual = render(streamed, 128);
+            for (int ch = 0; ch < 2; ++ch) for (int i = 0; i < 128; ++i)
+                require(std::abs(reference.getSample(ch,i) - actual.getSample(ch,i)) < .00003f, "Loop fades and fractional seam samples must match decoded review");
+            require(static_cast<bool>(streamed.status()["playing"]) && std::abs(static_cast<double>(decoded.status()["position"]) - static_cast<double>(streamed.status()["position"])) < 1e-8,
+                "Loop wrapping including EOF must preserve original-time cursor");
+            require(static_cast<juce::int64>(streamed.status()["reviewUnderruns"]) == waits, "Prefetched loop boundary must not introduce a buffer wait");
+        }
+        streamed.command("loop", 0);
         streamed.command("stop"); render(streamed, 1); require(static_cast<double>(streamed.status()["position"]) == 0, "Stop must return to zero");
     }
     // A 25 MB mono source expands past the old 256 MiB limit at 48 kHz.
@@ -90,7 +110,18 @@ void runStreamingReviewChecks() {
         require(static_cast<double>(engine.status()["position"]) == paused, "Pause must hold the streamed cursor");
         engine.command("a", 700); engine.command("b", 710); require(engine.saveSection("Ending").isEmpty(), "Long-take export ranges must save");
         const auto section = engine.status()["sections"][0]["id"].toString(); require(engine.recallSection(section).isEmpty(), "Long-take sections must recall"); render(engine, 1);
-        require(static_cast<double>(engine.status()["position"]) == 700 && !static_cast<bool>(engine.status()["loop"]), "Streaming recall must seek and keep loop disabled");
+        require(static_cast<double>(engine.status()["position"]) == 700 && static_cast<bool>(engine.status()["loop"]), "Streaming section recall must seek and enable looping");
+        engine.command("a", 100.125); engine.command("b", 749.125); engine.command("seek", 749.124); render(engine, 1);
+        waitFor([&] { render(engine, 1); return static_cast<bool>(engine.status()["loopPrefetchReady"]); });
+        at(engine, 749.124); const auto before = static_cast<juce::int64>(engine.status()["reviewUnderruns"]); render(engine, 128);
+        require(static_cast<double>(engine.status()["position"]) < 100.13 && static_cast<juce::int64>(engine.status()["reviewUnderruns"]) == before, "Distant long-take loop must wrap into the reserved loop-head cache");
+        engine.command("pause"); engine.command("loop", 0); render(engine, 1);
+        engine.command("a", 200); engine.command("b", 200.051); engine.command("loop", 1); engine.command("seek", 200); render(engine, 1);
+        waitFor([&] { render(engine, 1); return static_cast<bool>(engine.status()["loopPrefetchReady"]); });
+        at(engine, 200); const auto tinyBefore = static_cast<juce::int64>(engine.status()["reviewUnderruns"]);
+        for (int n = 0; n < 100; ++n) render(engine, 128);
+        require(static_cast<double>(engine.status()["position"]) >= 200 && static_cast<double>(engine.status()["position"]) < 200.051 && static_cast<juce::int64>(engine.status()["reviewUnderruns"]) == tinyBefore,
+            "Repeated short loops must remain in range without starving pinned slots");
         engine.load(folder.getChildFile("missing.wav")); waitFor([&] { return !static_cast<bool>(engine.status()["loading"]); });
         require(static_cast<bool>(engine.status()["streaming"]) && engine.status()["track"].toString() == "long.wav", "Failed replacement must retain the previous stream");
         const auto shortFile = folder.getChildFile("replacement.wav"); fixture(shortFile, 2, 48000, 48000);
@@ -125,7 +156,27 @@ void runStreamingReviewChecks() {
         waitFor([&] { return held.load(); });
         for (int n = 0; n < 30; ++n) { stream.request(48000 * (n * 11)); stream.service([] { return false; }); }
         release.store(true); pin.join(); require(stable.load(), "Cache eviction must preserve samples held by a callback");
-        reader->failReads = true; stream.request(48000 * 300); stream.service([] { return false; });
+        stream.request(48000 * 300); require(stream.service([] { return false; }), "Seam current range must prepare");
+        const juce::int64 tail = 48000 * 300 + 111, head = 48000 * 651 + 111;
+        stream.requestLoop(head); require(!stream.ready(head), "Loop-head withholding fixture must be uncached");
+        const auto seamWaits = stream.underrunCount(); const int readsBeforeSeam = reader->reads;
+        for (int attempt = 0; attempt < 3; ++attempt) {
+            bool missing = false; std::thread seam([&] { ReviewStream::Read read(stream); float l=0,r=0; missing = !read.sample(tail, .5f, l, r, head); }); seam.join();
+            require(missing, "Uncached seam must wait without replaying a stale range");
+        }
+        require(stream.underrunCount() == seamWaits + 1 && reader->reads == readsBeforeSeam, "A continuous seam wait must count once without callback IO");
+        for (int n = 0; n < 5; ++n) stream.service([] { return false; }); require(stream.loopReady() && stream.ready(head), "Loop head must be prefetched within the same cache budget");
+        bool paired = false;
+        std::thread wrap([&] { float l=0,r=0, start=0,sr=0,end=0,er=0;
+            { ReviewStream::Read read(stream); read.sample(head,0,start,sr); }
+            ReviewStream::Read read(stream); read.sample(tail,0,end,er);
+            paired = read.sample(tail,.5f,l,r,head) && std::abs(l - .5f * (start + end)) < 1e-6f && read.sample(head,0,l,r);
+        }); wrap.join(); require(paired, "A distant fractional seam must interpolate the true loop head and release its temporary claim before wrap");
+        for (int n = 0; n < 24; ++n) stream.service([] { return false; });
+        stream.request(48000 * 500); for (int n = 0; n < 24; ++n) stream.service([] { return false; });
+        require(stream.ready(head), "Moving playback window must retain the reserved loop head");
+        stream.requestLoop(-1);
+        reader->failReads = true; stream.request(48000 * 350); stream.service([] { return false; });
         require(stream.hasFailed() && stream.failure().isNotEmpty(), "Reader failure must stop streaming with an explanation");
     }
     {

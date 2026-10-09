@@ -7,6 +7,7 @@ public:
     ~AmpSuiteAudioProcessorEditor() override;
     void resized() override;
 private:
+    void choosePracticeJournal(bool save);
     void chooseFile(int);
     juce::String chooseBackup(bool restore, bool includeTakes = true, std::optional<juce::StringArray> selectedTakeIds = std::nullopt);
     juce::String chooseRigFile(bool save, bool pack = false, const juce::String& savedId = {});

@@ -83,6 +83,8 @@ void runBackupChecks(const juce::File& model)
     const auto section = juce::SHA256(originals.getChildFile("Guitar processed.wav")).toHexString() + ".json";
     source.getChildFile("take-sections").createDirectory(); source.getChildFile("take-sections").getChildFile(section).replaceWithText(sectionDocument(section.dropLastCharacters(5)));
     const auto destination = base.getChildFile("Personal.cassian-backup.zip"); std::atomic<bool> cancelled {false};
+    const auto journal = source.getChildFile("practice-journal.json");
+    journal.replaceWithText(R"({"schema":1,"sets":[{"id":"clean-plan","name":"Expressive clean","tasks":[{"title":"Dynamics","minutes":10,"bpm":80}]}],"sessions":[]})");
     const auto sourceHash = juce::SHA256(source.getChildFile("library.xml")).toHexString(), audioHash = juce::SHA256(originals.getChildFile("Guitar dry.wav")).toHexString();
     const auto report = LibraryBackup::create(source, destination, rig, cancelled);
     require(report.takes == 1 && report.files >= 9 && destination.existsAsFile(), "Backup must include external recordings, snapshots, reamps and sound files");
@@ -90,7 +92,14 @@ void runBackupChecks(const juce::File& model)
     const auto extendedReport=LibraryBackup::create(source,extended,rig,cancelled,{},true,std::nullopt,true);
     require(extendedReport.takes==1 && BackupZip::Reader(extended).isZip64(),"Library backup must support explicit small ZIP64 fixtures");
     const auto extendedTarget=base.getChildFile("ZIP64 target");
-    require(LibraryBackup::restore(extended,extendedTarget,cancelled,validate).takes==1,"ZIP64 recovery must preserve catalog and snapshot compatibility");
+    const auto journalRestored = LibraryBackup::restore(extended,extendedTarget,cancelled,validate);
+    require(journalRestored.takes==1,"ZIP64 recovery must preserve catalog and snapshot compatibility");
+    require(PracticeJournal::readDocument(journalRestored.location.getChildFile("practice-journal.json"))["sets"].size() == 1 && !extendedTarget.getChildFile("practice-journal.json").exists() && journalRestored.warning.contains("Practice"), "Backup recovery must retain a validated journal for explicit import without replacing local history");
+    const auto originalJournal = journal.loadFileAsString(); journal.replaceWithText("{damaged optional journal");
+    const auto damagedJournalArchive = base.getChildFile("Damaged journal backup.zip"); LibraryBackup::create(source, damagedJournalArchive, rig, cancelled);
+    const auto damagedJournalRecovery = LibraryBackup::restore(damagedJournalArchive, base.getChildFile("Damaged journal target"), cancelled, validate);
+    require(damagedJournalRecovery.takes == 1 && damagedJournalRecovery.warning.contains("journal is invalid") && damagedJournalRecovery.location.getChildFile("practice-journal.json").loadFileAsString() == "{damaged optional journal", "Damaged optional history must not block protecting or recovering valid recordings");
+    journal.replaceWithText(originalJournal);
     const auto extendedTake=read(extendedTarget.getChildFile("takes.xml")).getChild(0);
     require(juce::SHA256(juce::File(extendedTake["path"].toString()).getChildFile("Guitar dry.wav")).toHexString()==audioHash,"ZIP64 recovered audio must be byte-identical");
     const auto beforeExtended=juce::SHA256(extendedTarget.getChildFile("library.xml")).toHexString();

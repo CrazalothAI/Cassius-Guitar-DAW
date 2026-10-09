@@ -800,6 +800,7 @@ juce::var AmpSuiteAudioProcessor::status()
     result->setProperty("releaseChannel", CASSIAN_RELEASE_CHANNEL);
     result->setProperty("releaseCandidate", CASSIAN_RELEASE_CANDIDATE);
     result->setProperty("practice", practice.status());
+    result->setProperty("practiceJournal", practiceJournal ? practiceJournal->status() : juce::var());
     result->setProperty("takes", takes.status());
     result->setProperty("review", takeReview.status());
     result->setProperty("midi", midiControl.status());

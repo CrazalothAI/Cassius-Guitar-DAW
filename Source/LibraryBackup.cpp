@@ -1,5 +1,6 @@
 #include "LibraryBackup.h"
 #include "PracticeSections.h"
+#include "PracticeJournal.h"
 #include <cmath>
 #include <map>
 #include <stdexcept>
@@ -34,7 +35,7 @@ bool safePath(const juce::String& path) {
 }
 bool payloadPath(const juce::String& name) {
     if (!safePath(name)) return false;
-    if (name == "library.xml" || name == "takes.xml") return true;
+    if (name == "library.xml" || name == "takes.xml" || name == "practice-journal.json") return true;
     juce::StringArray parts; parts.addTokens(name, "/", "");
     if (parts.size() == 3 && parts[0] == "takes") return parts[1].containsOnly("0123456789") && (parts[2].endsWithIgnoreCase(".wav") || parts[2].endsWithIgnoreCase(".json"));
     if (parts.size() != 2) return false;
@@ -256,6 +257,10 @@ LibraryBackup::Report LibraryBackup::create(const juce::File& root, const juce::
             add(file, juce::String(section) + "/" + file.getFileName());
         }
     }
+    // Preserve optional journal bytes even if damaged, just like sections.
+    // The source-watch check rejects changes during archive creation.
+    const auto journal = root.getChildFile("practice-journal.json");
+    if (journal.existsAsFile()) add(journal, "practice-journal.json");
     for (const auto& document : documents) { const auto file = staging.file.getChildFile(document.name); writeText(file, juce::JSON::toString(rewriteValue({}, document.value, paths, true, 0))); add(file, document.name, false); }
     rewriteTree(library, paths, true); rewriteTree(takes, paths, true);
     const auto portableLibrary = staging.file.getChildFile("library.xml"), portableTakes = staging.file.getChildFile("takes.xml");
@@ -277,6 +282,9 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
     require(root != juce::File() && root.createDirectory().wasOk() && validator != nullptr, "Recovery requires shared storage and rig validation.");
     Folder staging(root); const auto files = verifyArchive(archive, staging.file, cancelled, progress); Paths paths;
     const auto recovered = root.getChildFile("Recovered").getChildFile(juce::Time::getCurrentTime().formatted("%Y-%m-%d-%H-%M-%S-") + juce::Uuid().toString());
+    const auto journal = staging.file.getChildFile("practice-journal.json");
+    bool journalValid = false;
+    if (journal.existsAsFile()) try { PracticeJournal::readDocument(journal); journalValid = true; } catch (const std::exception&) {}
     juce::int64 bytes = 0;
     for (const auto& item : files) { paths[key(item.name)] = recovered.getChildFile(item.name).getFullPathName(); bytes += item.bytes;
         if (item.name.startsWith("takes/")) { const auto parent = item.name.upToLastOccurrenceOf("/", false, false); paths[key(parent)] = recovered.getChildFile(parent).getFullPathName(); } }
@@ -389,6 +397,7 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
     details->setProperty("created",juce::Time::getCurrentTime().toISO8601(true)); details->setProperty("rigsAdded",rigs); details->setProperty("takesAdded",takes.getNumChildren());
     details->setProperty("sectionsAdded",sectionsAdded); details->setProperty("sectionsKept",sectionsKept); details->setProperty("sectionsSkipped",sectionsSkipped); details->setProperty("sections",sectionResults);
     juce::String warning = sectionsSkipped > 0 ? juce::String(sectionsSkipped) + " section files were skipped. Verified copies remain in the recovered folder." : juce::String();
+    if (recovered.getChildFile("practice-journal.json").existsAsFile()) warning += (warning.isEmpty() ? "" : " ") + juce::String(journalValid ? "Practice sets/history were preserved in the recovered folder. Import practice-journal.json from Practice to add them; existing history was kept." : "The optional practice journal is invalid. Its verified copy remains in the recovered folder; existing history and recovered audio were preserved.");
     try { replace(recovered.getChildFile("Recovery report.json"),juce::JSON::toString(juce::var(details.release()))); if (sectionsSkipped > 0) warning += " See Recovery report.json for details."; }
     catch (const std::exception&) { warning += (warning.isEmpty() ? "" : " ") + juce::String("The detailed recovery report could not be saved."); }
     if (progress) progress(1);

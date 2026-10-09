@@ -94,7 +94,7 @@ juce::String PracticeEngine::command(const juce::String& name, double x)
         (name == "a" ? loopA : loopB).store(juce::jlimit(0., duration.load(), x));
         if (loopB.load() - loopA.load() < .05) loop.store(false);
     }
-    else if (name == "loop") { if (x != 0 && ownedTrack && ownedTrack->stream) return "Long-take review supports A–B export ranges; looping is not available yet."; if (loadingTrack.load() || recordMode.load() != 0 || countActive.load() || startRequested.load()) return "Finish preparation, the take or count-in before changing looping."; if (x != 0 && loopB.load() - loopA.load() < .05) return "Set B at least 0.05 seconds after A."; loop.store(x != 0); }
+    else if (name == "loop") { if (loadingTrack.load() || recordMode.load() != 0 || countActive.load() || startRequested.load()) return "Finish preparation, the take or count-in before changing looping."; if (x != 0 && loopB.load() - loopA.load() < .05) return "Set B at least 0.05 seconds after A."; loop.store(x != 0); }
     else return "Unknown practice control.";
     return {};
 }
@@ -377,8 +377,13 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
     }
     const auto requestedSeek = seek.exchange(-1);
     if (requestedSeek >= 0) position = requestedSeek;
+    const bool looping = loop.load(); const double a = loopA.load(), b = loopB.load();
     std::optional<ReviewStream::Read> streamRead;
-    if (source && source->stream) { source->stream->request(static_cast<juce::int64>(position * source->rate)); streamRead.emplace(*source->stream); }
+    if (source && source->stream) {
+        source->stream->request(static_cast<juce::int64>(position * source->rate));
+        source->stream->requestLoop(looping && b > a && b <= source->duration ? static_cast<juce::int64>(a * source->rate) : -1);
+        streamRead.emplace(*source->stream);
+    }
     gain.setTargetValue(juce::Decibels::decibelsToGain(levelDb.load()));
     if (!playing.load() && !countActive.load() && recordMode.load() != 2 && recordMode.load() != 3) {
         gain.skip(output.getNumSamples()); reportedPosition.store(position);
@@ -388,7 +393,6 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
     int start1 = 0, size1 = 0, start2 = 0, size2 = 0, written = 0;
     if (recordMode.load() == 2 || recordMode.load() == 3)
         fifo.prepareToWrite(output.getNumSamples(), start1, size1, start2, size2);
-    const bool looping = loop.load(); const double a = loopA.load(), b = loopB.load();
     const double fadeSeconds = loopFadeMs.load() * .001;
     // Standard WAV's 32-bit chunk lengths also bound takes at very high rates.
     const auto frameLimit = static_cast<juce::int64>(juce::jmin(recordingRate.load() * 3600., (4294967295. - 1048576.) / 8));
@@ -433,22 +437,7 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
             if (position >= end) { playing.store(false); position = end; }
             else {
                 const double frame = position * frameRate;
-                if (source->stream) {
-                    float left = 0, right = 0;
-                    const auto index = juce::jlimit<juce::int64>(0, source->stream->frameCount() - 1, static_cast<juce::int64>(frame));
-                    if (streamRead->sample(index, static_cast<float>(frame - index), left, right)) {
-                        if (output.getNumChannels() > 0) output.addSample(0, i, volume * left);
-                        if (output.getNumChannels() > 1) output.addSample(1, i, volume * right);
-                        position += 1. / sampleRate;
-                        if (position >= end) { position = end; playing.store(false); }
-                    } // Underruns hold the cursor and never skip or reuse stale audio.
-                    else if (source->stream->hasFailed()) playing.store(false);
-                } else {
-                const int index = juce::jlimit(0, source->audio.getNumSamples() - 1, static_cast<int>(frame));
-                const float fraction = static_cast<float>(frame - index);
-                int next = juce::jmin(index + 1, source->audio.getNumSamples() - 1);
                 const bool validLoop = looping && b > a && b <= end;
-                if (validLoop && (index + 1) / frameRate >= b) next = juce::jlimit(0, source->audio.getNumSamples() - 1, static_cast<int>(a * frameRate));
                 float edgeGain = 1;
                 if (validLoop && fadeSeconds > 0 && position >= a) {
                     const double width = juce::jmin(fadeSeconds * source->speed, (b - a) * .25);
@@ -458,6 +447,22 @@ bool PracticeEngine::process(juce::AudioBuffer<float>& output, const float* dry,
                         edgeGain = static_cast<float>(.5 - .5 * std::cos(juce::MathConstants<double>::pi * edge));
                     }
                 }
+                if (source->stream) {
+                    float left = 0, right = 0;
+                    const auto index = juce::jlimit<juce::int64>(0, source->stream->frameCount() - 1, static_cast<juce::int64>(frame));
+                    const auto alternate = validLoop && (index + 1) / frameRate >= b ? static_cast<juce::int64>(a * frameRate) : -1;
+                    if (streamRead->sample(index, static_cast<float>(frame - index), left, right, alternate)) {
+                        if (output.getNumChannels() > 0) output.addSample(0, i, volume * edgeGain * left);
+                        if (output.getNumChannels() > 1) output.addSample(1, i, volume * edgeGain * right);
+                        position += 1. / sampleRate;
+                        if (!validLoop && position >= end) { position = end; playing.store(false); }
+                    } // Underruns hold the cursor and never skip or reuse stale audio.
+                    else if (source->stream->hasFailed()) playing.store(false);
+                } else {
+                const int index = juce::jlimit(0, source->audio.getNumSamples() - 1, static_cast<int>(frame));
+                const float fraction = static_cast<float>(frame - index);
+                int next = juce::jmin(index + 1, source->audio.getNumSamples() - 1);
+                if (validLoop && (index + 1) / frameRate >= b) next = juce::jlimit(0, source->audio.getNumSamples() - 1, static_cast<int>(a * frameRate));
                 for (int ch = 0; ch < 2; ++ch) {
                     const auto* samples = source->audio.getReadPointer(ch);
                     const auto x = volume * edgeGain * (samples[index] + fraction * (samples[next] - samples[index]));
@@ -482,7 +487,8 @@ juce::var PracticeEngine::status()
     { const juce::ScopedLock lock(control); o->setProperty("track", trackName); o->setProperty("error", error); o->setProperty("takePath", takePath);
       o->setProperty("waveRevision", waveRevision); o->setProperty("sections", sectionRows); o->setProperty("sectionRevision", sectionRevision); o->setProperty("sectionError", sectionError); }
     { const juce::ScopedLock lock(control); const auto* stream = ownedTrack ? ownedTrack->stream.get() : nullptr;
-      o->setProperty("streaming", stream != nullptr); o->setProperty("loopAvailable", stream == nullptr);
+      o->setProperty("streaming", stream != nullptr); o->setProperty("loopAvailable", true);
+      o->setProperty("loopPrefetchReady", !stream || stream->loopReady());
       o->setProperty("buffering", stream && stream->isBuffering() && transportActive()); o->setProperty("reviewUnderruns", stream ? stream->underrunCount() : 0);
       o->setProperty("reviewCacheBytes", stream ? ReviewStream::cacheBytes : 0); }
     o->setProperty("loading", loadingTrack.load());
@@ -531,7 +537,7 @@ juce::String PracticeEngine::recallSection(const juce::String& id)
         for (const auto& row : *latest.getArray()) if (row["id"].toString() == id) {
             const double a = row["a"], b = juce::jmin(duration.load(), static_cast<double>(row["b"]));
             playing.store(false); startRequested.store(false); startEpoch.fetch_add(1);
-            loop.store(false); loopA.store(a); loopB.store(b); seek.store(a); loop.store(!ownedTrack || !ownedTrack->stream);
+            loop.store(false); loopA.store(a); loopB.store(b); seek.store(a); loop.store(true);
             sectionRows = latest; sectionError.clear(); ++sectionRevision; return {};
         }
         sectionRows = latest; ++sectionRevision; return "That practice section no longer exists. Reload the track.";

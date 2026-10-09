@@ -2,6 +2,8 @@
 
 Implemented in the 1.1.0 preview. Open **Library → Backup & recovery**.
 
+Since **1.5.0**, all scopes also preserve an existing local practice journal. Pause its timer and finish pending saves before backup/recovery. Restore retains the verified `practice-journal.json` in the recovered folder for explicit import from Practice; it never replaces the current journal. A damaged optional journal warns without preventing audio/rig recovery. See [practice sets/history](PRACTICE-JOURNAL.md).
+
 ## Create a backup
 
 Finish recording, reamping, exporting and library edits, then choose **Create backup**. Save the `.cassian-backup.zip` on another drive if you want protection against failure of the computer's main drive. Keep multiple dated copies.

@@ -21,6 +21,8 @@ export function supportReport(status) {
     `Sample rate: ${status.sampleRate || 'Unavailable'} Hz`, `Buffer: ${status.bufferSize || 'Unavailable'} samples`,
     `DSP load: ${Math.round(status.cpu || 0)}%`, `Processing overruns: ${status.overruns || 0}`,
     `Device dropouts: ${status.dropouts >= 0 ? status.dropouts : 'Not reported by driver'}`,
+    `Take review: ${status.review ? status.review.streaming ? 'Streaming WAV' : 'Decoded / idle' : 'Unavailable'}; buffering ${status.review?.buffering ? 'Yes' : 'No'}; buffer waits ${status.review?.reviewUnderruns || 0} (includes uncached seeks)`,
+    `Review loop: ${status.review?.loop ? 'On' : 'Off'}; start prefetch ${status.review?.loopPrefetchReady === false ? 'Preparing' : 'Ready / not needed'}; cache ${status.review?.reviewCacheBytes || 0} bytes`,
     `Board: ${status.board?.serial ? 'Serial' : 'Compatibility'}; ${status.board?.blocks?.length || 0} serial pedals`,
     `Input clipping: ${status.inputClipped ? 'Detected' : 'Not detected'}`,
     'Add your OS, interface driver version, steps to reproduce, and expected/actual result before submitting.'
@@ -56,6 +58,7 @@ export default function Help({status, onError, onChooseRig}) {
     <h3>Playing and recording</h3>
     <p>Mix helps your guitar sit over backing tracks. Browser/YouTube audio stays outside Cassian recordings. Load a track in Practice to record its backing stem and export a mixed soundtrack from Takes. Exports are 48 kHz / 24-bit stereo WAVs.</p>
     <p>Board supports independent pedals before and after the amp, duplication, reorder and Undo/Redo. Edit scenes to organize variations; Performance connects MIDI controls.</p>
+    <p>Practice sets organize clean, rhythm and lead exercises with time and BPM targets. Start a local timer, pause breaks and finish with notes. Export sets and history for another PC; no practice data is uploaded.</p>
     <p>Library → Backup &amp; recovery creates verified personal rig/take archives and restores copies while preserving existing work. The current archive limit is 32 GiB. Save your DAW projects and MIDI/device preferences separately.</p>
     <details><summary>No sound or crackles?</summary><p>Check the selected input, monitoring, interface output and Master. If the input clips, lower the interface gain. For reported dropouts, try a larger buffer in Audio settings or your DAW. Capture-based recipes need their listed files; the built-in rigs always work without captures.</p></details>
     <details><summary>Support report</summary><p>Review this report before copying it. It includes device names and audio settings. Recordings, file paths and imported sound names are excluded. Nothing is submitted automatically.</p><textarea aria-label="Support report" readOnly value={report} rows={10}/><button disabled={!native || busy} onClick={async () => { if (await action('copySupportReport', report)) setCopied(true); }}>Copy support report</button>{copied && <p role="status">Copied. Paste it into your issue with steps to reproduce.</p>}</details>

@@ -34,6 +34,7 @@
 #include "ActiveRig.h"
 #include "LibraryBackup.h"
 #include "ToneRecovery.h"
+#include "PracticeJournal.h"
 
 class AmpSuiteAudioProcessor final : public juce::AudioProcessor, public StandaloneDeviceHooks, private juce::Thread, private juce::Timer
 {
@@ -111,6 +112,7 @@ public:
     PracticeEngine takeReview;
     TakeLibrary takes;
     PracticeEngine practice;
+    std::unique_ptr<PracticeJournal> practiceJournal;
     void renderGuitarOffline(juce::AudioBuffer<float>&, int frames);
     juce::AudioProcessorValueTreeState apvts;
 private:
