@@ -381,6 +381,11 @@ juce::var TakeLibrary::list()
     }
     return takes;
 }
+bool TakeLibrary::containsVersion(const juce::String& id, const juce::String& version)
+{
+    const juce::ScopedLock guard(lock); const auto take = find(id);
+    return take.isValid() && (version == "processed" || version == "dry" || take.getChildWithProperty("id", version).isValid());
+}
 juce::var TakeLibrary::status()
 {
     auto o = std::make_unique<juce::DynamicObject>();

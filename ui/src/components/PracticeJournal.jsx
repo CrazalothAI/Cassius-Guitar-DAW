@@ -2,15 +2,23 @@ import { useEffect, useState } from 'react';
 import { invoke } from '../juce/bridge.js';
 import { time } from '../practiceTime.js';
 import { setParameter } from '../parameterState.js';
+import PracticeProgress from './PracticeProgress.jsx';
+import PracticeRecordingLinks from './PracticeRecordingLinks.jsx';
 
 const newTask = () => ({ title: 'Clean dynamics', minutes: 10, bpm: 80 });
 const date = value => { const d = new Date(value); return Number.isNaN(d.getTime()) ? value : d.toLocaleString(); };
 
-export default function PracticeJournal({ journal: j, recording, available, onError }) {
+export default function PracticeJournal({ journal: j, recording, available, onError, takeRevision, onOpenTake }) {
   const [doc, setDoc] = useState({ sets: [], sessions: [] }), [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(''), [taskIndex, setTaskIndex] = useState(0), [name, setName] = useState('My practice set');
   const [tasks, setTasks] = useState([newTask()]), [notes, setNotes] = useState(''), [filter, setFilter] = useState(''), [pending, setPending] = useState(false), [confirm, setConfirm] = useState('');
   const [awaitingSet, setAwaitingSet] = useState(null);
+  const [takes, setTakes] = useState([]);
+  useEffect(() => {
+    let current = true;
+    if (open && available && j?.writable) invoke('getTakes').then(value => { if (current) setTakes(Array.isArray(value) ? value : []); }).catch(() => { if (current) { setTakes([]); onError({ title: 'Practice recordings', text: 'Could not load recording links. Reopen history to retry.' }); } });
+    return () => { current = false; };
+  }, [open, available, j?.writable, takeRevision]);
   useEffect(() => {
     let current = true;
     if (available && j?.writable) invoke('getPracticeJournal').then(value => { if (current && value?.sets && value?.sessions) setDoc(value); }).catch(() => { if (current) onError({ title: 'Practice history', text: 'Could not load practice history. Reopen Practice to retry.' }); });
@@ -77,12 +85,13 @@ export default function PracticeJournal({ journal: j, recording, available, onEr
         <button disabled={blocked || !!active || !valid || doc.sessions.length >= 256} onClick={() => action('start', { ...task, setName: name.trim() })}>Start practice timer</button>
         <button disabled={blocked || recording || !valid} onClick={() => setParameter('METRO_BPM', task.bpm)}>Use exercise tempo</button>
       </div>
+      <PracticeProgress sessions={doc.sessions}/>
       <h3>Session history</h3><p className="practice-note">{time(completedSeconds)} across {doc.sessions.filter(row => row.state === 'finished').length} finished sessions. Notes are saved when you finish. Interrupted sessions retain their last saved time and do not resume automatically.</p>
       <label>Find a session<input aria-label="Find a session" value={filter} onChange={e => setFilter(e.target.value)}/></label>
       <div className="journal-history">{rows.length ? rows.map(row => <article key={row.id}>
-        <div><strong>{row.title}</strong><span>{row.setName} · {date(row.started)}</span><span>{time(row.seconds)} · {row.bpm} BPM target · {row.state}{row.seconds >= row.minutes * 60 ? ' · Time target reached' : ''}</span>{row.notes && <p>{row.notes}</p>}</div>
+        <div><strong>{row.title}</strong><span>{row.setName} · {date(row.started)}</span><span>{time(row.seconds)} · {row.bpm} BPM target · {row.state}{row.seconds >= row.minutes * 60 ? ' · Time target reached' : ''}</span>{row.notes && <p>{row.notes}</p>}<PracticeRecordingLinks session={row} takes={takes} blocked={blocked} recording={recording} onAction={action} onOpenTake={onOpenTake}/></div>
         <button disabled={blocked || row.id === active?.id} onClick={() => remove('removeSession', row.id)}>{confirm === `removeSession:${row.id}` ? 'Confirm remove session' : 'Remove session'}</button>
-      </article>) : <p className="practice-note">No sessions yet. Start an exercise to build your history.</p>}</div>
+      </article>) : <p className="practice-note">{doc.sessions.length ? 'No sessions match your search.' : 'No sessions yet. Start an exercise to build your history.'}</p>}</div>
       <div className="journal-transfer"><button disabled={blocked || recording} onClick={() => transfer(true)}>Export sets &amp; history</button><button disabled={blocked || recording || !!active} onClick={() => transfer(false)}>Import sets &amp; history</button></div>
       <p className="practice-note">Up to 32 sets, 8 exercises per set and 256 sessions. Export a JSON copy before removing older entries. Import adds missing identities and preserves existing entries; conflicting identities are rejected.</p>
     </>}

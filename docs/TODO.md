@@ -17,7 +17,11 @@
 - [x] Add 1.4.0 bounded standard-WAV long-take review with normal-speed transport, fixed cache, waveform/sections, buffering and changed-media protection.
 - [x] Add 1.5.0 streamed-loop prefetch with fixed cache, fractional/EOF boundaries, fades and separate review-buffer diagnostics; sustained playing, speed changes/RF64 remain separate work.
 - [x] Add 1.5.0 reusable practice sets, native timer/pause/notes/history, interrupted-session checkpoints, portable JSON transfer and personal-backup retention.
-- [ ] Validate practice sets/history and looped long-take review with real playing and a second-PC transfer; recording links/progress charts follow planner feedback.
+- [x] Add 1.6.0 finished-session progress, per-exercise target summaries, bounded exact recording/version links and explicit take selection without autoplay.
+- [x] Add schema-1 journal migration and personal-recovery linked-history copies with fresh take IDs, preserved originals and explicit conflict handling.
+- [x] Fix the sanitizer-proven status/rig-replacement tree lifetime race and add concurrent polling through 64 complete recalls; full ordinary and ASan suites pass afterward.
+- [ ] Validate practice sets/history, links/progress and looped long-take review with real playing and a second-PC transfer.
+- [ ] Continue the scoped 1.7 first-session polish, 1.8 cabinet refinement, 1.9 finishing/preservation and 2.0 hardening milestones in [Path to 2.0.0](ROAD-TO-2.0.md).
 - [ ] Validate the first-five-minutes workflow with a new user and sustained long-take review; see [product roadmap](PRODUCT-ROADMAP.md).
 - [ ] Validate backup/restore and snapshot recovery on a second PC and large real libraries. Automatic recording/session recovery remains separate work.
 

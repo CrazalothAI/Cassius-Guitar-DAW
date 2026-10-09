@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 const bridge = vi.hoisted(() => ({ invoke: vi.fn(), setParameter: vi.fn() }));
 vi.mock('./juce/bridge.js', () => ({ invoke: bridge.invoke }));
 vi.mock('./parameterState.js', () => ({ setParameter: bridge.setParameter }));
@@ -71,4 +71,44 @@ it('fetches lists only when the native revision changes and hides the journal in
   view.rerender(<PracticeJournal {...props} journal={{ ...summary, active: { ...session, seconds: 2 } }}/ >);
   expect(bridge.invoke.mock.calls.filter(([name]) => name === 'getPracticeJournal').length).toBe(count);
   view.rerender(<PracticeJournal {...props} journal={null}/>); expect(screen.queryByLabelText('Practice sets and history')).toBeNull();
+});
+it('links a chosen version, opens it explicitly and unlinks without touching recordings', async () => {
+  const link = { takeId: 'take', version: 'v1' }, onOpenTake = vi.fn();
+  const entries = [{ id: 'take', name: 'Clean recording', versions: [{ id: 'v1', name: 'Lead reamp' }] }];
+  bridge.invoke.mockImplementation(method => Promise.resolve(method === 'getTakes' ? entries : method === 'getPracticeJournal' ? { ...doc, sessions: [{ ...session, recordings: [link] }] } : ''));
+  await open({ onOpenTake });
+  fireEvent.click(screen.getByText('Recordings · 1 / 8'));
+  await screen.findByRole('option', { name: 'Clean recording' });
+  fireEvent.click(screen.getByRole('button', { name: 'Open in Takes' })); expect(onOpenTake).toHaveBeenCalledWith(link);
+  expect(bridge.invoke).not.toHaveBeenCalledWith('previewTake', expect.anything(), expect.anything());
+  fireEvent.change(screen.getByLabelText('Recording for Clean touch (old)'), { target: { value: 'take' } });
+  fireEvent.change(screen.getByLabelText('Recording version for Clean touch (old)'), { target: { value: 'v1' } });
+  expect(screen.getByRole('button', { name: 'Link recording' }).disabled).toBe(true);
+  fireEvent.change(screen.getByLabelText('Recording version for Clean touch (old)'), { target: { value: 'dry' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Link recording' }));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('practiceJournalCommand', 'addRecording', { sessionId: 'old', takeId: 'take', version: 'dry' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Unlink recording' }));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('practiceJournalCommand', 'removeRecording', { sessionId: 'old', ...link }));
+});
+it('preserves portable unavailable links and disables opening/linking during recording', async () => {
+  const link = { takeId: 'other-pc', version: 'dry' };
+  bridge.invoke.mockImplementation(method => Promise.resolve(method === 'getPracticeJournal' ? { ...doc, sessions: [{ ...session, recordings: [link] }] } : method === 'getTakes' ? [] : ''));
+  const view = await open({ onOpenTake: vi.fn() }); fireEvent.click(screen.getByText('Recordings · 1 / 8'));
+  expect(screen.getByText(/Unavailable recording · other-pc/)).toBeTruthy(); expect(screen.getByRole('button', { name: 'Open in Takes' }).disabled).toBe(true);
+  view.rerender(<PracticeJournal {...props} recording onOpenTake={vi.fn()}/>);
+  expect(screen.getByLabelText('Recording for Clean touch (old)').disabled).toBe(true);
+  expect(screen.getByRole('button', { name: 'Unlink recording' }).disabled).toBe(false);
+});
+it('shows progress separately from the history search and refreshes takes only on catalog changes', async () => {
+  const view = await open({ takeRevision: 1 });
+  const progress = within(screen.getByRole('region', { name: 'Practice progress' }));
+  expect(progress.getByRole('list', { name: 'Daily finished practice time' }).children).toHaveLength(28);
+  expect(progress.getByText(/do not measure notes played/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Find a session'), { target: { value: 'missing' } });
+  expect(screen.getByRole('region', { name: 'Practice progress' })).toBeTruthy();
+  const count = bridge.invoke.mock.calls.filter(([name]) => name === 'getTakes').length;
+  view.rerender(<PracticeJournal {...props} takeRevision={1} journal={{ ...summary, active: { ...session, seconds: 2 } }}/>);
+  expect(bridge.invoke.mock.calls.filter(([name]) => name === 'getTakes').length).toBe(count);
+  view.rerender(<PracticeJournal {...props} takeRevision={2}/>);
+  await waitFor(() => expect(bridge.invoke.mock.calls.filter(([name]) => name === 'getTakes').length).toBe(count + 1));
 });

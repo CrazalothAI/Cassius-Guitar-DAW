@@ -28,6 +28,7 @@ public:
     void stopReview();
     void cancelExport() { cancelled.store(true); }
     juce::var list();
+    bool containsVersion(const juce::String& id, const juce::String& version);
     juce::var status();
     juce::String reveal(const juce::String& id);
     juce::String revealExport();

@@ -1,6 +1,6 @@
 # Cassian user guide
 
-In standalone **Takes**, long standard WAV versions stream at normal speed with seeking, waveforms, saved ranges and A–B loops. The fixed cache prepares the current range and loop start; buffering holds the cursor until audio is ready. Practice also includes reusable exercise sets and a local timer/history with portable JSON exports. See [1.5.0](RELEASE-1.5.0.md) and [practice sets/history](PRACTICE-JOURNAL.md).
+In standalone **Takes**, long standard WAV versions stream at normal speed with seeking, waveforms, saved ranges and A–B loops. The fixed cache prepares the current range and loop start; buffering holds the cursor until audio is ready. **Practice → Practice sets & history** includes reusable exercises, a local timer/notes, 28-day finished-session progress and portable JSON exports. Expand a session's **Recordings** to link a dry/processed/reamp version; **Open in Takes** selects it without starting playback. See [1.6.0](RELEASE-1.6.0.md) and [practice sets/history](PRACTICE-JOURNAL.md).
 
 In **Takes → Recover interrupted recording**, choose the original take folder to recover a separate readable audio copy. Listen to Original processed, acknowledge your review, then Confirm recovered take to enable export/reamping. Use Open take folder and the external-player acknowledgement if a file is unsupported. Original files stay intact. Recovery validates all copied stems and keeps a local report; unreadable headers/uncheckpointed tails are not repaired. New recordings checkpoint their WAV headers on the disk worker about every two seconds. See [take recovery and limits](TAKE-LIBRARY.md).
 
@@ -10,7 +10,9 @@ For personal library/take protection, open **Library → Backup & recovery**. Cr
 
 Recovery validates new practice/review sections and preserves existing ones. If optional section files are skipped, your audio and rigs still recover. Choose **Show saved files** and inspect **Recovery report.json** for individual results; verified originals remain alongside recovered media.
 
-Cassian is a guitar workstation for live amp/pedal tones, backing-track practice, recording and reamping. The 1.0 release candidate targets Windows x64 standalone and VST3. Linux source exists but has no validated release package. All 22 built-in rigs include their sounds; the 20 capture recipes require the listed user-imported files.
+Recovered recordings receive fresh identities. If history links to an included take, recovery keeps the verified `practice-journal.json` and supplies **practice-journal-linked.json** with updated recording links. Import that linked copy from Practice on the destination PC. Conflicting current sessions reject import; keep existing history and manually relink instead. Excluded recordings remain unavailable. Importing recording folders separately also needs new links; history JSON carries no audio.
+
+Cassian is a guitar workstation for live amp/pedal tones, backing-track practice, recording and reamping. The 1.6.0 preview targets Windows x64 standalone and VST3. Linux source exists but has no validated release package. All 22 built-in rigs include their sounds; the 20 capture recipes require the listed user-imported files.
 
 ## Install and connect
 

@@ -100,6 +100,27 @@ void runBackupChecks(const juce::File& model)
     const auto damagedJournalRecovery = LibraryBackup::restore(damagedJournalArchive, base.getChildFile("Damaged journal target"), cancelled, validate);
     require(damagedJournalRecovery.takes == 1 && damagedJournalRecovery.warning.contains("journal is invalid") && damagedJournalRecovery.location.getChildFile("practice-journal.json").loadFileAsString() == "{damaged optional journal", "Damaged optional history must not block protecting or recovering valid recordings");
     journal.replaceWithText(originalJournal);
+    {
+        auto linked = PracticeJournal::readDocument(journal);
+        linked["sessions"].getArray()->add(juce::JSON::parse(R"({"id":"portable-session","title":"Clean dynamics","minutes":5,"bpm":80,"setName":"Daily","started":"2026-10-08T12:00:00Z","seconds":300,"state":"finished","notes":"Keep this take","recordings":[{"takeId":"old-take","version":"reamp-1"},{"takeId":"excluded-take","version":"dry"}]})"));
+        journal.replaceWithText(juce::JSON::toString(linked)); const auto originalBytes = journal.loadFileAsString();
+        const auto linkedArchive = base.getChildFile("Linked history.zip"); LibraryBackup::create(source, linkedArchive, rig, cancelled, {}, true, juce::StringArray {"old-take"});
+        const auto linkedRoot = base.getChildFile("Linked history target");
+        const auto restored = LibraryBackup::restore(linkedArchive, linkedRoot, cancelled, validate);
+        const auto freshId = read(linkedRoot.getChildFile("takes.xml")).getChild(0)["id"].toString();
+        const auto importedHistory = PracticeJournal::readDocument(restored.location.getChildFile("practice-journal-linked.json"));
+        require(importedHistory["sessions"][0]["recordings"][0]["takeId"].toString() == freshId && importedHistory["sessions"][0]["recordings"][0]["version"].toString() == "reamp-1" && importedHistory["sessions"][0]["recordings"][1]["takeId"].toString() == "excluded-take", "Selective recovery must remap included recording links and retain excluded identities without inventing audio");
+        require(restored.location.getChildFile("practice-journal.json").loadFileAsString() == originalBytes && journal.loadFileAsString() == originalBytes && restored.warning.contains("practice-journal-linked.json"), "Link recovery must preserve both verified archived history and live source history");
+        const auto recoveryReport = juce::JSON::parse(restored.location.getChildFile("Recovery report.json").loadFileAsString());
+        require(static_cast<int>(recoveryReport["journalLinksRemapped"]) == 1 && !static_cast<bool>(recoveryReport["journalRelinkFailed"]), "Recovery report must identify successful link remapping");
+        PracticeJournal secondPc(linkedRoot.getChildFile("practice-journal.json"));
+        const auto timeout = juce::Time::getMillisecondCounter() + 5000;
+        while (static_cast<bool>(secondPc.status()["busy"]) && juce::Time::getMillisecondCounter() < timeout) juce::Thread::sleep(2);
+        require(secondPc.command("import", {}, restored.location.getChildFile("practice-journal-linked.json")).isEmpty(), "Second-PC linked history import must queue");
+        while (static_cast<bool>(secondPc.status()["busy"]) && juce::Time::getMillisecondCounter() < timeout) juce::Thread::sleep(2);
+        require(secondPc.status()["error"].toString().isEmpty() && secondPc.document()["sessions"].size() == 1 && secondPc.document()["sessions"][0]["recordings"][0]["takeId"].toString() == freshId, "A restored recording and imported history must share the same fresh identity on another library");
+        journal.replaceWithText(originalJournal);
+    }
     const auto extendedTake=read(extendedTarget.getChildFile("takes.xml")).getChild(0);
     require(juce::SHA256(juce::File(extendedTake["path"].toString()).getChildFile("Guitar dry.wav")).toHexString()==audioHash,"ZIP64 recovered audio must be byte-identical");
     const auto beforeExtended=juce::SHA256(extendedTarget.getChildFile("library.xml")).toHexString();

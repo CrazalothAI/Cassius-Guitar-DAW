@@ -27,7 +27,16 @@ void task(const juce::var& row) {
     require(text(row["title"], 80) && number(row["minutes"], 1, 120) && number(row["bpm"], 40, 240), "Use a task name, 1–120 minutes and 40–240 BPM.");
     require(static_cast<double>(row["minutes"]) == std::floor(static_cast<double>(row["minutes"])) && static_cast<double>(row["bpm"]) == std::floor(static_cast<double>(row["bpm"])), "Practice targets must be whole numbers.");
 }
-juce::var emptyDocument() { return object({{"schema", 1}, {"sets", juce::Array<juce::var>()}, {"sessions", juce::Array<juce::var>()}}); }
+bool identity(const juce::var& value) {
+    if (!text(value, 64)) return false;
+    for (const auto c : value.toString()) if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_')) return false;
+    return true;
+}
+void recording(const juce::var& row) {
+    keys(row, "|takeId||version|");
+    require(identity(row["takeId"]) && identity(row["version"]), "Choose a valid take and version identity; file paths are not recording links.");
+}
+juce::var emptyDocument() { return object({{"schema", 2}, {"sets", juce::Array<juce::var>()}, {"sessions", juce::Array<juce::var>()}}); }
 int find(const juce::var& rows, const juce::String& id) {
     for (int i = 0; i < rows.size(); ++i) if (rows[i]["id"].toString() == id) return i;
     return -1;
@@ -44,6 +53,13 @@ bool equivalent(const juce::var& a, const juce::var& b, bool set) {
     } else {
         for (const auto* key : {"title", "setName", "started", "state", "notes"}) if (a[key].toString() != b[key].toString()) return false;
         for (const auto* key : {"minutes", "bpm", "seconds"}) if (static_cast<double>(a[key]) != static_cast<double>(b[key])) return false;
+        if (a["recordings"].size() != b["recordings"].size()) return false;
+        // Recording links are a set. Reordering exported JSON is not a conflict.
+        for (const auto& link : *a["recordings"].getArray()) {
+            bool matched = false;
+            for (const auto& other : *b["recordings"].getArray()) if (link["takeId"].toString() == other["takeId"].toString() && link["version"].toString() == other["version"].toString()) matched = true;
+            if (!matched) return false;
+        }
     }
     return true;
 }
@@ -57,7 +73,8 @@ PracticeJournal::PracticeJournal(juce::File document, std::function<double()> cl
 PracticeJournal::~PracticeJournal() { signalThreadShouldExit(); notify(); stopThread(-1); }
 void PracticeJournal::validate(const juce::var& doc) {
     keys(doc, "|schema||sets||sessions|");
-    require(doc["schema"].isInt() && static_cast<int>(doc["schema"]) == 1 && doc["sets"].isArray() && doc["sets"].size() <= 32 && doc["sessions"].isArray() && doc["sessions"].size() <= 256, "Unsupported or oversized practice journal. Existing data was preserved.");
+    const auto schema = static_cast<int>(doc["schema"]);
+    require(doc["schema"].isInt() && (schema == 1 || schema == 2) && doc["sets"].isArray() && doc["sets"].size() <= 32 && doc["sessions"].isArray() && doc["sessions"].size() <= 256, "Unsupported or oversized practice journal. Existing data was preserved.");
     for (const auto* category : {"sets", "sessions"}) {
         juce::StringArray ids;
         for (const auto& row : *doc[category].getArray()) {
@@ -68,10 +85,18 @@ void PracticeJournal::validate(const juce::var& doc) {
                 require(text(row["name"], 48) && row["tasks"].isArray() && row["tasks"].size() >= 1 && row["tasks"].size() <= 8, "A practice set needs a name and 1–8 tasks.");
                 for (const auto& item : *row["tasks"].getArray()) task(item);
             } else {
-                keys(row, "|id||title||minutes||bpm||setName||started||seconds||state||notes|");
+                keys(row, schema == 1 ? "|id||title||minutes||bpm||setName||started||seconds||state||notes|" : "|id||title||minutes||bpm||setName||started||seconds||state||notes||recordings|");
                 task(object({{"title", row["title"]}, {"minutes", row["minutes"]}, {"bpm", row["bpm"]}}));
                 require(text(row["setName"], 48, true) && text(row["started"], 40) && juce::Time::fromISO8601(row["started"].toString()).toMilliseconds() > 0 && number(row["seconds"], 0, 21600) && text(row["notes"], 1000, true), "Invalid practice session metadata.");
                 const auto state = row["state"].toString(); require(state == "running" || state == "paused" || state == "finished" || state == "interrupted", "Invalid practice session state.");
+                if (schema == 2) {
+                    require(row["recordings"].isArray() && row["recordings"].size() <= 8, "A session can link up to eight recording versions.");
+                    juce::StringArray links;
+                    for (const auto& link : *row["recordings"].getArray()) {
+                        recording(link); const auto key = link["takeId"].toString() + ":" + link["version"].toString();
+                        require(!links.contains(key), "Duplicate practice recording link."); links.add(key);
+                    }
+                }
             }
         }
     }
@@ -91,7 +116,13 @@ juce::var PracticeJournal::readDocument(const juce::File& source) {
         else if (c == ']' || c == '}') require(--depth >= 0, "Invalid practice journal nesting.");
     }
     require(depth == 0 && !quoted, "Practice journal is incomplete.");
-    const auto doc = juce::JSON::parse(content); validate(doc); return doc;
+    auto doc = juce::JSON::parse(content); validate(doc);
+    if (static_cast<int>(doc["schema"]) == 1) {
+        doc.getDynamicObject()->setProperty("schema", 2);
+        for (auto& row : *doc["sessions"].getArray()) row.getDynamicObject()->setProperty("recordings", juce::Array<juce::var>());
+        validate(doc);
+    }
+    return doc;
 }
 void PracticeJournal::write(const juce::File& destination, const juce::var& doc) {
     validate(doc); require(!destination.isSymbolicLink() && destination.getParentDirectory().createDirectory().wasOk(), "Cannot create practice journal storage.");
@@ -161,13 +192,23 @@ void PracticeJournal::run() {
                 keys(args, "|title||minutes||bpm||setName|"); task(object({{"title", args["title"]}, {"minutes", args["minutes"]}, {"bpm", args["bpm"]}}));
                 require(text(args["setName"], 48, true), "Invalid practice set name.");
                 nextActive = juce::Uuid().toString(); nextSince = at; nextTicking = true;
-                sessions->insert(0, object({{"id", nextActive}, {"title", args["title"]}, {"minutes", args["minutes"]}, {"bpm", args["bpm"]}, {"setName", args["setName"]}, {"started", juce::Time::getCurrentTime().toISO8601(true)}, {"seconds", 0.}, {"state", "running"}, {"notes", ""}}));
+                sessions->insert(0, object({{"id", nextActive}, {"title", args["title"]}, {"minutes", args["minutes"]}, {"bpm", args["bpm"]}, {"setName", args["setName"]}, {"started", juce::Time::getCurrentTime().toISO8601(true)}, {"seconds", 0.}, {"state", "running"}, {"notes", ""}, {"recordings", juce::Array<juce::var>()}}));
             } else if (action == "pause" || action == "resume" || action == "finish") {
                 require(index >= 0, "Start a practice session first."); auto* row = sessions->getReference(index).getDynamicObject();
                 if (action == "finish") { require(text(args, 1000, true), "Practice notes can use up to 1000 characters."); row->setProperty("notes", args); row->setProperty("state", "finished"); nextActive.clear(); nextTicking = false; }
                 else { require(action == "pause" ? ticking : !ticking, "That timer state has already changed."); require(action != "resume" || static_cast<double>((*sessions)[index]["seconds"]) < 21600, "This timer reached six hours. Finish it and start another session."); nextTicking = action == "resume"; row->setProperty("state", nextTicking ? "running" : "paused"); }
             } else if (action == "removeSession") {
                 const auto slot = find(next["sessions"], args.toString()); require(args.isString() && slot >= 0 && args.toString() != active, "Finish the session before removing it."); sessions->remove(slot);
+            } else if (action == "addRecording" || action == "removeRecording") {
+                keys(args, "|sessionId||takeId||version|");
+                const auto slot = find(next["sessions"], args["sessionId"].toString());
+                require(text(args["sessionId"], 64) && slot >= 0, "That practice session no longer exists.");
+                auto link = object({{"takeId", args["takeId"]}, {"version", args["version"]}}); recording(link);
+                auto* links = sessions->getReference(slot)["recordings"].getArray();
+                int existing = -1;
+                for (int i = 0; i < links->size(); ++i) if ((*links)[i]["takeId"].toString() == link["takeId"].toString() && (*links)[i]["version"].toString() == link["version"].toString()) existing = i;
+                if (action == "removeRecording") { require(existing >= 0, "That recording link no longer exists."); links->remove(existing); }
+                else if (existing < 0) { require(links->size() < 8, "A session can link up to eight recording versions. Remove a link first."); links->add(link); }
             } else if (action == "import") {
                 require(active.isEmpty(), "Finish the timer before importing practice history.");
                 const auto imported = readDocument(transfer);

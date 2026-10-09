@@ -1,5 +1,7 @@
 # Cassian next steps
 
+Current implementation milestone: **1.6.0 Preview — recording-linked practice progress**. See [1.6.0](RELEASE-1.6.0.md) and [Path to 2.0.0](ROAD-TO-2.0.md) for the active sequence. The earlier handoff below remains as historical scope and acceptance context.
+
 Planning checkpoint: 2026-10-08. This is an implementation handoff, not an instruction to publish or merge the current branch.
 
 Previous milestone: **1.3.0 Preview — recording recovery and simpler downloads**, following personal backup and tone recovery. New recordings publish incomplete metadata before arming and checkpoint WAV headers on the disk worker. Explicit recovery copies a readable prefix and requires review/checksum confirmation before export. GitHub publishes one current installer; local supporting packages live under `build/releases/<version>`. See [1.3.0](RELEASE-1.3.0.md) and the concise [product roadmap](PRODUCT-ROADMAP.md). The owner reports practical sound tests tried so far are passing. Signing remains deferred; manual acceptance results are not invented.

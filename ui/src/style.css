@@ -674,3 +674,23 @@ footer .warn { color: #efb86a; }
 .journal-history { max-height: 280px; overflow-y: auto; margin: 10px 0; }
 .journal-history article { display: flex; gap: 12px; align-items: start; padding: 12px 0; border-top: 1px solid #ffffff12; }
 .journal-history p { white-space: pre-wrap; font-size: 12px; margin: 3px 0; }
+.journal-progress { margin: 18px 0; padding: 12px; border: 1px solid #ffffff18; border-radius: 8px; }
+.journal-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 12px; }
+.journal-stats p { display: grid; gap: 4px; margin: 8px 0; }
+.journal-stats strong { font-size: 19px; color: #d6bf83; }
+.journal-stats span, .journal-calendar-dates { font-size: 11px; color: #adaeb5; }
+.journal-calendar { display: grid; grid-template-columns: repeat(28, minmax(0, 1fr)); gap: 3px; height: 80px; list-style: none; margin: 12px 0 6px; padding: 0; }
+.journal-calendar li { display: flex; align-items: end; background: #ffffff08; border-radius: 3px; overflow: hidden; }
+.journal-calendar li span { display: block; width: 100%; background: #c8ae6f; border-radius: 3px; }
+.journal-calendar-dates { display: flex; justify-content: space-between; }
+.journal-exercise-totals { list-style: none; padding: 0; max-height: 180px; overflow-y: auto; }
+.journal-exercise-totals li { display: grid; gap: 4px; padding: 8px 0; font-size: 12px; }
+.journal-recordings { margin-top: 6px; border-left: 2px solid #c8ae6f40; padding-left: 10px; }
+.journal-recordings summary { cursor: pointer; font-size: 12px; }
+.journal-recordings ul { list-style: none; padding: 0; }
+.journal-recordings li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+.journal-recordings li span { flex: 1 1 160px; }
+.journal-history article .journal-link-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+.journal-link-form label { flex: 1 1 145px; max-width: 100%; }
+.journal-link-form select { width: 100%; min-width: 0; }
+.journal-recordings button { font-size: 11px; padding: 6px 9px; }

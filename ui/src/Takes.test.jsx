@@ -9,6 +9,30 @@ beforeEach(() => {
   bridge.invoke.mockReset().mockImplementation(async name => name === 'getTakes' ? bridge.entries : '');
 });
 afterEach(cleanup);
+it('opens a practice-linked take and exact version without starting playback or replacing the rig', async () => {
+  const error = vi.fn(), request = { takeId: 'two', version: 'dry' };
+  const view = render(<Takes status={status} onError={error} selectionRequest={request}/>);
+  await waitFor(() => expect(screen.getByRole('button', { name: /Favorite clean/ }).getAttribute('aria-pressed')).toBe('true'));
+  await waitFor(() => expect(screen.getByLabelText('Take version').value).toBe('dry'));
+  expect(bridge.invoke.mock.calls.map(([name]) => name)).toEqual(['getTakes']);
+  view.rerender(<Takes status={status} onError={error} selectionRequest={{ takeId: 'one', version: 'v1' }}/>);
+  await waitFor(() => expect(screen.getByLabelText('Take version').value).toBe('v1'));
+  fireEvent.click(screen.getByRole('button', { name: 'Listen' }));
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledWith('previewTake', 'one', 'v1'));
+});
+it('reports unavailable links once, preserves the library and defers selection during recording', async () => {
+  const error = vi.fn(), missing = { takeId: 'gone', version: 'processed' };
+  const view = render(<Takes status={status} onError={error} selectionRequest={missing}/>);
+  await waitFor(() => expect(error).toHaveBeenCalledTimes(1));
+  expect(error).toHaveBeenCalledWith(expect.objectContaining({ title: 'Practice recording' }));
+  view.rerender(<Takes status={{ ...status, takes: { ...status.takes, revision: 2 } }} onError={error} selectionRequest={missing}/>);
+  await waitFor(() => expect(bridge.invoke).toHaveBeenCalledTimes(2)); expect(error).toHaveBeenCalledTimes(1);
+  const request = { takeId: 'two', version: 'dry' };
+  view.rerender(<Takes status={{ ...status, practice: { recordMode: 3 } }} onError={error} selectionRequest={request}/>);
+  expect(screen.getByRole('button', { name: /Lead take/ }).getAttribute('aria-pressed')).toBe('true');
+  view.rerender(<Takes status={status} onError={error} selectionRequest={request}/>);
+  await waitFor(() => expect(screen.getByLabelText('Take version').value).toBe('dry'));
+});
 it('enables streamed looping and explains loop-head prefetch without changing export ranges', async () => {
   const loaded = {...status, takes: {...status.takes, reviewId: 'one', reviewVersion: 'processed'}, review: {...status.review, streaming: true, loopAvailable: true, loop: true, loopPrefetchReady: false, a: 1, b: 3}};
   const {rerender} = render(<Takes status={loaded} onError={vi.fn()}/>); await screen.findByText('Lead take');

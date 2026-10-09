@@ -4,7 +4,7 @@ import PracticeWaveform from './PracticeWaveform.jsx';
 import PracticeSections from './PracticeSections.jsx';
 
 const clock = x => `${Math.floor((x || 0) / 60)}:${String(Math.floor((x || 0) % 60)).padStart(2, '0')}`;
-export default function Takes({ status, onError }) {
+export default function Takes({ status, onError, selectionRequest }) {
   const [takes, setTakes] = useState([]), [selected, setSelected] = useState('');
   const [query, setQuery] = useState(''), [favorites, setFavorites] = useState(false);
   const [sort, setSort] = useState('newest'), [versionName, setVersionName] = useState('');
@@ -15,6 +15,7 @@ export default function Takes({ status, onError }) {
   const [includeBacking, setIncludeBacking] = useState(false), [guitarDb, setGuitarDb] = useState(0), [backingDb, setBackingDb] = useState(0);
   const [tail, setTail] = useState(2), [start, setStart] = useState(0), [end, setEnd] = useState(0), [fadeMs, setFadeMs] = useState(10);
   const [recovering, setRecovering] = useState(false), recoveryPending = useRef(false);
+  const [libraryLoaded, setLibraryLoaded] = useState(false), appliedRequest = useRef(null);
   const available = native && status.deviceSettingsAvailable;
   const exporting = status.takes?.exporting, recording = (status.practice?.recordMode ?? 0) > 0;
   const review = status.review ?? {}, chosen = takes.find(t => t.id === selected);
@@ -40,6 +41,7 @@ export default function Takes({ status, onError }) {
     if (available) invoke('getTakes').then(list => {
       if (!active) return;
       setTakes(Array.isArray(list) ? list : []);
+      setLibraryLoaded(true);
       setSelected(id => list?.some?.(t => t.id === id) ? id : list?.[0]?.id ?? '');
     }).catch(() => { if (active) onError({title: 'Takes', text: 'Couldn’t read your take library.'}); });
     return () => { active = false; };
@@ -49,6 +51,16 @@ export default function Takes({ status, onError }) {
     setIncludeBacking(Boolean(chosen?.hasBacking)); setGuitarDb(0); setBackingDb(0);
     setFadeMs(10);
   }, [selected]);
+  useEffect(() => {
+    if (!available || recording || !libraryLoaded || !selectionRequest || appliedRequest.current === selectionRequest) return;
+    const take = takes.find(row => row.id === selectionRequest.takeId);
+    const found = take && (selectionRequest.version === 'processed' || selectionRequest.version === 'dry' || take.versions?.some(row => row.id === selectionRequest.version));
+    if (!found) {
+      appliedRequest.current = selectionRequest;
+      onError({ title: 'Practice recording', text: 'That take or version is unavailable. Restore a personal backup and import its linked history, or import the recording folder and create a new link.' });
+    } else if (selected !== take.id) setSelected(take.id);
+    else { setVersion(selectionRequest.version); setQuery(''); setFavorites(false); appliedRequest.current = selectionRequest; }
+  }, [available, recording, libraryLoaded, selectionRequest, takes, selected]);
   const action = async (fn, ...args) => {
     try { const error = await invoke(fn, ...args); if (typeof error === 'string' && error) onError({title: 'Takes', text: error}); }
     catch { onError({title: 'Takes', text: 'Audio engine connection interrupted. Please try again.'}); }

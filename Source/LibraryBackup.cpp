@@ -307,8 +307,12 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
         }
     }
     juce::AudioFormatManager formats; formats.registerBasicFormats();
+    std::map<juce::String, juce::String> recoveredTakeIds;
     for (auto take : takes) {
-        require(take.hasType("TAKE"), "Invalid recovered take catalog."); take.setProperty("id", juce::Uuid().toString(), nullptr);
+        require(take.hasType("TAKE"), "Invalid recovered take catalog.");
+        const auto oldId = take["id"].toString(), newId = juce::Uuid().toString();
+        require(oldId.isNotEmpty() && recoveredTakeIds.emplace(oldId, newId).second, "Recovered take identities are empty or ambiguous.");
+        take.setProperty("id", newId, nullptr);
         take.setProperty("name", (take["name"].toString().substring(0, 68) + " (recovered)").substring(0, 80), nullptr);
         const auto folder = staging.file.getChildFile(juce::File(take["path"].toString()).getRelativePathFrom(recovered));
         require(folder.isAChildOf(staging.file) && folder.getChildFile("Guitar dry.wav").existsAsFile() && folder.getChildFile("Guitar processed.wav").existsAsFile(), "Recovered take is missing its original audio.");
@@ -316,6 +320,18 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
         require(dry && wet && dry->numChannels == 1 && wet->numChannels == 2 && dry->lengthInSamples > 0 && dry->lengthInSamples == wet->lengthInSamples && dry->sampleRate == wet->sampleRate && dry->sampleRate >= 8000 && dry->sampleRate <= 384000, "Recovered take has invalid or mismatched original audio.");
         take.setProperty("frames", dry->lengthInSamples, nullptr); take.setProperty("sampleRate", dry->sampleRate, nullptr);
     }
+    // Keep the checksum-verified journal untouched. A separate, validated copy
+    // follows additive recovery's fresh take IDs and can be imported explicitly.
+    int journalLinksRemapped = 0; bool journalRelinkFailed = false;
+    const auto linkedJournal = staging.file.getChildFile("practice-journal-linked.json");
+    if (journalValid) try {
+        auto document = PracticeJournal::readDocument(journal);
+        for (auto& session : *document["sessions"].getArray()) for (auto& link : *session["recordings"].getArray()) {
+            const auto mapping = recoveredTakeIds.find(link["takeId"].toString());
+            if (mapping != recoveredTakeIds.end()) { link.getDynamicObject()->setProperty("takeId", mapping->second); ++journalLinksRemapped; }
+        }
+        if (journalLinksRemapped > 0) { writeText(linkedJournal, juce::JSON::toString(document)); PracticeJournal::readDocument(linkedJournal); }
+    } catch (const std::exception&) { linkedJournal.deleteFile(); journalLinksRemapped = 0; journalRelinkFailed = true; }
     for (const auto& item : files) if (item.name.startsWith("takes/") && item.file.hasFileExtension("json")) {
         require(item.bytes <= 4 * 1024 * 1024, "Recovered take metadata is too large."); const auto doc = juce::JSON::parse(item.file.loadFileAsString()); require(doc.isObject() || doc.isArray(), "Invalid recovered take metadata.");
         auto rewritten = rewriteValue({}, doc, paths, false, 0); if (rewritten.hasProperty("state")) { const auto error = validator(rewritten); require(error.isEmpty(), "Invalid recovered take rig: " + error); }
@@ -396,8 +412,11 @@ LibraryBackup::Report LibraryBackup::restore(const juce::File& archive, const ju
     auto details = std::make_unique<juce::DynamicObject>(); details->setProperty("format","Cassian recovery report"); details->setProperty("schema",1); details->setProperty("appVersion",JucePlugin_VersionString);
     details->setProperty("created",juce::Time::getCurrentTime().toISO8601(true)); details->setProperty("rigsAdded",rigs); details->setProperty("takesAdded",takes.getNumChildren());
     details->setProperty("sectionsAdded",sectionsAdded); details->setProperty("sectionsKept",sectionsKept); details->setProperty("sectionsSkipped",sectionsSkipped); details->setProperty("sections",sectionResults);
+    details->setProperty("journalLinksRemapped",journalLinksRemapped); details->setProperty("journalRelinkFailed",journalRelinkFailed);
     juce::String warning = sectionsSkipped > 0 ? juce::String(sectionsSkipped) + " section files were skipped. Verified copies remain in the recovered folder." : juce::String();
     if (recovered.getChildFile("practice-journal.json").existsAsFile()) warning += (warning.isEmpty() ? "" : " ") + juce::String(journalValid ? "Practice sets/history were preserved in the recovered folder. Import practice-journal.json from Practice to add them; existing history was kept." : "The optional practice journal is invalid. Its verified copy remains in the recovered folder; existing history and recovered audio were preserved.");
+    if (journalLinksRemapped > 0) warning += " Import practice-journal-linked.json instead to link history to the recovered recordings. The original journal remains unchanged. Conflicting existing session identities are preserved and reject import.";
+    if (journalRelinkFailed) warning += " Recording links could not be remapped. The original journal and recovered audio were preserved; link recordings manually after import.";
     try { replace(recovered.getChildFile("Recovery report.json"),juce::JSON::toString(juce::var(details.release()))); if (sectionsSkipped > 0) warning += " See Recovery report.json for details."; }
     catch (const std::exception&) { warning += (warning.isEmpty() ? "" : " ") + juce::String("The detailed recovery report could not be saved."); }
     if (progress) progress(1);

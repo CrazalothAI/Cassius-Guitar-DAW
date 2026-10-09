@@ -1,6 +1,7 @@
 #include "../Source/PracticeJournal.h"
 #include "../Source/PluginProcessor.h"
 #include <atomic>
+#include <algorithm>
 #include <thread>
 
 namespace {
@@ -51,9 +52,18 @@ void runPracticeJournalChecks() {
         require(static_cast<double>(journal.status()["active"]["seconds"]) == 10, "Pauses must stay outside elapsed practice time");
         send(journal, "resume"); clock.store(145); send(journal, "finish", "Clean decay improved\nTry 90 BPM next");
         require(!journal.status()["active"].isObject() && static_cast<double>(journal.document()["sessions"][0]["seconds"]) == 15 && journal.document()["sessions"][0]["state"].toString() == "finished", "Finishing must save only running time and notes");
+        auto link = juce::JSON::parse(R"({"sessionId":"","takeId":"take-one","version":"processed"})"); link.getDynamicObject()->setProperty("sessionId", journal.document()["sessions"][0]["id"]);
+        send(journal, "addRecording", link); send(journal, "addRecording", link);
+        require(journal.document()["sessions"][0]["recordings"].size() == 1, "Repeated linking must be idempotent and must not change elapsed time");
+        auto invalidLink = link.clone(); invalidLink.getDynamicObject()->setProperty("takeId", "C:/private.wav"); rejected(journal, "addRecording", invalidLink);
+        invalidLink = link.clone(); invalidLink.getDynamicObject()->setProperty("sessionId", "missing"); rejected(journal, "addRecording", invalidLink);
+        for (int i = 1; i < 8; ++i) { auto more = link.clone(); more.getDynamicObject()->setProperty("version", "reamp-" + juce::String(i)); send(journal, "addRecording", more); }
+        auto excess = link.clone(); excess.getDynamicObject()->setProperty("version", "reamp-8"); rejected(journal, "addRecording", excess);
+        send(journal, "removeRecording", link); rejected(journal, "removeRecording", link); send(journal, "addRecording", link);
         send(journal, "removeSet", id); require(journal.document()["sessions"][0]["setName"].toString() == "Clean and lead", "Deleting a plan must preserve its historical session snapshot");
         send(journal, "saveSet", set()); send(journal, "export", {}, exported);
         require(PracticeJournal::readDocument(exported)["sessions"][0]["notes"].toString().contains("90 BPM"), "Portable exports must retain notes");
+        require(PracticeJournal::readDocument(exported)["sessions"][0]["recordings"].size() == 8, "Portable exports must retain recording identities without embedding audio");
         send(journal, "start", start()); clock.store(176);
         waitFor([&] { return static_cast<double>(journal.document()["sessions"][0]["seconds"]) >= 30; });
         require(PracticeJournal::readDocument(file)["sessions"][0]["state"].toString() == "running", "Active timer must checkpoint on the disk worker");
@@ -68,6 +78,7 @@ void runPracticeJournalChecks() {
         require(juce::JSON::toString(reopened.document()) == stable, "Repeated portable imports must not duplicate sessions or sets");
         const auto foreign = juce::JSON::parse(stable); foreign["sets"].getArray()->getReference(0).getDynamicObject()->setProperty("name", "Conflicting set");
         const auto conflict = base.getChildFile("Conflict.json"); conflict.replaceWithText(juce::JSON::toString(foreign)); rejected(reopened, "import", {}, conflict);
+        auto linkedConflict = PracticeJournal::readDocument(exported); linkedConflict["sessions"].getArray()->getReference(0)["recordings"].getArray()->getReference(0).getDynamicObject()->setProperty("version", "different-version"); conflict.replaceWithText(juce::JSON::toString(linkedConflict)); rejected(reopened, "import", {}, conflict);
         const auto corrupt = base.getChildFile("Corrupt.json"); corrupt.replaceWithText("{broken"); rejected(reopened, "import", {}, corrupt);
         send(reopened, "removeSession", reopened.document()["sessions"][0]["id"]);
         // External manual edits are preserved even though they bypass the lease.
@@ -85,6 +96,7 @@ void runPracticeJournalChecks() {
         const auto rawCheckpoint = base.getChildFile("Unfinished.json"); rawCheckpoint.replaceWithText(juce::JSON::toString(unfinished));
         send(imported, "import", {}, rawCheckpoint); send(imported, "import", {}, rawCheckpoint);
         require(imported.document()["sessions"].size() == 2 && imported.document()["sessions"][1]["state"].toString() == "interrupted", "Repeated imports of an unfinished checkpoint must stay idempotent after normalization");
+        std::reverse(unfinished["sessions"].getArray()->getReference(0)["recordings"].getArray()->begin(), unfinished["sessions"].getArray()->getReference(0)["recordings"].getArray()->end());
         unfinished["sets"].getArray()->getReference(0).getDynamicObject()->setProperty("tasks", juce::JSON::parse(R"([{"bpm":80.0,"minutes":10.0,"title":"Expressive clean"},{"bpm":120,"minutes":10,"title":"Alternate picking"}])"));
         rawCheckpoint.replaceWithText(juce::JSON::toString(unfinished)); send(imported, "import", {}, rawCheckpoint);
         send(imported, "start", start()); clock.store(22000); waitFor([&] { return imported.status()["active"]["state"].toString() == "paused"; });
@@ -92,6 +104,22 @@ void runPracticeJournalChecks() {
         send(imported, "finish", "Bounded timer");
         for (int i = 1; i < 32; ++i) send(imported, "saveSet", set());
         rejected(imported, "saveSet", set());
+    }
+    {
+        auto legacy = PracticeJournal::readDocument(exported); legacy.getDynamicObject()->setProperty("schema", 1);
+        legacy["sessions"].getArray()->getReference(0).getDynamicObject()->removeProperty("recordings");
+        const auto oldFile = base.getChildFile("Legacy/practice-journal.json"); oldFile.getParentDirectory().createDirectory(); oldFile.replaceWithText(juce::JSON::toString(legacy));
+        const auto originalHash = juce::SHA256(oldFile).toHexString();
+        const auto migrated = PracticeJournal::readDocument(oldFile);
+        require(static_cast<int>(migrated["schema"]) == 2 && migrated["sessions"][0]["recordings"].isArray() && migrated["sessions"][0]["notes"].toString() == legacy["sessions"][0]["notes"].toString() && juce::SHA256(oldFile).toHexString() == originalHash, "Schema-one migration must retain history and leave the source untouched during reads");
+        PracticeJournal upgraded(oldFile, now); ready(upgraded);
+        auto link = juce::JSON::parse(R"({"sessionId":"","takeId":"portable-take","version":"dry"})"); link.getDynamicObject()->setProperty("sessionId", migrated["sessions"][0]["id"]);
+        send(upgraded, "addRecording", link);
+        require(static_cast<int>(juce::JSON::parse(oldFile.loadFileAsString())["schema"]) == 2 && PracticeJournal::readDocument(oldFile)["sessions"][0]["recordings"].size() == 1, "First accepted edit must atomically persist migrated history with its link");
+        auto malformed = migrated.clone(); malformed["sessions"].getArray()->getReference(0)["recordings"].getArray()->add(link); // sessionId is not allowed inside a link.
+        const auto badFile = base.getChildFile("Malformed links.json"); badFile.replaceWithText(juce::JSON::toString(malformed)); rejected(upgraded, "import", {}, badFile);
+        malformed = PracticeJournal::readDocument(oldFile); auto* links = malformed["sessions"].getArray()->getReference(0)["recordings"].getArray(); links->add((*links)[0].clone());
+        badFile.replaceWithText(juce::JSON::toString(malformed)); rejected(upgraded, "import", {}, badFile);
     }
     {
         auto full = PracticeJournal::readDocument(exported); auto* rows = full["sessions"].getArray(); const auto source = (*rows)[0].clone(); rows->clear();

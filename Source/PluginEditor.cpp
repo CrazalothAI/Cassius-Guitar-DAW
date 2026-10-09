@@ -110,7 +110,8 @@ AmpSuiteAudioProcessorEditor::AmpSuiteAudioProcessorEditor(AmpSuiteAudioProcesso
             if (args.size() != 2 || !args[0].isString()) { complete(juce::String("Invalid practice history request.")); return; }
             if (static_cast<bool>(processor.backupStatus()["busy"])) { complete(juce::String("Finish backup/recovery before editing practice history.")); return; }
             const auto action = args[0].toString();
-            if (action != "saveSet" && action != "removeSet" && action != "start" && action != "pause" && action != "resume" && action != "finish" && action != "removeSession") { complete(juce::String("Unknown practice history action.")); return; }
+            if (action != "saveSet" && action != "removeSet" && action != "start" && action != "pause" && action != "resume" && action != "finish" && action != "removeSession" && action != "addRecording" && action != "removeRecording") { complete(juce::String("Unknown practice history action.")); return; }
+            if (action == "addRecording" && !processor.takes.containsVersion(args[1]["takeId"].toString(), args[1]["version"].toString())) { complete(juce::String("That recording version is unavailable. Refresh the take library or import its folder first.")); return; }
             complete(processor.practiceJournal->command(action, args[1]));
         })
         .withNativeFunction("transferPracticeJournal", [this](const auto& args, auto complete) {

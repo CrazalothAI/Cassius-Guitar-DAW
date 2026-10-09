@@ -284,6 +284,8 @@ void runTakeChecks()
     {
         PracticeEngine review; review.prepare(48000); TakeLibrary library(catalog, review); imported(library, folder);
         originalId = first(library)["id"].toString();
+        require(library.containsVersion(originalId, "processed") && library.containsVersion(originalId, "dry") && !library.containsVersion(originalId, "missing-version") && !library.containsVersion("missing-take", "processed"), "Recording links must resolve catalog identities without starting review");
+        require(library.status()["reviewId"].toString().isEmpty(), "Recording identity lookup must leave playback untouched");
         const auto revision = static_cast<int>(library.status()["revision"]); library.importFolder(folder);
         waitFor([&] { return static_cast<int>(library.status()["revision"]) > revision; }); require(library.list().size() == 1, "Repeated folder imports must deduplicate");
         require(library.edit(originalId, "Neoclassical lead take", true).isEmpty(), "Take edit must queue");
